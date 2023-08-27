@@ -1,23 +1,32 @@
+import json
 import os
 from typing import IO, Iterable
+from collections import defaultdict
 
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption,\
                                        ResourceType
 from instances.instance_builder import InstanceBuilder
-from instances.utils import try_open, chunk
+from instances.utils import try_open_read, chunk
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
 
 def parse_psplib(filename: str,
                  name_as: str or None = None) -> ProblemInstance:
-    return try_open(filename, __parse_psplib_internal, name_as=name_as)
+    return try_open_read(filename, __parse_psplib_internal, name_as=name_as)
 
 
 def serialize_psplib(instance: ProblemInstance,
                      filename: str) -> None:
     # TODO
     pass
+
+
+def serialize_json(instance: ProblemInstance,
+                   filename: str) -> None:
+    json_str = json.dumps(instance, cls=ProblemInstanceJSONSerializer)
+    with open(filename, "wt") as file:
+        file.write(json_str)
 
 
 def __parse_psplib_internal(file: IO,
@@ -172,3 +181,50 @@ class ParseError(Exception):
                  line_num: int,
                  message: str):
         super().__init__(f"[{file.name}:{line_num}] {message}")
+
+
+class ProblemInstanceJSONSerializer(json.JSONEncoder):
+    def default(self, obj: any) -> any:
+        if isinstance(obj, ProblemInstance):
+            precedences_by_parent = defaultdict(list)
+            for precedence in obj.precedences:
+                precedences_by_parent[precedence.id_child].append(precedence.id_parent)
+            return {
+                "Name": obj.name,
+                "Horizon": obj.horizon,
+                "Resources": [ProblemInstanceJSONSerializer.__serialize_resource(resource) for resource in obj.resources],
+                "Projects": [ProblemInstanceJSONSerializer.__serialize_project(project) for project in obj.projects],
+                "Jobs": [ProblemInstanceJSONSerializer.__serialize_job(job, precedences_by_parent[job.id_job]) for job in obj.jobs],
+            }
+        return json.JSONEncoder.default(self, obj)
+
+    @staticmethod
+    def __serialize_resource(resource: Resource) -> dict[str, any]:
+        return {
+            "Type": resource.type,
+            "Id": resource.id_resource,
+            "Capacity": resource.capacity
+        }
+
+    @staticmethod
+    def __serialize_resource_consumption(resource_consumption: ResourceConsumption) -> dict[str, any]:
+        return {
+            "Duration": resource_consumption.duration,
+            "Consumptions": {resource.key: size for resource, size in resource_consumption.consumption_by_resource.items()}
+        }
+
+    @staticmethod
+    def __serialize_job(job: Job, successors: list[int]) -> dict[str, any]:
+        return {
+            "Id": job.id_job,
+            "Resource consumption": ProblemInstanceJSONSerializer.__serialize_resource_consumption(job.resource_consumption),
+            "Successors": successors,
+        }
+
+    @staticmethod
+    def __serialize_project(project: Project) -> dict[str, any]:
+        return {
+            "Id": project.id_project,
+            "Due date": project.due_date,
+            "Tardiness cost": project.tardiness_cost
+        }

@@ -42,6 +42,10 @@ class Resource:
     def capacity(self) -> int:
         return self._capacity
 
+    @property
+    def key(self) -> str:
+        return f"{self.type}{self.id_resource}"
+
     def __hash__(self):
         return self._id_resource
 
@@ -182,6 +186,10 @@ class ProblemInstance:
     @property
     def name(self) -> Optional[str]:
         return self._name
+
+    @property
+    def horizon(self) -> int:
+        return self._horizon
 
     @property
     def projects(self) -> list[Project]:

@@ -8,10 +8,10 @@ def print_error(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def try_open(filename: str,
-             filework,
-             *args,
-             **kwargs) -> Any:
+def try_open_read(filename: str,
+                  filework,
+                  *args,
+                  **kwargs) -> Any:
     try:
         with open(filename, "r") as file:
             return filework(file, *args, **kwargs)
