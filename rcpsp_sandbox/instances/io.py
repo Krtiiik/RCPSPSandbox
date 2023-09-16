@@ -1,6 +1,6 @@
 import json
 import os
-from typing import IO, Iterable
+from typing import IO, Iterable, Any
 from collections import defaultdict
 
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption,\
@@ -20,6 +20,43 @@ def serialize_psplib(instance: ProblemInstance,
                      filename: str) -> None:
     # TODO
     pass
+
+
+def parse_json(filename: str,
+               name_as: str or None = None) -> ProblemInstance:
+    instance_object = try_open_read(filename, json.load)
+
+    __check_json_parse_object(instance_object)
+
+    instance_builder = InstanceBuilder()
+
+    # instance properties
+    instance_builder.set(name=name_as if name_as is not None else instance_object["Name"],
+                         horizon=instance_object["Horizon"])
+
+    # resources
+    resources = [Resource(r["Id"], ResourceType(r["Type"]), r["Capacity"]) for r in instance_object["Resources"]]
+    resources_by_key = {r.key: r for r in resources}
+    instance_builder.add_resources(resources)
+
+    # projects
+    instance_builder.add_projects(Project(p["Id"], p["Due date"], p["Tardiness cost"])
+                                  for p in instance_object["Projects"])
+
+    # jobs
+    jobs = [Job(j["Id"],
+                ResourceConsumption(j["Resource consumption"]["Duration"],
+                                    ({resources_by_key[key]: consumption
+                                      for key, consumption in j["Resource consumption"]["Consumptions"].items()})))
+            for j in instance_object["Jobs"]]
+    instance_builder.add_jobs(jobs)
+
+    # precedences - serialized as successors of each job, need to be extracted from job data
+    instance_builder.add_precedences(Precedence(j["Id"], successor)
+                                     for j in instance_object["Jobs"]  # child
+                                     for successor in j["Successors"])  # successor parent of child
+
+    return instance_builder.build_instance()
 
 
 def serialize_json(instance: ProblemInstance,
@@ -50,7 +87,7 @@ def __parse_psplib_internal(file: IO,
         if (len(content) - 1) < end_of_line_array_index:  # If the end-of-line array is empty...
             content.append("")  # ...insert empty array string
         elif (len(content) - 1) < max(target_indices):
-            raise ParseError(file, line_num, "Line contains less values than expected")
+            raise ParseError.in_file(file, line_num, "Line contains less values than expected")
 
         if move_line:
             line_num += 1
@@ -61,7 +98,7 @@ def __parse_psplib_internal(file: IO,
         nonlocal line_num
 
         if not value_str.isdecimal():
-            raise ParseError(file, line_num, "Integer value expected on key-value line")
+            raise ParseError.in_file(file, line_num, "Integer value expected on key-value line")
 
         value = int(value_str)
         return value
@@ -71,7 +108,7 @@ def __parse_psplib_internal(file: IO,
         nonlocal line_num
 
         if key != expected_key:
-            raise ParseError(file, line_num, "Unexpected key on key-value line")
+            raise ParseError.in_file(file, line_num, "Unexpected key on key-value line")
 
     def parse_key_value_line(key_value_indices: tuple[int, int],
                              expected_key: str) -> int:
@@ -175,26 +212,102 @@ def __parse_psplib_internal(file: IO,
     return builder.build_instance()
 
 
+def __check_json_parse_object(obj: dict) -> None:
+    def check_key_in(key: str, d: dict, d_name: str) -> None:
+        if key not in d:
+            raise ParseError.in_data(f"{key} not in {d_name}")
+
+    def check_type_of(o: Any, expected: type, o_name: str) -> None:
+        if not isinstance(o, expected):
+            raise ParseError.in_data(f"{o_name} should be {expected} but is {type(o)}")
+
+    def check(condition: bool, message: str) -> None:
+        if not condition:
+            raise ParseError.in_data(message)
+
+    check_type_of(obj, dict, "Instance object")
+
+    check_key_in("Name", obj, "Instance object")
+    check_type_of(obj["Name"], str, "Instance object > Name")
+
+    check_key_in("Horizon", obj, "Instance object")
+    check_type_of(obj["Horizon"], int, "Instance object > Horizon")
+
+    check_key_in("Resources", obj, "Instance object")
+    check_type_of(obj["Resources"], list, "Instance object > Resources")
+
+    check_key_in("Projects", obj, "Instance object")
+    check_type_of(obj["Projects"], list, "Instance object > Projects")
+
+    check_key_in("Jobs", obj, "Instance object")
+    check_type_of(obj["Jobs"], list, "Instance object > Jobs")
+
+    for r in obj["Resources"]:
+        check_key_in("Type", r, "Instance object > Resources > Type")
+        check_type_of(r["Type"], str, "Instance object > Resources > Type")
+        check(len(r["Type"]) == 1, "Invalid resource type string length")
+
+        check_key_in("Id", r, "Instance object > Resources > Id")
+        check_type_of(r["Id"], int, "Instance object > Resources > Id")
+
+        check_key_in("Capacity", r, "Instance object > Resources > Capacity")
+        check_type_of(r["Capacity"], int, "Instance object > Resources > Capacity")
+
+    for p in obj["Projects"]:
+        check_key_in("Id", p, "Instance object > Projects > Id")
+        check_type_of(p["Id"], int, "Instance object > Projects > Id")
+
+        check_key_in("Due date", p, "Instance object > Projects > Due date")
+        check_type_of(p["Due date"], int, "Instance object > Projects > Due date")
+
+        check_key_in("Tardiness cost", p, "Instance object > Projects > Tardiness cost")
+        check_type_of(p["Tardiness cost"], int, "Instance object > Projects > Tardiness cost")
+
+    for j in obj["Jobs"]:
+        check_key_in("Id", j, "Instance object > Jobs > Id")
+        check_type_of(j["Id"], int, "Instance object > Jobs > Id")
+
+        check_key_in("Resource consumption", j, "Instance object > Jobs > Resource consumption")
+        check_type_of(j["Resource consumption"], dict, "Instance object > Jobs > Resource consumption")
+        check_key_in("Duration", j["Resource consumption"], "Instance object > Jobs > Resource consumption > Duration")
+        check_type_of(j["Resource consumption"]["Duration"], int, "Instance object > Jobs > Resource consumption > Duration")
+        check_key_in("Consumptions", j["Resource consumption"], "Instance object > Jobs > Resource consumption > Consumptions")
+        check_type_of(j["Resource consumption"]["Consumptions"], dict, "Instance object > Jobs > Resource consumption > Consumptions")
+        for rc_key, rc_size in j["Resource consumption"]["Consumptions"].items():
+            check_type_of(rc_key, str, "Instance object > Jobs > Resource consumption > Consumptions > Resource Key")
+            check_type_of(rc_size, int, "Instance object > Jobs > Resource consumption > Consumptions > Size")
+
+        check_key_in("Successors", j, "Instance object > Jobs > Successors")
+        check_type_of(j["Successors"], list, "Instance object > Jobs > Successors")
+
+
 class ParseError(Exception):
-    def __init__(self,
-                 file: IO,
-                 line_num: int,
-                 message: str):
-        super().__init__(f"[{file.name}:{line_num}] {message}")
+    def __init__(self, message):
+        super().__init__(message)
+
+    @staticmethod
+    def in_file(file: IO,
+                line_num: int,
+                message: str):
+        return ParseError(f"[{file.name}:{line_num}] {message}")
+
+    @staticmethod
+    def in_data(message):
+        return ParseError(message)
 
 
 class ProblemInstanceJSONSerializer(json.JSONEncoder):
     def default(self, obj: any) -> any:
         if isinstance(obj, ProblemInstance):
-            precedences_by_parent = defaultdict(list)
+            precedences_by_child = defaultdict(list)
             for precedence in obj.precedences:
-                precedences_by_parent[precedence.id_child].append(precedence.id_parent)
+                precedences_by_child[precedence.id_child].append(precedence.id_parent)
             return {
                 "Name": obj.name,
                 "Horizon": obj.horizon,
                 "Resources": [ProblemInstanceJSONSerializer.__serialize_resource(resource) for resource in obj.resources],
                 "Projects": [ProblemInstanceJSONSerializer.__serialize_project(project) for project in obj.projects],
-                "Jobs": [ProblemInstanceJSONSerializer.__serialize_job(job, precedences_by_parent[job.id_job]) for job in obj.jobs],
+                "Jobs": [ProblemInstanceJSONSerializer.__serialize_job(job, precedences_by_child[job.id_job]) for job in obj.jobs],
             }
         return json.JSONEncoder.default(self, obj)
 

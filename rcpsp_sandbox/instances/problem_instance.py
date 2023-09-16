@@ -50,7 +50,7 @@ class Resource:
         return self._id_resource
 
     def __str__(self):
-        return f"Resource {{id: {self.id_resource}, type: {self.type}, capacity: {self.capacity}}}"
+        return f"Resource{{id: {self.id_resource}, type: {self.type}, capacity: {self.capacity}}}"
 
 
 class ResourceConsumption:
@@ -72,7 +72,7 @@ class ResourceConsumption:
         return self._consumption_by_resource
 
     def __str__(self):
-        return f"ResourceConsumption {{duration: {self.duration}, consumptions: {self.consumption_by_resource}}}"
+        return f"ResourceConsumption{{duration: {self.duration}, consumptions: {self.consumption_by_resource}}}"
 
 
 class Job:
@@ -97,7 +97,7 @@ class Job:
         return self._id_job
 
     def __str__(self):
-        return f"Job {{id: {self.id_job}, resource_consumption: {self.resource_consumption}}}"
+        return f"Job{{id: {self.id_job}, resource_consumption: {self.resource_consumption}}}"
 
 
 class Precedence:
@@ -122,7 +122,7 @@ class Precedence:
         return hash((self._id_child, self._id_parent))
 
     def __str__(self):
-        return f"Precedence {{child: {self.id_child}, parent: {self.id_parent}}}"
+        return f"Precedence{{child: {self.id_child}, parent: {self.id_parent}}}"
 
 
 class Project:
@@ -154,7 +154,7 @@ class Project:
         return self._tardiness_cost
 
     def __str__(self):
-        return f"Project {{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
+        return f"Project{{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
 
 
 class ProblemInstance:
@@ -208,5 +208,5 @@ class ProblemInstance:
         return self._precedences
 
     def __str__(self):
-        return f"ProblemInstance {{name: {self._name}, #projects: {len(self.projects)}," \
+        return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
                f"#resources: {len(self.resources)}, #jobs: {len(self.jobs)}, #precedences: {len(self.precedences)}}}"
