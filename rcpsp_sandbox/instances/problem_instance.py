@@ -1,4 +1,4 @@
-from enum import StrEnum, Enum
+from enum import StrEnum, IntEnum
 from typing import Optional, Collection
 
 from instances.utils import list_of
@@ -18,9 +18,9 @@ class ResourceType(StrEnum):
 
 
 # TODO shift modes
-class ResourceShiftMode(Enum):
-    ONE = 1
-    TWO = 2
+class ResourceShiftMode(IntEnum):
+    MORNING = 1
+    AFTERNOON = 2
 
 
 class Resource:

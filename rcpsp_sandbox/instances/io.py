@@ -368,7 +368,6 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     if not is_extended:
         return output
 
-    asterisks()
     header_line("DUE DATES")
     for job in instance.jobs:
         line(format_values(2, job.id_job, job.due_date))
