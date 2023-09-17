@@ -26,10 +26,11 @@ def serialize_psplib(instance: ProblemInstance,
 
 
 def parse_json(filename: str,
-               name_as: str or None = None) -> ProblemInstance:
+               name_as: str or None = None,
+               is_extended: bool = False) -> ProblemInstance:
     instance_object = try_open_read(filename, json.load)
 
-    __check_json_parse_object(instance_object)
+    __check_json_parse_object(instance_object, is_extended)
 
     instance_builder = InstanceBuilder()
 
@@ -59,12 +60,24 @@ def parse_json(filename: str,
                                      for j in instance_object["Jobs"]  # child
                                      for successor in j["Successors"])  # successor parent of child
 
+    if is_extended:
+        for i, r in enumerate(instance_object["Resources"]):
+            resources[i].shift_mode = r["Shift mode"]
+
+        for i, j in enumerate(instance_object["Jobs"]):
+            jobs[i].completed = j["Completed"]
+            jobs[i].due_date = j["Due date"]
+
+        components = [Component(c["Root job"], c["Weight"]) for c in instance_object["Components"]]
+        instance_builder.add_components(components)
+
     return instance_builder.build_instance()
 
 
 def serialize_json(instance: ProblemInstance,
-                   filename: str) -> None:
-    json_str = json.dumps(instance, cls=ProblemInstanceJSONSerializer)
+                   filename: str,
+                   is_extended: bool = False) -> None:
+    json_str = json.dumps(instance, cls=ProblemInstanceJSONSerializer, is_extended=is_extended)
     with open(filename, "wt") as file:
         file.write(json_str)
 
@@ -392,7 +405,7 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     return output
 
 
-def __check_json_parse_object(obj: dict) -> None:
+def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
     def check_key_in(key: str, d: dict, d_name: str) -> None:
         if key not in d:
             raise ParseError.in_data(f"{key} not in {d_name}")
@@ -423,42 +436,74 @@ def __check_json_parse_object(obj: dict) -> None:
     check_type_of(obj["Jobs"], list, "Instance object > Jobs")
 
     for r in obj["Resources"]:
-        check_key_in("Type", r, "Instance object > Resources > Type")
+        check_type_of(r, dict, "Instance object > Jobs")
+
+        check_key_in("Type", r, "Instance object > Resources")
         check_type_of(r["Type"], str, "Instance object > Resources > Type")
         check(len(r["Type"]) == 1, "Invalid resource type string length")
 
-        check_key_in("Id", r, "Instance object > Resources > Id")
+        check_key_in("Id", r, "Instance object > Resources")
         check_type_of(r["Id"], int, "Instance object > Resources > Id")
 
-        check_key_in("Capacity", r, "Instance object > Resources > Capacity")
+        check_key_in("Capacity", r, "Instance object > Resources")
         check_type_of(r["Capacity"], int, "Instance object > Resources > Capacity")
 
     for p in obj["Projects"]:
-        check_key_in("Id", p, "Instance object > Projects > Id")
+        check_type_of(p, dict, "Instance object > Jobs")
+
+        check_key_in("Id", p, "Instance object > Projects")
         check_type_of(p["Id"], int, "Instance object > Projects > Id")
 
-        check_key_in("Due date", p, "Instance object > Projects > Due date")
+        check_key_in("Due date", p, "Instance object > Projects")
         check_type_of(p["Due date"], int, "Instance object > Projects > Due date")
 
-        check_key_in("Tardiness cost", p, "Instance object > Projects > Tardiness cost")
+        check_key_in("Tardiness cost", p, "Instance object > Projects")
         check_type_of(p["Tardiness cost"], int, "Instance object > Projects > Tardiness cost")
 
     for j in obj["Jobs"]:
-        check_key_in("Id", j, "Instance object > Jobs > Id")
+        check_type_of(j, dict, "Instance object > Jobs")
+
+        check_key_in("Id", j, "Instance object > Jobs")
         check_type_of(j["Id"], int, "Instance object > Jobs > Id")
 
-        check_key_in("Resource consumption", j, "Instance object > Jobs > Resource consumption")
+        check_key_in("Resource consumption", j, "Instance object > Jobs")
         check_type_of(j["Resource consumption"], dict, "Instance object > Jobs > Resource consumption")
-        check_key_in("Duration", j["Resource consumption"], "Instance object > Jobs > Resource consumption > Duration")
+        check_key_in("Duration", j["Resource consumption"], "Instance object > Jobs > Resource consumption")
         check_type_of(j["Resource consumption"]["Duration"], int, "Instance object > Jobs > Resource consumption > Duration")
-        check_key_in("Consumptions", j["Resource consumption"], "Instance object > Jobs > Resource consumption > Consumptions")
+        check_key_in("Consumptions", j["Resource consumption"], "Instance object > Jobs > Resource consumption")
         check_type_of(j["Resource consumption"]["Consumptions"], dict, "Instance object > Jobs > Resource consumption > Consumptions")
         for rc_key, rc_size in j["Resource consumption"]["Consumptions"].items():
             check_type_of(rc_key, str, "Instance object > Jobs > Resource consumption > Consumptions > Resource Key")
             check_type_of(rc_size, int, "Instance object > Jobs > Resource consumption > Consumptions > Size")
 
-        check_key_in("Successors", j, "Instance object > Jobs > Successors")
+        check_key_in("Successors", j, "Instance object > Jobs")
         check_type_of(j["Successors"], list, "Instance object > Jobs > Successors")
+
+    if not is_extended:
+        return
+
+    check_key_in("Components", obj, "Instance object")
+    check_type_of(obj["Components"], list, "Instance object > Components")
+
+    for c in obj["Components"]:
+        check_type_of(c, dict, "Instance object > Components")
+
+        check_key_in("Root job", c, "Instance object > Components")
+        check_type_of(c["Root job"], int, "Instance object > Components > Root job")
+
+        check_key_in("Weight", c, "Instance object > Components")
+        check_type_of(c["Weight"], int, "Instance object > Components > Weight")
+
+    for j in obj["Jobs"]:
+        check_key_in("Due date", j, "Instance object > Jobs")
+        check_type_of(j["Due date"], int, "Instance object > Jobs > Due date")
+
+        check_key_in("Completed", j, "Instance object > Jobs")
+        check_type_of(j["Completed"], bool, "Instance object > Jobs > Completed")
+
+    for r in obj["Resources"]:
+        check_key_in("Shift mode", r, "Instance object > Resources")
+        check_type_of(r["Shift mode"], int, "Instance object > Resources > Shift mode")
 
 
 class ParseError(Exception):
@@ -477,27 +522,44 @@ class ParseError(Exception):
 
 
 class ProblemInstanceJSONSerializer(json.JSONEncoder):
+    _is_extended: bool
+
+    def __init__(self, is_extended: bool, **kwargs):
+        super().__init__(**kwargs)
+
+        self._is_extended = is_extended
+
     def default(self, obj: any) -> any:
         if isinstance(obj, ProblemInstance):
             precedences_by_child = defaultdict(list)
             for precedence in obj.precedences:
                 precedences_by_child[precedence.id_child].append(precedence.id_parent)
-            return {
+
+            instance_object = {
                 "Name": obj.name,
                 "Horizon": obj.horizon,
-                "Resources": [ProblemInstanceJSONSerializer.__serialize_resource(resource) for resource in obj.resources],
+                "Resources": [self.__serialize_resource(resource) for resource in obj.resources],
                 "Projects": [ProblemInstanceJSONSerializer.__serialize_project(project) for project in obj.projects],
-                "Jobs": [ProblemInstanceJSONSerializer.__serialize_job(job, precedences_by_child[job.id_job]) for job in obj.jobs],
+                "Jobs": [self.__serialize_job(job, precedences_by_child[job.id_job]) for job in obj.jobs],
             }
+
+            if self._is_extended:
+                instance_object["Components"] = [ProblemInstanceJSONSerializer.__serialize_component(component) for component in obj.components]
+
+            return instance_object
         return json.JSONEncoder.default(self, obj)
 
-    @staticmethod
-    def __serialize_resource(resource: Resource) -> dict[str, any]:
-        return {
+    def __serialize_resource(self, resource: Resource) -> dict[str, any]:
+        resource_object = {
             "Type": resource.type,
             "Id": resource.id_resource,
             "Capacity": resource.capacity
         }
+
+        if self._is_extended:
+            resource_object["Shift mode"] = resource.shift_mode
+
+        return resource_object
 
     @staticmethod
     def __serialize_resource_consumption(resource_consumption: ResourceConsumption) -> dict[str, any]:
@@ -506,13 +568,18 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
             "Consumptions": {resource.key: size for resource, size in resource_consumption.consumption_by_resource.items()}
         }
 
-    @staticmethod
-    def __serialize_job(job: Job, successors: list[int]) -> dict[str, any]:
-        return {
+    def __serialize_job(self, job: Job, successors: list[int]) -> dict[str, any]:
+        job_object = {
             "Id": job.id_job,
             "Resource consumption": ProblemInstanceJSONSerializer.__serialize_resource_consumption(job.resource_consumption),
             "Successors": successors,
         }
+
+        if self._is_extended:
+            job_object["Due date"] = job.due_date
+            job_object["Completed"] = job.completed
+
+        return job_object
 
     @staticmethod
     def __serialize_project(project: Project) -> dict[str, any]:
@@ -520,4 +587,11 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
             "Id": project.id_project,
             "Due date": project.due_date,
             "Tardiness cost": project.tardiness_cost
+        }
+
+    @staticmethod
+    def __serialize_component(component: Component) -> dict[str, any]:
+        return {
+            "Root job": component.id_root_job,
+            "Weight": component.weight
         }
