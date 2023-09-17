@@ -18,8 +18,9 @@ def parse_psplib(filename: str,
 
 def serialize_psplib(instance: ProblemInstance,
                      filename: str) -> None:
-    # TODO
-    pass
+    psplib_str = __serialize_psplib_internal(instance)
+    with open(filename, "wt") as file:
+        file.write(psplib_str)
 
 
 def parse_json(filename: str,
@@ -210,6 +211,109 @@ def __parse_psplib_internal(file: IO,
                 horizon=horizon)
 
     return builder.build_instance()
+
+
+def __serialize_psplib_internal(instance: ProblemInstance) -> str:
+    output = ""
+
+    def line(content):
+        nonlocal output
+        output += content + "\n"
+
+    def asterisks():
+        line(73 * '*')
+
+    def dashes():
+        line(73 * '-')
+
+    def format_values(space_count, *values):
+        return (space_count * ' ').join(map(str, values))
+
+    def key_value_line(key, *values):
+        line(f"{key:<30}: {format_values(1, *values)}")
+
+    def list_item_line(item, *values):
+        line(f"  - {item:<26}: {format_values(1, *values)}")
+
+    def header_line(header):
+        line(f"{header}:")
+
+    def table_header_setup(*headers):
+        return list(headers), [len(header) for header in headers]
+
+    def table_header(*headers):
+        line(format_values(2, *headers))
+
+    def table_line(header_lengths, *values):
+        string = "  ".join("{:<" + str(length) + "}" for length in header_lengths)
+        line(string.format(*values))
+
+    def table_line_with_last_array(header_lengths, *values):
+        vals = list(values)
+        string = "  ".join("{:<" + str(length) + "}" for length in header_lengths[:-1])
+        line(string.format(*vals) + "  " + format_values(1, *vals[-1]))  # format last array
+
+    asterisks()
+    key_value_line("file with basedata", "None")
+    key_value_line("initial value random generator", 0)
+
+    asterisks()
+    key_value_line("projects", len(instance.projects))
+    key_value_line("jobs (incl. supersource/sink )", len(instance.jobs))
+    key_value_line("horizon", instance.horizon)
+    line("RESOURCES")
+    list_item_line("renewable", sum(1 for r in instance.resources if r.type == ResourceType.RENEWABLE), 'R')
+    list_item_line("nonrenewable", sum(1 for r in instance.resources if r.type == ResourceType.NONRENEWABLE), 'N')
+    list_item_line("doubly constrained", sum(1 for r in instance.resources if r.type == ResourceType.DOUBLY_CONSTRAINED), 'D')
+
+    asterisks()
+    header_line("PROJECT INFORMATION")
+    table_headers, lengths = table_header_setup("pronr.", "#jobs", "rel.date", "duedate", "tardcost", "MPM-TIME")
+    table_header(*table_headers)
+    for p in instance.projects:
+        table_line(lengths, p.id_project, len(instance.jobs) - 2, 0, p.due_date, p.tardiness_cost, 0)
+
+
+    asterisks()
+    header_line("PRECEDENCE RELATIONS")
+    # Compute job successors
+    job_successors = defaultdict(list)
+    for precedence in instance.precedences:
+        job_successors[precedence.id_child].append(precedence.id_parent)
+    # Print job table
+    table_headers, lengths = table_header_setup("jobnr.", "#modes", "#successors", "successors")
+    table_header(*table_headers)
+    for j in instance.jobs:
+        table_line_with_last_array(lengths,
+                                   j.id_job,
+                                   1,  # Assume only one mode
+                                   len(job_successors[j.id_job]),  # Successor count
+                                   job_successors[j.id_job])  # Successors
+
+    asterisks()
+    header_line("REQUESTS/DURATIONS")
+    resources_with_strs = {resource: f"{resource.type.title()} {resource.id_resource}"
+                           for resource in instance.resources}
+    table_headers, lengths = table_header_setup("jobnr.", "mode", "duration", *resources_with_strs.values())
+    table_header(*table_headers)
+    dashes()
+    for job in instance.jobs:
+        consumptions = [job.resource_consumption.consumption_by_resource[r] for r in resources_with_strs]
+        table_line(lengths,
+                   job.id_job,
+                   1,  # Assume only one mode
+                   job.resource_consumption.duration,
+                   *consumptions)
+
+    asterisks()
+    header_line("RESOURCEAVAILABILITIES")
+    table_headers, lengths = table_header_setup(*resources_with_strs.values())
+    table_header(*table_headers)
+    table_line(lengths, *(r.capacity for r in resources_with_strs))
+
+    asterisks()
+
+    return output
 
 
 def __check_json_parse_object(obj: dict) -> None:
