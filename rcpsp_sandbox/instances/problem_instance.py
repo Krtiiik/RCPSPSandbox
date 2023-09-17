@@ -38,9 +38,17 @@ class Resource:
     def type(self) -> ResourceType:
         return self._type
 
+    @type.setter
+    def type(self, value: ResourceType):
+        self._type = value
+
     @property
     def capacity(self) -> int:
         return self._capacity
+
+    @capacity.setter
+    def capacity(self, value: int):
+        self._capacity = value
 
     @property
     def key(self) -> str:
@@ -67,9 +75,17 @@ class ResourceConsumption:
     def duration(self) -> int:
         return self._duration
 
+    @duration.setter
+    def duration(self, value: int):
+        self._duration = value
+
     @property
     def consumption_by_resource(self) -> dict[Resource, int]:
         return self._consumption_by_resource
+
+    @consumption_by_resource.setter
+    def consumption_by_resource(self, value: dict[Resource, int]):
+        self._consumption_by_resource = value
 
     def __str__(self):
         return f"ResourceConsumption{{duration: {self.duration}, consumptions: {self.consumption_by_resource}}}"
@@ -78,12 +94,15 @@ class ResourceConsumption:
 class Job:
     _id_job: int
     _resource_consumption: ResourceConsumption
+    _due_date: int or None
 
     def __init__(self,
                  id_job: int,
-                 resource_consumption: ResourceConsumption):
+                 resource_consumption: ResourceConsumption,
+                 due_date: int or None = None):
         self._id_job = id_job
         self._resource_consumption = resource_consumption
+        self._due_date = due_date
 
     @property
     def id_job(self) -> int:
@@ -93,11 +112,23 @@ class Job:
     def resource_consumption(self) -> ResourceConsumption:
         return self._resource_consumption
 
+    @resource_consumption.setter
+    def resource_consumption(self, value: ResourceConsumption):
+        self._resource_consumption = value
+
+    @property
+    def due_date(self) -> int or None:
+        return self._due_date
+
+    @due_date.setter
+    def due_date(self, value: int):
+        self._due_date = value
+
     def __hash__(self):
         return self._id_job
 
     def __str__(self):
-        return f"Job{{id: {self.id_job}, resource_consumption: {self.resource_consumption}}}"
+        return f"Job{{id: {self.id_job}, resource_consumption: {self.resource_consumption}, due_date: {self.due_date}}}"
 
 
 class Precedence:
@@ -114,9 +145,17 @@ class Precedence:
     def id_child(self) -> int:
         return self._id_child
 
+    @id_child.setter
+    def id_child(self, value: int):
+        self._id_child = value
+
     @property
     def id_parent(self) -> int:
         return self._id_parent
+
+    @id_parent.setter
+    def id_parent(self, value: int):
+        self._id_parent = value
 
     def __hash__(self):
         return hash((self._id_child, self._id_parent))
@@ -149,9 +188,17 @@ class Project:
     def due_date(self) -> int:
         return self._due_date
 
+    @due_date.setter
+    def due_date(self, value: int):
+        self._due_date = value
+
     @property
     def tardiness_cost(self) -> int:
         return self._tardiness_cost
+
+    @tardiness_cost.setter
+    def tardiness_cost(self, value: int):
+        self._tardiness_cost = value
 
     def __str__(self):
         return f"Project{{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
@@ -187,25 +234,49 @@ class ProblemInstance:
     def name(self) -> Optional[str]:
         return self._name
 
+    @name.setter
+    def name(self, value: str):
+        self._name = value
+
     @property
     def horizon(self) -> int:
         return self._horizon
+
+    @horizon.setter
+    def horizon(self, value: int):
+        self._horizon = value
 
     @property
     def projects(self) -> list[Project]:
         return self._projects
 
+    @projects.setter
+    def projects(self, value: list[Project]):
+        self._projects = value
+
     @property
     def resources(self) -> list[Resource]:
         return self._resources
+
+    @resources.setter
+    def resources(self, value: list[Resource]):
+        self._resources = value
 
     @property
     def jobs(self) -> list[Job]:
         return self._jobs
 
+    @jobs.setter
+    def jobs(self, value: list[Job]):
+        self._jobs = value
+
     @property
     def precedences(self) -> list[Precedence]:
         return self._precedences
+
+    @precedences.setter
+    def precedences(self, value: list[Precedence]):
+        self._precedences = value
 
     def __str__(self):
         return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
