@@ -1,6 +1,6 @@
 from typing import TypeVar, Iterable, Optional
 
-from instances.problem_instance import ProblemInstance, Resource, Job, Precedence, Project
+from instances.problem_instance import ProblemInstance, Resource, Job, Precedence, Project, Component
 
 T = TypeVar("T")
 
@@ -14,6 +14,7 @@ class InstanceBuilder:
     _resources: set[Resource]
     _jobs: set[Job]
     _precedences: set[Precedence]
+    _components: set[Component]
 
     def __init__(self):
         self._horizon = 0
@@ -22,6 +23,7 @@ class InstanceBuilder:
         self._resources = set()
         self._jobs = set()
         self._precedences = set()
+        self._components = set()
 
     @staticmethod
     def _check_new_entity(entities: set[T],
@@ -49,6 +51,10 @@ class InstanceBuilder:
         self._check_new_entity(self._precedences, precedence)
         self._precedences.add(precedence)
 
+    def add_component(self,
+                      component: Component) -> None:
+        self._components.add(component)
+
     def add_projects(self,
                      projects: Iterable[Project]) -> None:
         for new_project in projects:
@@ -69,6 +75,11 @@ class InstanceBuilder:
         for new_precedence in precedences:
             self.add_precedence(new_precedence)
 
+    def add_components(self,
+                       components: Iterable[Component]) -> None:
+        for new_component in components:
+            self.add_component(new_component)
+
     def set(self, **kwargs):
         for key, value in kwargs.items():
             if key == "name":
@@ -81,7 +92,7 @@ class InstanceBuilder:
                 raise InstanceBuilderError(f"Unexpected instance property {{{key}: {value}}}")
 
     def build_instance(self) -> ProblemInstance:
-        return ProblemInstance(self._horizon, self._projects, self._resources, self._jobs, self._precedences, name=self._name)
+        return ProblemInstance(self._horizon, self._projects, self._resources, self._jobs, self._precedences, self._components, name=self._name)
 
     def clear(self):
         self._projects.clear()

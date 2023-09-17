@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import StrEnum, Enum
 from typing import Optional, Collection
 
 from instances.utils import list_of
@@ -17,18 +17,27 @@ class ResourceType(StrEnum):
         }[self]
 
 
+# TODO shift modes
+class ResourceShiftMode(Enum):
+    ONE = 1
+    TWO = 2
+
+
 class Resource:
     _id_resource: int
     _type: ResourceType
     _capacity: int
+    _shift_mode: ResourceShiftMode or None
 
     def __init__(self,
                  id_resource: int,
                  resource_type: ResourceType,
-                 capacity: int):
+                 capacity: int,
+                 shift_mode: ResourceShiftMode or None = None):
         self._id_resource = id_resource
         self._type = resource_type
         self._capacity = capacity
+        self._shift_mode = shift_mode
 
     @property
     def id_resource(self) -> int:
@@ -49,6 +58,14 @@ class Resource:
     @capacity.setter
     def capacity(self, value: int):
         self._capacity = value
+
+    @property
+    def shift_mode(self) -> ResourceShiftMode or None:
+        return self._shift_mode
+
+    @shift_mode.setter
+    def shift_mode(self, value: ResourceShiftMode):
+        self._shift_mode = value
 
     @property
     def key(self) -> str:
@@ -95,14 +112,17 @@ class Job:
     _id_job: int
     _resource_consumption: ResourceConsumption
     _due_date: int or None
+    _completed: bool
 
     def __init__(self,
                  id_job: int,
                  resource_consumption: ResourceConsumption,
-                 due_date: int or None = None):
+                 due_date: int or None = None,
+                 completed: bool = False):
         self._id_job = id_job
         self._resource_consumption = resource_consumption
         self._due_date = due_date
+        self._completed = completed
 
     @property
     def id_job(self) -> int:
@@ -123,6 +143,14 @@ class Job:
     @due_date.setter
     def due_date(self, value: int):
         self._due_date = value
+
+    @property
+    def completed(self) -> bool:
+        return self._completed
+
+    @completed.setter
+    def completed(self, value: bool):
+        self._completed = value
 
     def __hash__(self):
         return self._id_job
@@ -170,7 +198,7 @@ class Project:
     _tardiness_cost: int
 
     def __init__(self,
-                 id_project,
+                 id_project: int,
                  due_date: int,
                  tardiness_cost: int):
         self._id_project = id_project
@@ -204,6 +232,36 @@ class Project:
         return f"Project{{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
 
 
+class Component:
+    _id_root_job: int
+    _weight: int
+
+    def __init__(self,
+                 id_root_job: int,
+                 weight: int):
+        self._id_root_job = id_root_job
+        self._weight = weight
+
+    @property
+    def id_root_job(self) -> int:
+        return self._id_root_job
+
+    @id_root_job.setter
+    def id_root_job(self, value: int):
+        self._id_root_job = value
+
+    @property
+    def weight(self) -> int:
+        return self._weight
+
+    @weight.setter
+    def weight(self, value: int):
+        self._weight = value
+
+    def __str__(self):
+        return f"Component{{id_root_job: {self.id_root_job}, weight: {self.weight}}}"
+
+
 class ProblemInstance:
     _name: Optional[str]
 
@@ -213,6 +271,7 @@ class ProblemInstance:
     _resources: list[Resource] = []
     _jobs: list[Job] = []
     _precedences: list[Precedence] = []
+    _components: list[Component] or None = None
 
     def __init__(self,
                  horizon: int,
@@ -220,6 +279,7 @@ class ProblemInstance:
                  resources: Collection[Resource],
                  jobs: Collection[Job],
                  precedences: Collection[Precedence],
+                 components: Collection[Component] or None = None,
                  name: str = None):
         self._name = name
 
@@ -229,6 +289,7 @@ class ProblemInstance:
         self._resources = list_of(resources)
         self._jobs = list_of(jobs)
         self._precedences = list_of(precedences)
+        self._components = list_of(components) if components is not None else None
 
     @property
     def name(self) -> Optional[str]:
@@ -277,6 +338,14 @@ class ProblemInstance:
     @precedences.setter
     def precedences(self, value: list[Precedence]):
         self._precedences = value
+
+    @property
+    def components(self) -> list[Component] or None:
+        return self._components
+
+    @components.setter
+    def components(self, value: list[Component]):
+        self._components = value
 
     def __str__(self):
         return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
