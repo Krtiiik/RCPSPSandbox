@@ -3,8 +3,8 @@ import os
 from typing import IO, Iterable, Any
 from collections import defaultdict
 
-from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption,\
-                                       ResourceType
+from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
+    ResourceType, Component, ResourceShiftMode
 from instances.instance_builder import InstanceBuilder
 from instances.utils import try_open_read, chunk
 
@@ -12,13 +12,15 @@ PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
 
 def parse_psplib(filename: str,
-                 name_as: str or None = None) -> ProblemInstance:
-    return try_open_read(filename, __parse_psplib_internal, name_as=name_as)
+                 name_as: str or None = None,
+                 is_extended: bool = False) -> ProblemInstance:
+    return try_open_read(filename, __parse_psplib_internal, name_as=name_as, is_extended=is_extended)
 
 
 def serialize_psplib(instance: ProblemInstance,
-                     filename: str) -> None:
-    psplib_str = __serialize_psplib_internal(instance)
+                     filename: str,
+                     is_extended: bool = False) -> None:
+    psplib_str = __serialize_psplib_internal(instance, is_extended)
     with open(filename, "wt") as file:
         file.write(psplib_str)
 
@@ -68,7 +70,8 @@ def serialize_json(instance: ProblemInstance,
 
 
 def __parse_psplib_internal(file: IO,
-                            name_as: str or None) -> ProblemInstance:
+                            name_as: str or None,
+                            is_extended: bool) -> ProblemInstance:
     def skip_lines(count: int) -> None:
         nonlocal line_num
         for _ in range(count):
@@ -136,6 +139,22 @@ def __parse_psplib_internal(file: IO,
         line_num += 1
         return value
 
+    def build():
+        builder = InstanceBuilder()
+
+        builder.add_projects(projects)
+        builder.add_resources(resources)
+        builder.add_jobs(jobs)
+        builder.add_precedences(precedences)
+
+        if is_extended:
+            builder.add_components(components)
+
+        builder.set(name=(name_as if (name_as is not None) else os.path.basename(file.name)),
+                    horizon=horizon)
+
+        return builder.build_instance()
+
     line_num = 1
 
     asterisks()
@@ -200,25 +219,53 @@ def __parse_psplib_internal(file: IO,
 
     asterisks()
 
-    builder = InstanceBuilder()
+    if not is_extended:
+        return build()
 
-    builder.add_projects(projects)
-    builder.add_resources(resources)
-    builder.add_jobs(jobs)
-    builder.add_precedences(precedences)
+    skip_lines(1)  # DUE DATES
+    jobs_by_id: dict[int, Job] = {j.id_job: j for j in jobs}
+    for _ in range(job_count):
+        id_job_str, due_date_str = parse_split_line((0, 1))
+        id_job, due_date = try_parse_value(id_job_str), try_parse_value(due_date_str)
+        jobs_by_id[id_job].due_date = due_date
 
-    builder.set(name=(name_as if (name_as is not None) else os.path.basename(file.name)),
-                horizon=horizon)
+    asterisks()
+    skip_lines(1)  # FINISHED_TASKS
+    completed_jobs_str, = parse_split_line((0,), end_of_line_array_index=0)
+    completed_jobs = map(try_parse_value, completed_jobs_str.split())
+    for job_id in completed_jobs:
+        jobs_by_id[job_id].completed = True
 
-    return builder.build_instance()
+    asterisks()
+    skip_lines(1)  # COMPONENTS
+    components_str, = parse_split_line((0,), end_of_line_array_index=0)
+    components_root_jobs = map(try_parse_value, components_str.split())
+
+    asterisks()
+    skip_lines(1)  # COMPONENT_WEIGHTS
+    components_weights_str, = parse_split_line((0,), end_of_line_array_index=0)
+    components_weights = map(try_parse_value, components_weights_str.split())
+
+    components = [Component(root_job_id, weight)
+                  for root_job_id, weight in zip(components_root_jobs, components_weights)]
+
+    asterisks()
+    skip_lines(1)  # RESOURCE SHIFT MODES
+    resource_by_id = {r.id_resource: r for r in resources}
+    for _ in range(len(resources)):
+        id_resource_str, shift_mode_str = parse_split_line((0, 1))
+        id_resource, shift_mode = try_parse_value(id_resource_str), ResourceShiftMode(try_parse_value(shift_mode_str))
+        resource_by_id[id_resource].shift_mode = shift_mode
+
+    return build()
 
 
-def __serialize_psplib_internal(instance: ProblemInstance) -> str:
+def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) -> str:
     output = ""
 
     def line(content):
         nonlocal output
-        output += content + "\n"
+        output += content.rstrip() + "\n"
 
     def asterisks():
         line(73 * '*')
@@ -271,8 +318,13 @@ def __serialize_psplib_internal(instance: ProblemInstance) -> str:
     table_headers, lengths = table_header_setup("pronr.", "#jobs", "rel.date", "duedate", "tardcost", "MPM-TIME")
     table_header(*table_headers)
     for p in instance.projects:
-        table_line(lengths, p.id_project, len(instance.jobs) - 2, 0, p.due_date, p.tardiness_cost, 0)
-
+        table_line(lengths,
+                   p.id_project,
+                   len(instance.jobs) - 2,  # Assume all jobs included except the super-source/sink
+                   0,  # Assume all released
+                   p.due_date,
+                   p.tardiness_cost,
+                   0)  # Assume no mpm-time set
 
     asterisks()
     header_line("PRECEDENCE RELATIONS")
@@ -312,6 +364,31 @@ def __serialize_psplib_internal(instance: ProblemInstance) -> str:
     table_line(lengths, *(r.capacity for r in resources_with_strs))
 
     asterisks()
+
+    if not is_extended:
+        return output
+
+    asterisks()
+    header_line("DUE DATES")
+    for job in instance.jobs:
+        line(format_values(2, job.id_job, job.due_date))
+
+    asterisks()
+    header_line("FINISHED_TASKS")
+    line(format_values(1, *(job.id_job for job in instance.jobs if job.completed)))
+
+    asterisks()
+    header_line("COMPONENTS")
+    line(format_values(1, *(c.id_root_job for c in instance.components)))
+
+    asterisks()
+    header_line("COMPONENT_WEIGHTS")
+    line(format_values(1, *(c.weight for c in instance.components)))
+
+    asterisks()
+    header_line("RESOURCE SHIFT MODES")
+    for resource in instance.resources:
+        line(format_values(2, resource.id_resource, resource.shift_mode))
 
     return output
 
