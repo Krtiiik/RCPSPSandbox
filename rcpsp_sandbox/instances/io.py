@@ -49,9 +49,9 @@ def parse_json(filename: str,
 
     # jobs
     jobs = [Job(j["Id"],
-                ResourceConsumption(j["Resource consumption"]["Duration"],
-                                    ({resources_by_key[key]: consumption
-                                      for key, consumption in j["Resource consumption"]["Consumptions"].items()})))
+                j["Duration"],
+                ResourceConsumption({resources_by_key[key]: consumption
+                                     for key, consumption in j["Resource consumption"]["Consumptions"].items()}))
             for j in instance_object["Jobs"]]
     instance_builder.add_jobs(jobs)
 
@@ -225,8 +225,8 @@ def __parse_psplib_internal(file: IO,
     resources: list[Resource] = [Resource(id_resource, resource_type, capacity)
                                  for (id_resource, resource_type), capacity in zip(resource_data, capacities)]
     jobs: list[Job] = [Job(id_job,
-                           ResourceConsumption(duration,
-                                               {resource: consumption_by_resource_id[resource.id_resource]
+                           duration,
+                           ResourceConsumption({resource: consumption_by_resource_id[resource.id_resource]
                                                 for resource in resources}))
                        for id_job, duration, consumption_by_resource_id in job_data]
 
@@ -367,7 +367,7 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
         table_line(lengths,
                    job.id_job,
                    1,  # Assume only one mode
-                   job.resource_consumption.duration,
+                   job.duration,
                    *consumptions)
 
     asterisks()
@@ -466,10 +466,11 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
         check_key_in("Id", j, "Instance object > Jobs")
         check_type_of(j["Id"], int, "Instance object > Jobs > Id")
 
+        check_key_in("Duration", j, "Instance object > Jobs")
+        check_type_of(j["Duration"], int, "Instance object > Jobs > Duration")
+
         check_key_in("Resource consumption", j, "Instance object > Jobs")
         check_type_of(j["Resource consumption"], dict, "Instance object > Jobs > Resource consumption")
-        check_key_in("Duration", j["Resource consumption"], "Instance object > Jobs > Resource consumption")
-        check_type_of(j["Resource consumption"]["Duration"], int, "Instance object > Jobs > Resource consumption > Duration")
         check_key_in("Consumptions", j["Resource consumption"], "Instance object > Jobs > Resource consumption")
         check_type_of(j["Resource consumption"]["Consumptions"], dict, "Instance object > Jobs > Resource consumption > Consumptions")
         for rc_key, rc_size in j["Resource consumption"]["Consumptions"].items():
@@ -564,13 +565,13 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
     @staticmethod
     def __serialize_resource_consumption(resource_consumption: ResourceConsumption) -> dict[str, any]:
         return {
-            "Duration": resource_consumption.duration,
             "Consumptions": {resource.key: size for resource, size in resource_consumption.consumption_by_resource.items()}
         }
 
     def __serialize_job(self, job: Job, successors: list[int]) -> dict[str, any]:
         job_object = {
             "Id": job.id_job,
+            "Duration": job.duration,
             "Resource consumption": ProblemInstanceJSONSerializer.__serialize_resource_consumption(job.resource_consumption),
             "Successors": successors,
         }

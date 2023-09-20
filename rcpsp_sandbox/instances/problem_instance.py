@@ -1,4 +1,4 @@
-from enum import StrEnum, IntEnum
+from enum import StrEnum, Flag
 from typing import Optional, Collection
 
 from instances.utils import list_of
@@ -17,10 +17,10 @@ class ResourceType(StrEnum):
         }[self]
 
 
-# TODO shift modes
-class ResourceShiftMode(IntEnum):
+class ResourceShiftMode(Flag):
     MORNING = 1
     AFTERNOON = 2
+    NIGHT = 4
 
 
 class Resource:
@@ -79,22 +79,11 @@ class Resource:
 
 
 class ResourceConsumption:
-    _duration: int
     _consumption_by_resource: dict[Resource, int]
 
     def __init__(self,
-                 duration: int,
                  consumption_by_resource: dict[Resource, int]):
-        self._duration = duration
         self._consumption_by_resource = consumption_by_resource
-
-    @property
-    def duration(self) -> int:
-        return self._duration
-
-    @duration.setter
-    def duration(self, value: int):
-        self._duration = value
 
     @property
     def consumption_by_resource(self) -> dict[Resource, int]:
@@ -105,21 +94,24 @@ class ResourceConsumption:
         self._consumption_by_resource = value
 
     def __str__(self):
-        return f"ResourceConsumption{{duration: {self.duration}, consumptions: {self.consumption_by_resource}}}"
+        return f"ResourceConsumption{{consumptions: {self.consumption_by_resource}}}"
 
 
 class Job:
     _id_job: int
+    _duration: int
     _resource_consumption: ResourceConsumption
     _due_date: int or None
     _completed: bool
 
     def __init__(self,
                  id_job: int,
+                 duration: int,
                  resource_consumption: ResourceConsumption,
                  due_date: int or None = None,
                  completed: bool = False):
         self._id_job = id_job
+        self._duration = duration
         self._resource_consumption = resource_consumption
         self._due_date = due_date
         self._completed = completed
@@ -127,6 +119,14 @@ class Job:
     @property
     def id_job(self) -> int:
         return self._id_job
+
+    @property
+    def duration(self) -> int:
+        return self._duration
+
+    @duration.setter
+    def duration(self, value: int):
+        self._duration = value
 
     @property
     def resource_consumption(self) -> ResourceConsumption:
@@ -156,7 +156,7 @@ class Job:
         return self._id_job
 
     def __str__(self):
-        return f"Job{{id: {self.id_job}, resource_consumption: {self.resource_consumption}, due_date: {self.due_date}}}"
+        return f"Job{{id: {self.id_job}, duration: {self.duration}, resource_consumption: {self.resource_consumption}, due_date: {self.due_date}}}"
 
 
 class Precedence:
