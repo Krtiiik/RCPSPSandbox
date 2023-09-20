@@ -1,14 +1,18 @@
 # JSON instance serialization format
 
+This document describes the JSON format of serializes instances. Fields marked with a prepended `+` are present only
+in the extended instance format - they are not part of the original PSPLib instance specification.
+
 ## Instance
 
 ```
 {
-  "Name"      : string,
-  "Horizon"   : int,
-  "Resources" : array[Resource],
-  "Projects"  : array[Project],
-  "Jobs"      : array[Job]
+  "Name"        : string,
+  "Horizon"     : int,
+  "Resources"   : array[Resource],
+  "Projects"    : array[Project],
+  "Jobs"        : array[Job],
+  +"Components" : array[Component]
 }
 ```
 
@@ -16,9 +20,10 @@
 
 ```
 {
-    "Type": ResourceType,
-    "Id": int,
-    "Capacity": int
+    "Type"       : ResourceType,
+    "Id"         : int,
+    "Capacity"   : int,
+    +"ShiftMode" : ShiftMode
 }
 ```
 
@@ -29,6 +34,14 @@ Resource type is a string with one of the following values representing the corr
 - `"R"` -> Renewable
 - `"N"` -> Non-Renewable
 - `"D"` -> Doubly Constrained
+
+### +ShiftMode
+
+Shift mode is a flag-enumeration describing the mode in which the resource operates. The recognized atomic values are:
+
+- `1` -> Morning
+- `2` -> Afternoon
+- `4` -> Night
 
 ## Project
 
@@ -44,9 +57,12 @@ Resource type is a string with one of the following values representing the corr
 
 ```
 {
-    "Id": int,
-    "Resource consumption": ResourceConsumption,
-    "Successors": array[int]
+    "Id"                   : int,
+    "Duration"             : int,
+    "Resource consumption" : ResourceConsumption,
+    "Successors"           : array[int],
+    +"Due date"            : int,
+    +"Completed            : bool
 }
 ```
 
@@ -54,7 +70,6 @@ Resource type is a string with one of the following values representing the corr
 
 ```
 {
-    "Duration": int,
     "Consumptions": dict{string: int}
 }
 ```
