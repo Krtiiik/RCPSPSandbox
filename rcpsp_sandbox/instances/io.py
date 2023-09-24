@@ -363,7 +363,7 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     table_header(*table_headers)
     dashes()
     for job in instance.jobs:
-        consumptions = [job.resource_consumption.consumption_by_resource[r] for r in resources_with_strs]
+        consumptions = [job.resource_consumption[r] for r in resources_with_strs]
         table_line(lengths,
                    job.id_job,
                    1,  # Assume only one mode

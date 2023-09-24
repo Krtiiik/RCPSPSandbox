@@ -93,6 +93,9 @@ class ResourceConsumption:
     def consumption_by_resource(self, value: dict[Resource, int]):
         self._consumption_by_resource = value
 
+    def __getitem__(self, resource: Resource or int):
+        return self.consumption_by_resource[resource]
+
     def __str__(self):
         return f"ResourceConsumption{{consumptions: {self.consumption_by_resource}}}"
 
