@@ -1,4 +1,4 @@
-from enum import StrEnum, Flag
+from enum import StrEnum, IntEnum
 from typing import Optional, Collection
 
 from instances.utils import list_of
@@ -17,10 +17,9 @@ class ResourceType(StrEnum):
         }[self]
 
 
-class ResourceShiftMode(Flag):
-    MORNING = 1
-    AFTERNOON = 2
-    NIGHT = 4
+class ResourceShiftMode(IntEnum):
+    SINGLE = 1  # 8-16 working hours, single shift
+    DOUBLE = 2  # 6-22 working hours, double shift
 
 
 class Resource:
