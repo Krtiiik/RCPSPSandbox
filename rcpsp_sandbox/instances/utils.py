@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Iterable, TypeVar, Generator, Sequence
+from typing import Any, Iterable, TypeVar, Sequence
 
 T = TypeVar('T')
 
@@ -33,3 +33,7 @@ def chunk(sequence: Sequence[T],
           chunk_size: int) -> Iterable[Iterable[T]]:
     for i in range(0, len(sequence), chunk_size):
         yield sequence[i:(i + chunk_size)]
+
+
+def try_str(x: Any):
+    return str(x) if x is not None else ""

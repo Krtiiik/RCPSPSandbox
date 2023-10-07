@@ -9,7 +9,6 @@ from docplex.cp.solution import CpoSolveResult
 
 from instances.problem_instance import ProblemInstance, Resource, Job
 from drawing import plot_solution
-from utils import resource_mode_operating_hours
 
 
 class Solver:
@@ -59,7 +58,7 @@ class Solver:
 
     @staticmethod
     def __build_resource_availability(resource: Resource, horizon: int) -> CpoStepFunction:
-        day_operating_hours = resource_mode_operating_hours(resource.shift_mode)
+        day_operating_hours = resource.availability
         days_count = math.ceil(horizon / 24)
         step_values = dict()
         for i_day in range(days_count):
@@ -68,7 +67,7 @@ class Solver:
                 step_values[day_offset + start] = 1
                 step_values[day_offset + end] = 0
 
-        steps = list(sorted(step_values.items()))
+        steps = sorted(step_values.items())
         return CpoStepFunction(steps)
 
     @staticmethod
@@ -87,8 +86,8 @@ class Solver:
             for step in resource_availabilities[resource].get_step_list():
                 step_values[step[0]] &= (step[1] == 1)
 
-        steps = list(sorted((step[0], 100 if step[1] else 0)
-                            for step in step_values.items()))
+        steps = sorted((step[0], 100 if step[1] else 0)
+                       for step in step_values.items())
         return CpoStepFunction(steps)
 
 

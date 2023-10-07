@@ -1,4 +1,4 @@
-from enum import StrEnum, IntEnum
+from enum import StrEnum
 from typing import Optional, Collection
 
 from instances.utils import list_of
@@ -9,34 +9,64 @@ class ResourceType(StrEnum):
     NONRENEWABLE = 'N'
     DOUBLY_CONSTRAINED = 'D'
 
+
+class AvailabilityInterval:
+    _start: int
+    _end: int
+    _capacity: int or None
+
+    def __init__(self,
+                 start: int,
+                 end: int,
+                 capacity: int or None = None):
+        self._start = start
+        self._end = end
+        self._capacity = capacity
+
+    @property
+    def start(self) -> int:
+        return self._start
+
+    @start.setter
+    def start(self, value: int):
+        self._start = value
+
+    @property
+    def end(self) -> int:
+        return self._end
+
+    @end.setter
+    def end(self, value: int):
+        self._end = value
+
+    @property
+    def capacity(self) -> int or None:
+        return self._capacity
+
+    @capacity.setter
+    def capacity(self, value: int or None):
+        self._capacity = value
+
     def __str__(self):
-        return {
-            'R': "Renewable",
-            'N': "Non-Renewable",
-            'D': "Doubly Constrained",
-        }[self]
-
-
-class ResourceShiftMode(IntEnum):
-    SINGLE = 1  # 8-16 working hours, single shift
-    DOUBLE = 2  # 6-22 working hours, double shift
+        return (f"[{self.start, self.end}]" if self.capacity is None
+                else f"[{self.start}, {self.end}]<{self.capacity}>")
 
 
 class Resource:
     _id_resource: int
     _type: ResourceType
     _capacity: int
-    _shift_mode: ResourceShiftMode or None
+    _availability: list[AvailabilityInterval] or None
 
     def __init__(self,
                  id_resource: int,
                  resource_type: ResourceType,
                  capacity: int,
-                 shift_mode: ResourceShiftMode or None = None):
+                 availability: list[AvailabilityInterval] or None = None):
         self._id_resource = id_resource
         self._type = resource_type
         self._capacity = capacity
-        self._shift_mode = shift_mode
+        self._availability = availability
 
     @property
     def id_resource(self) -> int:
@@ -59,12 +89,12 @@ class Resource:
         self._capacity = value
 
     @property
-    def shift_mode(self) -> ResourceShiftMode or None:
-        return self._shift_mode
+    def availability(self) -> list[AvailabilityInterval] or None:
+        return self._availability
 
-    @shift_mode.setter
-    def shift_mode(self, value: ResourceShiftMode):
-        self._shift_mode = value
+    @availability.setter
+    def availability(self, value: list[AvailabilityInterval] or None):
+        self._availability = value
 
     @property
     def key(self) -> str:

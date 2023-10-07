@@ -4,9 +4,9 @@ from typing import IO, Iterable, Any
 from collections import defaultdict
 
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
-    ResourceType, Component, ResourceShiftMode
+    ResourceType, Component, AvailabilityInterval
 from instances.instance_builder import InstanceBuilder
-from instances.utils import try_open_read, chunk
+from instances.utils import try_open_read, chunk, try_str
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
@@ -62,7 +62,14 @@ def parse_json(filename: str,
 
     if is_extended:
         for i, r in enumerate(instance_object["Resources"]):
-            resources[i].shift_mode = r["Shift mode"]
+            def build_availability(av):
+                interval = AvailabilityInterval(start=av["Start"], end=av["End"])
+                if "Capacity" in av:
+                    interval.capacity = av["Capacity"]
+                return interval
+
+            resources[i].availability = [build_availability(av)
+                                         for av in r["Availability"]]
 
         for i, j in enumerate(instance_object["Jobs"]):
             jobs[i].completed = j["Completed"]
@@ -85,14 +92,29 @@ def serialize_json(instance: ProblemInstance,
 def __parse_psplib_internal(file: IO,
                             name_as: str or None,
                             is_extended: bool) -> ProblemInstance:
+    def read_line():
+        nonlocal line_num
+        line_num += 1
+        return file.readline()
+
     def skip_lines(count: int) -> None:
         nonlocal line_num
         for _ in range(count):
-            file.readline()
-            line_num += 1
+            read_line()
 
     def asterisks() -> None:
         skip_lines(1)
+
+    def process_split_line(line,
+                           target_indices: tuple,
+                           end_of_line_array_index: int = -1) -> tuple:
+        content = line.split(maxsplit=end_of_line_array_index)
+        if (len(content) - 1) < end_of_line_array_index:  # If the end-of-line array is empty...
+            content.append("")  # ...insert empty array string
+        elif (len(content) - 1) < max(target_indices):
+            raise ParseError.in_file(file, line_num, "Line contains less values than expected")
+
+        return tuple(content[i] for i in target_indices)
 
     def parse_split_line(target_indices: tuple,
                          end_of_line_array_index: int = -1,
@@ -100,16 +122,11 @@ def __parse_psplib_internal(file: IO,
         nonlocal line_num
 
         line = file.readline()
-        content = line.split(maxsplit=end_of_line_array_index)
-        if (len(content) - 1) < end_of_line_array_index:  # If the end-of-line array is empty...
-            content.append("")  # ...insert empty array string
-        elif (len(content) - 1) < max(target_indices):
-            raise ParseError.in_file(file, line_num, "Line contains less values than expected")
-
+        result = process_split_line(line, target_indices, end_of_line_array_index)
         if move_line:
             line_num += 1
 
-        return tuple(content[i] for i in target_indices)
+        return result
 
     def try_parse_value(value_str) -> int:
         nonlocal line_num
@@ -263,12 +280,46 @@ def __parse_psplib_internal(file: IO,
                   for root_job_id, weight in zip(components_root_jobs, components_weights)]
 
     asterisks()
-    skip_lines(1)  # RESOURCE SHIFT MODES
-    resource_by_id = {r.id_resource: r for r in resources}
-    for _ in range(len(resources)):
-        id_resource_str, shift_mode_str = parse_split_line((0, 1))
-        id_resource, shift_mode = try_parse_value(id_resource_str), ResourceShiftMode(try_parse_value(shift_mode_str))
-        resource_by_id[id_resource].shift_mode = shift_mode
+    resource_availability_line = file.readline()  # RESOURCE SHIFT MODES    or    RESOURCE AVAILABILITIES
+    line_num += 1
+
+    if resource_availability_line.startswith("RESOURCE SHIFT MODES"):
+        def availability_interval_from_shift_mode(resource_shift_mode: int):
+            match resource_shift_mode:
+                case 1:
+                    return [AvailabilityInterval(start=8, end=16)]
+                case 2:
+                    return [AvailabilityInterval(start=6, end=22)]
+                case _:
+                    raise ParseError.in_file(file, line_num, "Unexpected resource shift mode")
+
+        resource_by_id = {r.id_resource: r for r in resources}
+        for _ in range(len(resources)):
+            id_resource_str, shift_mode_str = parse_split_line((0, 1))
+            id_resource = try_parse_value(id_resource_str)
+            availability = availability_interval_from_shift_mode(try_parse_value(shift_mode_str))
+            resource_by_id[id_resource].availability = availability
+
+    else:  # RESOURCE AVAILABILITIES
+        skip_lines(2)  # table header and dashes
+        intervals_by_resource_key = defaultdict(list)
+        current_line = read_line()
+        resource_key = ""
+        while (not current_line.startswith('*')) and (current_line != ""):
+            if not current_line.startswith(' '):  # New resource
+                resource_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
+            else:
+                start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2), 2)
+            start, end = try_parse_value(start_str), try_parse_value(end_str)
+            capacity = try_parse_value(capacity_str.strip()) if capacity_str != "" else None
+            intervals_by_resource_key[resource_key].append(AvailabilityInterval(start, end, capacity))
+
+            current_line = read_line()
+
+        for resource in resources:
+            if resource.key not in intervals_by_resource_key:
+                continue
+            resource.availability = intervals_by_resource_key[resource.key]
 
     return build()
 
@@ -398,9 +449,23 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     line(format_values(1, *(c.weight for c in instance.components)))
 
     asterisks()
-    header_line("RESOURCE SHIFT MODES")
+    header_line("RESOURCE AVAILABILITIES")
+    table_headers, lengths = table_header_setup("resource", "start", "end", "(capacity)")
+    table_header(*table_headers)
+    dashes()
     for resource in instance.resources:
-        line(format_values(2, resource.id_resource, resource.shift_mode))
+        first_availability: AvailabilityInterval = resource.availability[0]
+        table_line(lengths,
+                   resource.key,
+                   first_availability.start,
+                   first_availability.end,
+                   try_str(first_availability.capacity))
+        for availability in resource.availability[1:]:
+            table_line(lengths,
+                       "",
+                       availability.start,
+                       availability.end,
+                       try_str(availability.capacity))
 
     return output
 
@@ -503,8 +568,18 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
         check_type_of(j["Completed"], bool, "Instance object > Jobs > Completed")
 
     for r in obj["Resources"]:
-        check_key_in("Shift mode", r, "Instance object > Resources")
-        check_type_of(r["Shift mode"], int, "Instance object > Resources > Shift mode")
+        check_key_in("Availability", r, "Instance object > Resources")
+        check_type_of(r["Availability"], list, "Instance object > Resources > Availability")
+
+        for availability in r["Availability"]:
+            check_key_in("Start", availability, "Instance object > Resources > Availability")
+            check_type_of(availability["Start"], int, "Instance object > Resources > Availability > Start")
+
+            check_key_in("End", availability, "Instance object > Resources > Availability")
+            check_type_of(availability["End"], int, "Instance object > Resources > Availability > End")
+
+            if "Capacity" in availability:
+                check_type_of(availability["Capacity"], int, "Instance object > Resources > Availability > Capacity")
 
 
 class ParseError(Exception):
@@ -558,7 +633,14 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
         }
 
         if self._is_extended:
-            resource_object["Shift mode"] = resource.shift_mode
+            def serialize_availability(availability: AvailabilityInterval):
+                obj = {"Start": availability.start, "End": availability.end}
+                if availability.capacity is not None:
+                    obj["Capacity"] = availability.capacity
+
+                return obj
+
+            resource_object["Availability"] = [serialize_availability(av) for av in resource.availability]
 
         return resource_object
 

@@ -20,10 +20,10 @@ in the extended instance format - they are not part of the original PSPLib insta
 
 ```
 {
-    "Type"       : ResourceType,
-    "Id"         : int,
-    "Capacity"   : int,
-    +"ShiftMode" : ShiftMode
+    "Type"          : ResourceType,
+    "Id"            : int,
+    "Capacity"      : int,
+    +"Availability" : array[AvailabilityInterval]
 }
 ```
 
@@ -35,13 +35,19 @@ Resource type is a string with one of the following values representing the corr
 - `"N"` -> Non-Renewable
 - `"D"` -> Doubly Constrained
 
-### +ShiftMode
+### +AvailabilityInterval
 
-Shift mode is a flag-enumeration describing the mode in which the resource operates. The recognized atomic values are:
+Availability interval defines an interval on which a related resource is available. The values represent day-hours
+within a standard day. Capacity can be specified for the interval which, on that interval, overrides the default
+capacity of the resource.
 
-- `1` -> Morning
-- `2` -> Afternoon
-- `4` -> Night
+```
+{
+    "Start"      : int
+    "End"        : int
+    ("Capacity") : int
+}
+```
 
 ## Project
 
