@@ -2,7 +2,7 @@ import sys
 
 from instances.io import parse_psplib, serialize_json
 from instances.drawing import draw_instance_graph
-from instances.utils import print_error
+from utils import print_error
 
 
 def main():

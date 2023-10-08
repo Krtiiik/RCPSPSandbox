@@ -1,11 +1,8 @@
-import sys
 from typing import Any, Iterable, TypeVar, Sequence
 
+from rcpsp_sandbox.utils import print_error
+
 T = TypeVar('T')
-
-
-def print_error(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 
 
 def try_open_read(filename: str,
@@ -17,8 +14,10 @@ def try_open_read(filename: str,
             return filework(file, *args, **kwargs)
     except FileNotFoundError:
         print_error(f"File not found: {filename}")
+        raise
     except IOError as error:
         print_error(error)
+        raise
 
 
 def list_of(items: Iterable[T]) -> list[T]:
@@ -35,5 +34,5 @@ def chunk(sequence: Sequence[T],
         yield sequence[i:(i + chunk_size)]
 
 
-def try_str(x: Any):
+def str_or_default(x: Any):
     return str(x) if x is not None else ""

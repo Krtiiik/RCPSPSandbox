@@ -51,6 +51,9 @@ class AvailabilityInterval:
         return (f"[{self.start, self.end}]" if self.capacity is None
                 else f"[{self.start}, {self.end}]<{self.capacity}>")
 
+    def __iter__(self):
+        return iter((self.start, self.end))
+
 
 class Resource:
     _id_resource: int

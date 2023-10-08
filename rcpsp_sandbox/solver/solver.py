@@ -7,8 +7,10 @@ from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoSolveResult
 
+import rcpsp_sandbox.instances.drawing
 from instances.problem_instance import ProblemInstance, Resource, Job
 from drawing import plot_solution
+from rcpsp_sandbox.solver.utils import compute_topological_components
 
 
 class Solver:
@@ -18,21 +20,34 @@ class Solver:
 
         job_intervals = {job.id_job: interval_var(name=f"Job {job.id_job}",
                                                   size=job.duration,
-                                                  intensity=self.__build_job_execution_availability(job, resource_availabilities))
+                                                  intensity=self.__build_job_execution_availability(job,
+                                                                                                    resource_availabilities))
                          for job in problem_instance.jobs}
-        precedence_constraints = [modeler.end_before_start(job_intervals[precedence.id_child], job_intervals[precedence.id_parent])
-                                  for precedence in problem_instance.precedences]
+        precedence_constraints = [
+            modeler.end_before_start(job_intervals[precedence.id_child], job_intervals[precedence.id_parent])
+            for precedence in problem_instance.precedences]
 
         jobs_consuming_resource = {resource: [job for job in problem_instance.jobs
                                               if job.resource_consumption[resource] > 0]
                                    for resource in problem_instance.resources}
-        resource_capacity_constraints = [modeler.less_or_equal(modeler.sum(modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
-                                                                           for job in jobs_consuming_resource[resource]),
-                                                               resource.capacity)
+        resource_capacity_constraints = [modeler.less_or_equal(
+            modeler.sum(modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
+                        for job in jobs_consuming_resource[resource]),
+            resource.capacity)
                                          for resource in problem_instance.resources]
 
         optimization_goal = modeler.minimize(modeler.max(modeler.end_of(job_interval)
                                                          for job_interval in job_intervals.values()))
+
+        components = compute_topological_components(problem_instance)
+        weights_by_root_job = {c.id_root_job: c.weight for c in problem_instance.components}
+        modeler.minimize(modeler.sum(modeler.end_of(job_intervals[job.id_job])
+                                     for job in problem_instance.jobs)
+                         + (problem_instance.projects[0].tardiness_cost
+                            * modeler.sum(weights_by_root_job[id_root_job]
+                                          * modeler.max(modeler.max(0, modeler.end_of(job_intervals[job.id_job]) - job.due_date)
+                                                        for job in jobs)
+                                          for id_root_job, jobs in components)))
 
         model = CpoModel("Test")
         model.add(job_intervals.values())
@@ -93,11 +108,12 @@ class Solver:
 
 if __name__ == "__main__":
     import rcpsp_sandbox.instances.io as ioo
-    inst = ioo.parse_psplib("../../instance_11.rp", is_extended=True)
+
+    inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11m.rp", is_extended=True)
+    rcpsp_sandbox.instances.drawing.draw_instance_graph(inst)
     s = Solver()
     solve_result = s.solve(inst)
     if solve_result.is_solution():
         solution = solve_result.get_solution()
         solution.print_solution()
         plot_solution(inst, solution)
-

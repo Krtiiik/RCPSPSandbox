@@ -6,7 +6,7 @@ from collections import defaultdict
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
     ResourceType, Component, AvailabilityInterval
 from instances.instance_builder import InstanceBuilder
-from instances.utils import try_open_read, chunk, try_str
+from instances.utils import try_open_read, chunk, str_or_default
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
@@ -459,13 +459,13 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
                    resource.key,
                    first_availability.start,
                    first_availability.end,
-                   try_str(first_availability.capacity))
+                   str_or_default(first_availability.capacity))
         for availability in resource.availability[1:]:
             table_line(lengths,
                        "",
                        availability.start,
                        availability.end,
-                       try_str(availability.capacity))
+                       str_or_default(availability.capacity))
 
     return output
 
