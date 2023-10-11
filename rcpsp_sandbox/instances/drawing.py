@@ -8,7 +8,14 @@ from instances.problem_instance import ProblemInstance, Job
 def draw_instance_graph(instance: ProblemInstance,
                         block: bool = False):
     graph = __build_graph(instance)
-    node_locations = __compute_node_locations(graph)
+    is_planar, planar_graph = nx.check_planarity(graph)
+    if is_planar:
+        planar_graph.check_structure()
+        node_locations = nx.combinatorial_embedding_to_pos(planar_graph)
+        print("planar")
+    else:
+        node_locations = __compute_node_locations(graph)
+
     __draw_graph(graph, node_locations, block)
 
 
