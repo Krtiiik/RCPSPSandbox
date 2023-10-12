@@ -9,6 +9,12 @@ from instances.problem_instance import ProblemInstance
 
 def plot_solution(problem_instance: ProblemInstance,
                   solution: CpoModelSolution):
+    """
+    See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
+    :param problem_instance:
+    :param solution:
+    :return:
+    """
     if not visu.is_visu_enabled():
         return
 
@@ -25,7 +31,7 @@ def plot_solution(problem_instance: ProblemInstance,
     visu.panel("Jobs")
     for i, job in enumerate(problem_instance.jobs):
         interval = job_intervals[job.id_job]
-        visu.interval(solution.get_var_solution(interval), i, interval.get_name())
+        visu.interval(solution.get_var_solution(interval), i, interval.get_name()[4:])
     for resource in problem_instance.resources:
         visu.panel(resource.key)
         visu.function(segments=[(INTERVAL_MIN, INTERVAL_MAX, resource.capacity)], style='area', color='lightgrey')

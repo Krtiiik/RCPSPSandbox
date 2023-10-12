@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import networkx as nx
 import matplotlib
 import matplotlib.pyplot
@@ -27,14 +28,17 @@ def __build_graph(instance: ProblemInstance) -> nx.DiGraph:
 
 
 def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
-    generations = nx.topological_generations(graph)
     node_locations = dict()
-    for gen_i, generation in enumerate(generations):
-        x = gen_i * 100
-        y_offset = ((10 * (len(generation) - 1)) // 2)
-        for i, node in enumerate(generation):
-            y = 10 * i - y_offset
-            node_locations[node] = (x, y)
+    for i, component in enumerate(nx.weakly_connected_components(graph)):
+        generations = nx.topological_generations(graph.subgraph(component))
+        y_base = i * 50
+        for gen_i, generation in enumerate(generations):
+            x = gen_i * 100
+            y_scale = 10
+            y_offset = ((y_scale * (len(generation) - 1)) // 2)
+            for j, node in enumerate(generation):
+                y = y_base + (y_scale * j) - y_offset
+                node_locations[node] = (x, y)
 
     return node_locations
 
@@ -46,7 +50,7 @@ def __draw_graph(graph: nx.DiGraph,
     ax = matplotlib.pyplot.gca()
     for id_job, loc in node_locations.items():
         # ax.add_patch(matplotlib.patches.Circle(loc, 2, color='b'))
-        matplotlib.pyplot.text(*loc, str(id_job), ha='center', va="center", size=15,
+        matplotlib.pyplot.text(*loc, str(id_job), ha='center', va="center", size=5,
                                bbox=dict(boxstyle="round",
                                          ec=(1., 0.5, 0.5),
                                          fc=(1., 0.8, 0.8)))
@@ -55,4 +59,5 @@ def __draw_graph(graph: nx.DiGraph,
     ax.add_collection(matplotlib.collections.LineCollection(edge_lines))
 
     ax.autoscale()
+    plt.savefig("instance.png", dpi=300)
     matplotlib.pyplot.show(block=block)

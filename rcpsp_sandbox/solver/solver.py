@@ -109,7 +109,7 @@ class Solver:
 if __name__ == "__main__":
     import rcpsp_sandbox.instances.io as ioo
 
-    inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11m.rp", is_extended=True)
+    inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11.rp", is_extended=True)
     rcpsp_sandbox.instances.drawing.draw_instance_graph(inst)
     s = Solver()
     solve_result = s.solve(inst)
