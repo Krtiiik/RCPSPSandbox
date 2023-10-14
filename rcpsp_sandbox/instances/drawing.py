@@ -7,7 +7,9 @@ from instances.problem_instance import ProblemInstance, Job
 
 
 def draw_instance_graph(instance: ProblemInstance,
-                        block: bool = False):
+                        block: bool = False,
+                        highlighted_nodes: set[int] or None = None,
+                        save_as: str or None = None):
     graph = __build_graph(instance)
     is_planar, planar_graph = nx.check_planarity(graph)
     if is_planar:
@@ -17,7 +19,7 @@ def draw_instance_graph(instance: ProblemInstance,
     else:
         node_locations = __compute_node_locations(graph)
 
-    __draw_graph(graph, node_locations, block)
+    __draw_graph(graph, node_locations, block, highlighted_nodes=highlighted_nodes, save_as=save_as)
 
 
 def __build_graph(instance: ProblemInstance) -> nx.DiGraph:
@@ -45,19 +47,29 @@ def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
 
 def __draw_graph(graph: nx.DiGraph,
                  node_locations: dict[Job, tuple[int, int]],
-                 block: bool) -> None:
+                 block: bool,
+                 highlighted_nodes: set[int] or None = None,
+                 save_as: str or None = None) -> None:
+    if highlighted_nodes is None:
+        highlighted_nodes = set()
+
     matplotlib.pyplot.figure()
     ax = matplotlib.pyplot.gca()
     for id_job, loc in node_locations.items():
         # ax.add_patch(matplotlib.patches.Circle(loc, 2, color='b'))
         matplotlib.pyplot.text(*loc, str(id_job), ha='center', va="center", size=5,
                                bbox=dict(boxstyle="round",
-                                         ec=(1., 0.5, 0.5),
-                                         fc=(1., 0.8, 0.8)))
+                                         ec="red",
+                                         fc=("green" if id_job in highlighted_nodes else "lightcoral")))
 
     edge_lines = [[node_locations[e[0]], node_locations[e[1]]] for e in graph.edges]
     ax.add_collection(matplotlib.collections.LineCollection(edge_lines))
 
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.autoscale()
-    plt.savefig("instance.png", dpi=300)
-    matplotlib.pyplot.show(block=block)
+
+    if save_as is not None:
+        matplotlib.pyplot.savefig(save_as, dpi=300)
+
+    plt.show(block=block)
