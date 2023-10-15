@@ -18,50 +18,71 @@ class ProblemModifier:
         self._original_instance = original_instance
 
     def assign_job_due_dates(self,
-                             overwrite: bool = False,
-                             due_dates: dict[int, int] or None = None,
-                             interval: tuple[int, int] or None = None,
-                             choice = "uniform") -> Self:
-        if due_dates is not None:
-            jobs_by_id = {job.id_job: job for job in self.jobs}
-            for id_job, duedate in due_dates.items():
-                if jobs_by_id[id_job].due_date is None or overwrite:
-                    jobs_by_id[id_job].due_date = duedate
-            # TODO what if some jobs are not specified in `due_dates` dict
+                             choice: str = "uniform",
+                             interval: tuple[int, int] = None,
+                             target_jobs: list[int] = None,
+                             due_dates: dict[int, int] = None,
+                             overwrite: bool = False,) -> Self:
+        # TODO
 
-        if interval is not None:
-            # TODO generate due dates in the given interval
-            # TODO random kind: uniform, normal, earliest
-            pass
+
+        def try_assign(j, dd):
+            if j.due_date is None or overwrite:
+                j.due_date = dd
+
+        jobs_by_id = {job.id_job: job for job in self.jobs}
+
+        # If an explicit mapping of due-dates was specified...
+        if due_dates is not None:
+            for id_job, due_date in due_dates.items():
+                try_assign(jobs_by_id[id_job], due_date)
+            return self
+
+        match choice:
+            case "uniform":
+                if interval is None:
+                    print_error("Uniform due date assignment requires a sample interval but none was given.")
+                    return self
+                target_jobs = (self.jobs if target_jobs is None
+                               else (jobs_by_id[id_job] for id_job in target_jobs))
+                for job in target_jobs:
+                    due_date = random.uniform(interval[0], interval[1])
+                    try_assign(job, due_date)
+
+            case "":  # TODO
+                pass
 
         return self
 
     def complete_jobs(self,
                       jobs_to_complete: list[int] or None = None,
-                      finished_ratio: float or None = None,
+                      completion_ratio: float or None = None,
                       choice: str = "random",
                       combined_ratio: float = 0.8) -> Self:
+        def complete(jbs):
+            for j in jbs:
+                j.completed = True
+
         if jobs_to_complete is not None:
             jobs_by_id = {j.id_job: j for j in self.jobs}
-            for id_job in jobs_to_complete:
-                jobs_by_id[id_job].finished = True
-        elif finished_ratio is not None:
+            complete(jobs_by_id[id_job] for id_job in jobs_to_complete)
+        elif completion_ratio is not None:
             match choice:
                 case "random":
-                    k = finished_ratio * len(self.jobs)
+                    k = completion_ratio * len(self.jobs)
                     jobs_to_complete = random.sample(self.jobs, k)
+                    complete(jobs_to_complete)
                 case "gradual":
-                    jobs_to_complete_count = round(finished_ratio * len(self.jobs))
+                    jobs_to_complete_count = round(completion_ratio * len(self.jobs))
                     jobs_to_complete_traverser = traverse_instance_graph(graph=build_instance_graph(self), search="uniform")
-                    for job in itertools.islice(jobs_to_complete_traverser, jobs_to_complete_count):
-                        job.completed = True
+                    complete(itertools.islice(jobs_to_complete_traverser, jobs_to_complete_count))
                 case "combined":
                     # TODO combined finishing
                     pass
                 case _:
                     print_error(f"Unrecognized job-completion choice: {choice}")
         else:
-            print_error("No ")
+            print_error("No jobs to complete were given and neither a ratio for finished job was given.")
 
         return self
 
