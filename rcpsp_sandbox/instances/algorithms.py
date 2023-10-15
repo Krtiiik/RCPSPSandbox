@@ -7,10 +7,10 @@ from instances.problem_instance import ProblemInstance, Job
 from utils import print_error
 
 
-def build_instance_graph(instance: ProblemInstance) -> nx.DiGraph:
+def build_instance_graph(instance) -> nx.DiGraph:
     """
     Builds a job-graph of the given problem instance.
-    :param instance: The instance to build the graph of.
+    :param instance: The instance to build the graph of. Any object with `jobs` and `precedences` properties can be given.
     :return: The oriented job-graph of the problem instance.
     """
     graph = nx.DiGraph()
