@@ -1,8 +1,11 @@
+import itertools
+
 import matplotlib.pyplot as plt
 import networkx as nx
 import matplotlib
 import matplotlib.pyplot
 
+from instances.algorithms import build_instance_graph, traverse_instance_graph
 from instances.problem_instance import ProblemInstance, Job
 
 
@@ -10,7 +13,7 @@ def draw_instance_graph(instance: ProblemInstance,
                         block: bool = False,
                         highlighted_nodes: set[int] or None = None,
                         save_as: str or None = None):
-    graph = __build_graph(instance)
+    graph = build_instance_graph(instance)
     is_planar, planar_graph = nx.check_planarity(graph)
     if is_planar:
         planar_graph.check_structure()
@@ -22,26 +25,23 @@ def draw_instance_graph(instance: ProblemInstance,
     __draw_graph(graph, node_locations, block, highlighted_nodes=highlighted_nodes, save_as=save_as)
 
 
-def __build_graph(instance: ProblemInstance) -> nx.DiGraph:
-    graph = nx.DiGraph()
-    graph.add_nodes_from(job.id_job for job in instance.jobs)
-    graph.add_edges_from((precedence.id_child, precedence.id_parent) for precedence in instance.precedences)
-    return graph
-
-
 def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
-    node_locations = dict()
-    for i, component in enumerate(nx.weakly_connected_components(graph)):
-        generations = nx.topological_generations(graph.subgraph(component))
-        y_base = i * 50
-        for gen_i, generation in enumerate(generations):
-            x = gen_i * 100
-            y_scale = 10
-            y_offset = ((y_scale * (len(generation) - 1)) // 2)
-            for j, node in enumerate(generation):
-                y = y_base + (y_scale * j) - y_offset
-                node_locations[node] = (x, y)
+    y_scale = 10
 
+    node_locations = dict()
+    traversed_nodes = list(traverse_instance_graph(graph=graph, search="components", yield_state=True))
+    grouped_nodes = ((k_comp, k_gen, [n[0] for n in nodes])
+                     for k_comp, comp in itertools.groupby(traversed_nodes, key=lambda n: n[1])
+                     for k_gen, nodes in itertools.groupby(comp, key=lambda n: n[2]))
+    for i_comp, i_gen, nodes in grouped_nodes:
+        y_base = i_comp * 50
+        x = i_gen * 100
+        y_offset = ((y_scale * (len(nodes) - 1)) // 2)
+        for i_node, node in enumerate(nodes):
+            y = y_base + (y_scale * i_node) - y_offset
+            node_locations[node] = (x, y)
+
+    print(node_locations)
     return node_locations
 
 
@@ -73,3 +73,9 @@ def __draw_graph(graph: nx.DiGraph,
         matplotlib.pyplot.savefig(save_as, dpi=300)
 
     plt.show(block=block)
+
+
+if __name__ == "__main__":
+    import rcpsp_sandbox.instances.io as ioo
+    inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11.rp", is_extended=True)
+    draw_instance_graph(inst)
