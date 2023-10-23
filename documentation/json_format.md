@@ -82,3 +82,18 @@ capacity of the resource.
 
 The `Consumptions` entry describes individual consumptions of specified resources. The dictionary is indexed by
 keys of resources and the values are the corresponding consumptions of the resources.
+
+## +Component
+
+Component specifies a weight for a job component. Specifying a component makes sense only when the job-graph has multiple
+weakly connected components.
+
+```
+{
+    "Root job": int,
+    "Weight":   int,
+}
+```
+
+The `Root job` entry specifies a job from the component. The job is not guaranteed to be the first nor the last in
+any ordering. The `Weight` entry specifies "importance" of the component.
