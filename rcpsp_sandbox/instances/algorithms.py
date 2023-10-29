@@ -1,7 +1,7 @@
-import itertools
 from queue import Queue
+import itertools
 import random
-from typing import Generator
+from typing import Generator, Literal
 
 import networkx as nx
 
@@ -25,7 +25,7 @@ def enumerate_topological_generations_nodes(graph):
     """
     Enumerates the topological generations of a given graph.
     :param graph: The graph whose topological generations to enumerate
-    :return:
+    :return: Enumerated nodes in the topological generations order.
     """
     for i_gen, gen in enumerate(nx.topological_generations(graph)):
         for node in gen:
@@ -34,6 +34,12 @@ def enumerate_topological_generations_nodes(graph):
 
 def topological_sort(graph: nx.DiGraph,
                      yield_state: bool = False):
+    """
+    Traverses the nodes of the graph in topological order.
+    :param graph: The graph whose nodes to traverse.
+    :param yield_state: Determines whether to yield the parent node together with the current node.
+    :return: Nodes in the topological order.
+    """
     degrees = {v: d for v, d in graph.in_degree if d > 0}
     no_in = Queue()
     for v, d in graph.in_degree:
@@ -49,12 +55,14 @@ def topological_sort(graph: nx.DiGraph,
                 del degrees[n_to]
         yield (n, parent) if yield_state else n
 
-    if no_in:
-        print_error("The instance graph contains a cycle")
 
-
-def uniform_traversal(graph,
+def uniform_traversal(graph: nx.DiGraph,
                       yield_state: bool = False):
+    """
+    Traverses the node of the graph in uniformly random order.
+    :param graph: The graph whose nodes to traverse.
+    :param yield_state: Determines whether to yield the node as a tuple `(node, )` or just the object node.
+    """
     def pop(f):  # Selects and pops a uniformly chosen node
         i_node = random.randint(0, len(f) - 1)
         n_rand = f[i_node]
@@ -70,9 +78,38 @@ def uniform_traversal(graph,
         frontier += [e[1] for e in graph.out_edges(node)]
 
 
+def paths_traversal(graph: nx.DiGraph,
+                    yield_state: bool = False):
+    successors: dict[Job, list[Job]] = {node: list(graph.successors(node)) for node in graph.nodes}
+    in_degrees = {node: d for node, d in graph.in_degree if d > 0}
+    no_in = Queue()
+    for node, d in graph.in_degree:
+        if d == 0:
+            no_in.put(node)
+
+    paths = []
+    while no_in:
+        node = no_in.get()
+
+        path = [node]
+        while node in successors:  # while there are successors for node...
+            old_node, node = node, successors[node].pop(random.randrange(0, len(successors[node])))
+            for successor in successors[old_node]:
+                in_degrees[successor] -= 1
+                if in_degrees[successor] == 0:
+                    del in_degrees[successor]
+                    no_in.put(successor)
+            del successors[old_node]
+            path.append(node)  # add this new node to the path
+
+        paths.append(path)
+
+    return paths
+
+
 def traverse_instance_graph(problem_instance: ProblemInstance = None,
                             graph: nx.DiGraph = None,
-                            search: str = "topological generations",
+                            search: Literal["topological generations", "components topological generations", "topological", "uniform"] = "topological generations",
                             yield_state: bool = False) -> Generator[Job, None, None]:
     """
     Traverses the job-graph of a given problem instance, yielding jobs in the order of visiting. The available
@@ -82,20 +119,21 @@ def traverse_instance_graph(problem_instance: ProblemInstance = None,
     - components topological generations: Traverse topologically each weakly-connected component before traversing the next component.
     - topological: Traverse the whole graph in topological order.
     - uniform: Traverse from the first (child) jobs of each connected component, choosing a random reachable parent job.
+    - paths: Traverse random paths in the graph. The paths are vertex-disjoint, each vertex is yielded as part of a path.
 
     :param problem_instance: The problem instance whose job-graph to traverse.
     :param graph: The existing job-graph to traverse.
     :param search: Determines the type of search to use for the traversal. Options are "topological generations" (default),
-                   "components topological generations", "topological" or "uniform".
+                   "components topological generations", "topological", "uniform", "paths".
     :param yield_state: Determines whether a search state is yielded with each node. The yielded search state is
     (node, i_gen) for topological generations, (node, i_comp, i_gen) for components topological generations,
-    (node, parent) for topological and (node, ) for uniform.
+    (node, parent) for topological, (node, ) for uniform, (node, i_path) for paths.
     :return: Each job from the instance graph in an order given by the specified search type.
     """
     if problem_instance is None and graph is None:
         print_error("Neither problem instance nor job-graph were given to traverse")
 
-    if search not in ["topological generations", "components topological generations", "topological", "uniform"]:
+    if search not in ["topological generations", "components topological generations", "topological", "uniform", "paths"]:
         print_error(f"Unrecognized search kind: {search}")
         return
 
@@ -114,9 +152,17 @@ def traverse_instance_graph(problem_instance: ProblemInstance = None,
             yield from topological_sort(graph, yield_state=yield_state)
         case "uniform":
             yield from uniform_traversal(graph, yield_state=yield_state)
+        case "paths":
+            for node, i_path in paths_traversal(graph, yield_state=yield_state):
+                yield (node, i_path) if yield_state else node
 
 
 def compute_jobs_in_components(problem_instance: ProblemInstance) -> dict[int, list[Job]]:
+    """
+    Computes the partition of job-nodes of the given problem instance into individual components.
+    :param problem_instance: The problem instance whose jobs to assign to components.
+    :return: A dictionary mapping root jobs to jobs in the same component.
+    """
     jobs_grouped = itertools.groupby(traverse_instance_graph(problem_instance, search="components topological generations", yield_state=True),
                                      key=lambda x: x[1])
     component_jobs_by_root_job: dict[int, list[Job]] = dict()
@@ -128,6 +174,6 @@ def compute_jobs_in_components(problem_instance: ProblemInstance) -> dict[int, l
                 component_jobs_by_root_job[root_job] = jobs
                 break
             else:
-                print_error("No root job specified for an existing component")`
+                print_error("No root job specified for an existing component")
                 return {}
     return component_jobs_by_root_job

@@ -9,6 +9,7 @@ from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoSolveResult
 
 import rcpsp_sandbox.instances
+import rcpsp_sandbox.instances.drawing
 from rcpsp_sandbox.instances.algorithms import traverse_instance_graph
 from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Resource, Job
 from drawing import plot_solution
@@ -41,18 +42,18 @@ class Solver:
                                                          for job_interval in job_intervals.values()))
 
         # TODO tardiness
-        jobs_components_grouped = itertools.groupby(traverse_instance_graph(problem_instance, search="components topological generations", yield_state=True),
-                                                    key=lambda x: x[1])  # we assume that the order in which jobs are returned is determined by the components, we thus do not sort by the component id
-        jobs_by_component: dict[int, list[Job]] = {i_comp: list(jobs) for i_comp, jobs in jobs_components_grouped}
-
-        weights_by_root_job = {c.id_root_job: c.weight for c in problem_instance.components}
-        modeler.minimize(modeler.sum(modeler.end_of(job_intervals[job.id_job])
-                                     for job in problem_instance.jobs)
-                         + (problem_instance.projects[0].tardiness_cost
-                            * modeler.sum(weights_by_root_job[id_root_job]
-                                          * modeler.max(modeler.max(0, modeler.end_of(job_intervals[job.id_job]) - job.due_date)
-                                                        for job in jobs)
-                                          for i_comp, jobs in jobs_by_component)))
+        # jobs_components_grouped = itertools.groupby(traverse_instance_graph(problem_instance, search="components topological generations", yield_state=True),
+        #                                             key=lambda x: x[1])  # we assume that the order in which jobs are returned is determined by the components, so we do not sort by component id
+        # jobs_by_component: dict[int, list[Job]] = {i_comp: list(jobs) for i_comp, jobs in jobs_components_grouped}
+        #
+        # weights_by_root_job = {c.id_root_job: c.weight for c in problem_instance.components}
+        # modeler.minimize(modeler.sum(modeler.end_of(job_intervals[job.id_job])
+        #                              for job in problem_instance.jobs)
+        #                  + (problem_instance.projects[0].tardiness_cost
+        #                     * modeler.sum(weights_by_root_job[id_root_job]
+        #                                   * modeler.max(modeler.max(0, modeler.end_of(job_intervals[job.id_job]) - job.due_date)
+        #                                                 for job in jobs)
+        #                                   for i_comp, jobs in jobs_by_component)))
 
         model = CpoModel(problem_instance.name)
         model.add(job_intervals.values())
@@ -78,7 +79,7 @@ class Solver:
 
     @staticmethod
     def __build_resource_availability(resource: Resource, horizon: int) -> CpoStepFunction:
-        day_operating_hours = resource.availability
+        day_operating_hours = resource.availability if resource.availability is not None else [(0, 24)]
         days_count = math.ceil(horizon / 24)
         step_values = dict()
         for i_day in range(days_count):
@@ -115,6 +116,7 @@ if __name__ == "__main__":
     import rcpsp_sandbox.instances.io as ioo
 
     inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11.rp", is_extended=True)
+    # inst = ioo.parse_psplib("../../../Data/RCPSP/j30/j301_2.sm")
     rcpsp_sandbox.instances.drawing.draw_instance_graph(inst)
     s = Solver()
     solve_result = s.solve(inst)

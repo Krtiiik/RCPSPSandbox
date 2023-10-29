@@ -1,6 +1,6 @@
 import itertools
 import random
-from typing import Self
+from typing import Self, Literal
 
 from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort
 from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence
@@ -21,15 +21,13 @@ class ProblemModifier:
         self._precedences = original_instance.precedences[:]
 
     def assign_job_due_dates(self,
-                             choice: str = "uniform",
+                             choice: str = Literal["uniform", "gradual"],
                              interval: tuple[int, int] = None,
                              target_jobs: list[int] = None,
                              gradual_base: int = None,
                              gradual_interval: tuple[int, int] = None,
                              due_dates: dict[int, int] = None,
                              overwrite: bool = False,) -> Self:
-        # TODO
-
         def try_assign(j, dd):
             if j.due_date is None or overwrite:
                 j.due_date = dd
@@ -53,7 +51,7 @@ class ProblemModifier:
                     due_date = random.uniform(interval[0], interval[1])
                     try_assign(job, due_date)
 
-            case "gradual":  # TODO
+            case "gradual":
                 if gradual_interval is None:
                     gradual_interval = [0,0]
                 for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
@@ -66,7 +64,7 @@ class ProblemModifier:
 
     def complete_jobs(self,
                       jobs_to_complete: list[int] or None = None,
-                      choice: str = "random",
+                      choice: Literal["random", "gradual", "combined"] = None,
                       ratio: float = None,
                       combined_ratio: float = None) -> Self:
         def complete(jbs):
@@ -101,17 +99,36 @@ class ProblemModifier:
                     random_jobs = choose_random(random_count)
                     complete(gradual_jobs)
                     complete(random_jobs)
-                case _:
-                    print_error(f"Unrecognized job-completion choice: {choice}")
         else:
-            print_error("No jobs to complete were given and neither a valid choice-type were given.")
+            print_error("No jobs to complete were given and neither a valid job completion choice were given.")
 
         return self
+
+    def split_job_components(self,
+                             split: Literal["trim source target", "random roots", "paths"]) -> Self:
+        match split:
+            case "trim source target":
+                # TODO remove precedences leading from super-source and super-target
+                pass
+            case "random roots":
+                # TODO pick uniform random node and remove its children tree as a component
+                pass
+            case "paths":
+                # TODO traverse paths
+                pass
+            case _:
+                print_error("Unrecognized split option")
+        return self
+
+    def generate_modified_instance(self) -> ProblemInstance:
+        # TODO implement via InstanceBuilder
+        return None
 
     @property
     def jobs(self):
         return self._jobs
 
+    @property
     def precedences(self):
         return self._precedences
 
