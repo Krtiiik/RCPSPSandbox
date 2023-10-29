@@ -2,7 +2,7 @@ import itertools
 import random
 from typing import Self
 
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph
+from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort
 from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence
 from utils import print_error
 
@@ -10,21 +10,25 @@ from utils import print_error
 class ProblemModifier:
     _original_instance: ProblemInstance
 
-    _new_jobs: list[Job] = []
-    _new_precedences: list[Precedence] = []
+    _jobs: list[Job] = []
+    _precedences: list[Precedence] = []
 
     def __init__(self,
                  original_instance: ProblemInstance):
         self._original_instance = original_instance
 
+        self._jobs = original_instance.jobs[:]
+        self._precedences = original_instance.precedences[:]
+
     def assign_job_due_dates(self,
                              choice: str = "uniform",
                              interval: tuple[int, int] = None,
                              target_jobs: list[int] = None,
+                             gradual_base: int = None,
+                             gradual_interval: tuple[int, int] = None,
                              due_dates: dict[int, int] = None,
                              overwrite: bool = False,) -> Self:
         # TODO
-
 
         def try_assign(j, dd):
             if j.due_date is None or overwrite:
@@ -49,49 +53,67 @@ class ProblemModifier:
                     due_date = random.uniform(interval[0], interval[1])
                     try_assign(job, due_date)
 
-            case "":  # TODO
-                pass
+            case "gradual":  # TODO
+                if gradual_interval is None:
+                    gradual_interval = [0,0]
+                for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
+                    parent_end = parent.due_date if parent is not None else gradual_base
+                    node.due_date = parent_end + node.duration + random.uniform(*gradual_interval)
+            case _:
+                print_error("Unrecognized choice type for computing due dates")
 
         return self
 
     def complete_jobs(self,
                       jobs_to_complete: list[int] or None = None,
-                      completion_ratio: float or None = None,
                       choice: str = "random",
-                      combined_ratio: float = 0.8) -> Self:
+                      ratio: float = None,
+                      combined_ratio: float = None) -> Self:
         def complete(jbs):
             for j in jbs:
                 j.completed = True
 
+        def choose_random(count):
+            return random.sample(self.jobs, count)
+
+        def choose_gradual(count):
+            jobs_to_complete_traverser = traverse_instance_graph(graph=build_instance_graph(self), search="uniform")
+            return itertools.islice(jobs_to_complete_traverser, count)
+
         if jobs_to_complete is not None:
             jobs_by_id = {j.id_job: j for j in self.jobs}
             complete(jobs_by_id[id_job] for id_job in jobs_to_complete)
-        elif completion_ratio is not None:
+        elif choice is not None and choice in ["random", "gradual", "combined"]:
             match choice:
                 case "random":
-                    k = completion_ratio * len(self.jobs)
-                    jobs_to_complete = random.sample(self.jobs, k)
+                    jobs_to_complete_count = ratio * len(self.jobs)
+                    jobs_to_complete = choose_random(jobs_to_complete_count)
                     complete(jobs_to_complete)
                 case "gradual":
-                    jobs_to_complete_count = round(completion_ratio * len(self.jobs))
-                    jobs_to_complete_traverser = traverse_instance_graph(graph=build_instance_graph(self), search="uniform")
-                    complete(itertools.islice(jobs_to_complete_traverser, jobs_to_complete_count))
+                    jobs_to_complete_count = round(ratio * len(self.jobs))
+                    jobs_to_complete = choose_gradual(jobs_to_complete_count)
+                    complete(jobs_to_complete)
                 case "combined":
-                    # TODO combined finishing
-                    pass
+                    jobs_to_complete_count = round(ratio * len(self.jobs))
+                    gradual_count = round(combined_ratio * jobs_to_complete_count)
+                    random_count = round((1 - combined_ratio) * jobs_to_complete_count)
+                    gradual_jobs = choose_gradual(gradual_count)
+                    random_jobs = choose_random(random_count)
+                    complete(gradual_jobs)
+                    complete(random_jobs)
                 case _:
                     print_error(f"Unrecognized job-completion choice: {choice}")
         else:
-            print_error("No jobs to complete were given and neither a ratio for finished job was given.")
+            print_error("No jobs to complete were given and neither a valid choice-type were given.")
 
         return self
 
     @property
     def jobs(self):
-        return self._original_instance.jobs[:] + self._new_jobs
+        return self._jobs
 
     def precedences(self):
-        return self._original_instance.precedences[:] + self._new_precedences
+        return self._precedences
 
 
 def modify_instance(problem_instance: ProblemInstance) -> ProblemModifier:
