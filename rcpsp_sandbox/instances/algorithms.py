@@ -181,3 +181,33 @@ def compute_jobs_in_components(problem_instance: ProblemInstance) -> dict[int, l
                 print_error("No root job specified for an existing component")
                 return {}
     return component_jobs_by_root_job
+
+
+def subtree_traversal(graph: nx.DiGraph,
+                      root: Job or int,
+                      kind: Literal["bfs", "dfs"] = "bfs") -> list[Job]:
+    """
+    Traverses the subtree of the given graph rooted at the given node.
+    :param graph: The graph whose subtree to traverse.
+    :param root: The root of the subtree to traverse.
+    :param kind: The kind of traversal to use. Options are "bfs" (default) and "dfs".
+    :return: The subtree of the graph rooted at the given node.
+    """
+    if kind not in ["bfs", "dfs"]:
+        print_error(f"unrecognized subtree traversal kind {kind}")
+        return []
+
+    is_bfs = kind == "bfs"
+    frontier = Queue() if is_bfs else list()
+    pop = frontier.get if is_bfs else frontier.pop
+    put = frontier.put if is_bfs else frontier.append
+    subtree = []
+
+    put(root)
+    while frontier:
+        node = pop()
+        subtree.append(node)
+        for child in graph.successors(node):
+            put(child)
+
+    return subtree

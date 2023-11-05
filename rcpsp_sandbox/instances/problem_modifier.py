@@ -2,7 +2,11 @@ import itertools
 import random
 from typing import Self, Literal
 
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, paths_traversal
+import networkx as nx
+
+from instances.instance_builder import InstanceBuilder
+from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
+    paths_traversal, subtree_traversal
 from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence, Component
 from utils import print_error
 
@@ -110,13 +114,41 @@ class ProblemModifier:
                              split: Literal["trim source target", "random roots", "paths"]) -> Self:
         match split:
             case "trim source target":
-                # TODO remove precedences leading from super-source and super-target
-                pass
+                instance_graph = build_instance_graph(self)
+                if nx.number_weakly_connected_components(instance_graph) != 1:
+                    print_error("Current instance graph does not satisfy the requirements to trim the source and target nodes. The graph contains more than 1 component.")
+                    return self
+
+                topo = list(topological_sort(instance_graph))  # this is very ineffective, forgive me
+                source, target = topo[0], topo[-1]
+                instance_graph.remove_nodes_from([source, target])
+
+                graph_components = list(nx.weakly_connected_components(instance_graph))
+                components = [Component(next(iter(component)).id_job, 0) for component in graph_components]
+                precedences = [Precedence(u.id_job, v.id_job) for u, v in instance_graph.edges]
+
+                self.precedences = precedences
+                self.components = components
             case "random roots":
-                # TODO pick uniform random node and remove its children tree as a component
+                graph = build_instance_graph(self)
+                subtrees = []
+                while graph:
+                    root = random.choice(graph.nodes)
+                    subtree = subtree_traversal(graph, root)
+                    graph.remove_nodes_from(subtree)
+                    subtrees.append(subtree)
+
+                instance_graph = build_instance_graph(self)
+                instance_graph: nx.DiGraph = nx.union_all(instance_graph.subgraph(subtree) for subtree in subtrees)
+
+                components = [Component(subtree[0].id_job, 0)
+                              for subtree in subtrees]
+                precedences = [Precedence(u.id_job, v.id_job)
+                               for u, v in instance_graph.edges]
+                self.precedences = precedences
+                self.components = components
                 pass
             case "paths":
-                # TODO traverse paths
                 paths = paths_traversal(build_instance_graph(self))
                 precedences = [Precedence(child.id_job, parent.id_job)
                                for path in paths
@@ -125,14 +157,20 @@ class ProblemModifier:
 
                 self.precedences = precedences
                 self.components = components
-                pass
             case _:
-                print_error("Unrecognized split option")
+                print_error(f"Unrecognized split option: {split}")
         return self
 
-    def generate_modified_instance(self) -> ProblemInstance:
-        # TODO implement via InstanceBuilder
-        return None
+    def generate_modified_instance(self, name: str = None) -> ProblemInstance:
+        builder = InstanceBuilder()
+        builder.add_jobs(self.jobs)
+        builder.add_precedences(self.precedences)
+        builder.add_components(self.components)
+        builder.add_resources(self._original_instance.resources)
+        builder.add_projects(self._original_instance.projects)
+        builder.set(horizon=self._original_instance.horizon,
+                    name=name if name is not None else f"{self._original_instance.name}_modified")
+        return builder.build_instance()
 
     @property
     def jobs(self) -> list[Job]:
@@ -157,6 +195,7 @@ class ProblemModifier:
     @components.setter
     def components(self, value: list[Component]):
         self._components = value
+
 
 def modify_instance(problem_instance: ProblemInstance) -> ProblemModifier:
     return ProblemModifier(problem_instance)
