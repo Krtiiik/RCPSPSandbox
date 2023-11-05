@@ -1,4 +1,4 @@
-from queue import Queue
+from collections import deque
 import itertools
 import random
 from typing import Generator, Literal
@@ -41,17 +41,17 @@ def topological_sort(graph: nx.DiGraph,
     :return: Nodes in the topological order.
     """
     degrees = {v: d for v, d in graph.in_degree if d > 0}
-    no_in = Queue()
+    no_in = deque()
     for v, d in graph.in_degree:
         if d == 0:
-            no_in.put((None, v))
+            no_in.append((None, v))
 
     while no_in:
-        parent, n = no_in.get()
-        for n_from, n_to in graph.edges(n):
+        parent, n = no_in.popleft()
+        for _n_from, n_to in graph.edges(n):
             degrees[n_to] -= 1
             if degrees[n_to] == 0:
-                no_in.put((n_from, degrees[n_to]))
+                no_in.append((n, n_to))
                 del degrees[n_to]
         yield (n, parent) if yield_state else n
 
@@ -84,16 +84,16 @@ def paths_traversal(graph: nx.DiGraph):
     :param graph: The graph in which to traverse the paths.
     :return: A collection of paths using all graph nodes. All the paths are vertex-disjoint.
     """
-    successors: dict[Job, list[Job]] = {node: list(graph.successors(node)) for node in graph.nodes}
+    successors: dict[Job, list[Job]] = {node: list(graph.successors(node)) for node in graph.nodes if len(list(graph.successors(node))) > 0}
     in_degrees = {node: d for node, d in graph.in_degree if d > 0}
-    no_in = Queue()
+    no_in = deque()
     for node, d in graph.in_degree:
         if d == 0:
-            no_in.put(node)
+            no_in.append(node)
 
     paths = []
     while no_in:
-        node = no_in.get()
+        node = no_in.popleft()
 
         path = [node]
         while node in successors:  # while there are successors for node...
@@ -102,11 +102,13 @@ def paths_traversal(graph: nx.DiGraph):
                 in_degrees[successor] -= 1
                 if in_degrees[successor] == 0:
                     del in_degrees[successor]
-                    no_in.put(successor)
+                    no_in.append(successor)
             del successors[old_node]
             path.append(node)  # add this new node to the path
 
         paths.append(path)
+
+    # TODO new algorithm: paths are not disjoint
 
     return paths
 
@@ -197,10 +199,9 @@ def subtree_traversal(graph: nx.DiGraph,
         print_error(f"unrecognized subtree traversal kind {kind}")
         return []
 
-    is_bfs = kind == "bfs"
-    frontier = Queue() if is_bfs else list()
-    pop = frontier.get if is_bfs else frontier.pop
-    put = frontier.put if is_bfs else frontier.append
+    frontier = deque()
+    put = frontier.append
+    pop = frontier.popleft if kind == "bfs" else frontier.pop
     subtree = []
 
     put(root)

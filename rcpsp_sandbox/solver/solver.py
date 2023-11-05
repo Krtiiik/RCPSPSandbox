@@ -8,11 +8,11 @@ from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoSolveResult
 
-import rcpsp_sandbox.instances
-import rcpsp_sandbox.instances.drawing
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Resource, Job
-from drawing import plot_solution
+import instances
+import instances.drawing
+from instances.algorithms import traverse_instance_graph
+from instances.problem_instance import ProblemInstance, Resource, Job
+from solver.drawing import plot_solution
 
 
 class Solver:

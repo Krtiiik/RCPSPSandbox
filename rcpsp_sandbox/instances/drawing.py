@@ -7,20 +7,30 @@ import matplotlib.pyplot
 
 from instances.algorithms import build_instance_graph, traverse_instance_graph
 from instances.problem_instance import ProblemInstance, Job
+from utils import print_error
 
 
-def draw_instance_graph(instance: ProblemInstance,
+def draw_instance_graph(instance: ProblemInstance = None,
+                        graph: nx.DiGraph = None,
                         block: bool = False,
                         highlighted_nodes: set[int] or None = None,
                         save_as: str or None = None):
-    graph = build_instance_graph(instance)
-    is_planar, planar_graph = nx.check_planarity(graph)
-    if is_planar:
-        planar_graph.check_structure()
-        node_locations = nx.combinatorial_embedding_to_pos(planar_graph)
-        print("planar")
-    else:
-        node_locations = __compute_node_locations(graph)
+    if graph is None:
+        if instance is not None:
+            graph = build_instance_graph(instance)
+        else:
+            print_error("No instance nor graph were given to draw")
+            return
+
+    # is_planar, planar_graph = nx.check_planarity(graph)
+    # if is_planar:
+    #     planar_graph.check_structure()
+    #     node_locations = nx.combinatorial_embedding_to_pos(planar_graph)
+    #     print("planar")
+    # else:
+    #     node_locations = __compute_node_locations(graph)
+
+    node_locations = __compute_node_locations(graph)
 
     __draw_graph(graph, node_locations, block, highlighted_nodes=highlighted_nodes, save_as=save_as)
 
@@ -41,7 +51,6 @@ def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
             y = y_base + (y_scale * i_node) - y_offset
             node_locations[node] = (x, y)
 
-    print(node_locations)
     return node_locations
 
 

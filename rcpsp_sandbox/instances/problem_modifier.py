@@ -5,9 +5,9 @@ from typing import Self, Literal
 import networkx as nx
 
 from instances.instance_builder import InstanceBuilder
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
+from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence, Component
+from instances.problem_instance import ProblemInstance, Job, Precedence, Component
 from utils import print_error
 
 
@@ -124,16 +124,17 @@ class ProblemModifier:
                 instance_graph.remove_nodes_from([source, target])
 
                 graph_components = list(nx.weakly_connected_components(instance_graph))
-                components = [Component(next(iter(component)).id_job, 0) for component in graph_components]
-                precedences = [Precedence(u.id_job, v.id_job) for u, v in instance_graph.edges]
+                components = [Component(next(iter(component)), 0) for component in graph_components]
+                precedences = [Precedence(u, v) for u, v in instance_graph.edges]
 
+                self.jobs = [job for job in self.jobs if job.id_job not in {source, target}]
                 self.precedences = precedences
                 self.components = components
             case "random roots":
                 graph = build_instance_graph(self)
                 subtrees = []
                 while graph:
-                    root = random.choice(graph.nodes)
+                    root = random.choice(list(graph.nodes))
                     subtree = subtree_traversal(graph, root)
                     graph.remove_nodes_from(subtree)
                     subtrees.append(subtree)
@@ -141,19 +142,19 @@ class ProblemModifier:
                 instance_graph = build_instance_graph(self)
                 instance_graph: nx.DiGraph = nx.union_all(instance_graph.subgraph(subtree) for subtree in subtrees)
 
-                components = [Component(subtree[0].id_job, 0)
+                components = [Component(subtree[0], 0)
                               for subtree in subtrees]
-                precedences = [Precedence(u.id_job, v.id_job)
+                precedences = [Precedence(u, v)
                                for u, v in instance_graph.edges]
                 self.precedences = precedences
                 self.components = components
                 pass
             case "paths":
                 paths = paths_traversal(build_instance_graph(self))
-                precedences = [Precedence(child.id_job, parent.id_job)
+                precedences = [Precedence(child, parent)
                                for path in paths
                                for child, parent in zip(path, path[1:])]
-                components = [Component(path[0].id_job, 0) for path in paths]  # Component weight is not set, can be set manually
+                components = [Component(path[0], 0) for path in paths]  # Component weight is not set, can be set manually
 
                 self.precedences = precedences
                 self.components = components
