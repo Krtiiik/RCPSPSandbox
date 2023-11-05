@@ -78,8 +78,12 @@ def uniform_traversal(graph: nx.DiGraph,
         frontier += [e[1] for e in graph.out_edges(node)]
 
 
-def paths_traversal(graph: nx.DiGraph,
-                    yield_state: bool = False):
+def paths_traversal(graph: nx.DiGraph):
+    """
+    Traverses random vertex-disjoint paths in the given graph.
+    :param graph: The graph in which to traverse the paths.
+    :return: A collection of paths using all graph nodes. All the paths are vertex-disjoint.
+    """
     successors: dict[Job, list[Job]] = {node: list(graph.successors(node)) for node in graph.nodes}
     in_degrees = {node: d for node, d in graph.in_degree if d > 0}
     no_in = Queue()
@@ -153,7 +157,7 @@ def traverse_instance_graph(problem_instance: ProblemInstance = None,
         case "uniform":
             yield from uniform_traversal(graph, yield_state=yield_state)
         case "paths":
-            for node, i_path in paths_traversal(graph, yield_state=yield_state):
+            for node, i_path in paths_traversal(graph):
                 yield (node, i_path) if yield_state else node
 
 

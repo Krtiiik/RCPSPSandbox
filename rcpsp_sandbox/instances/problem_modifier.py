@@ -2,8 +2,8 @@ import itertools
 import random
 from typing import Self, Literal
 
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence
+from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, paths_traversal
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence, Component
 from utils import print_error
 
 
@@ -12,6 +12,7 @@ class ProblemModifier:
 
     _jobs: list[Job] = []
     _precedences: list[Precedence] = []
+    _components: list[Component] = []
 
     def __init__(self,
                  original_instance: ProblemInstance):
@@ -19,6 +20,7 @@ class ProblemModifier:
 
         self._jobs = original_instance.jobs[:]
         self._precedences = original_instance.precedences[:]
+        self._components = original_instance.components[:]
 
     def assign_job_due_dates(self,
                              choice: str = Literal["uniform", "gradual"],
@@ -115,6 +117,14 @@ class ProblemModifier:
                 pass
             case "paths":
                 # TODO traverse paths
+                paths = paths_traversal(build_instance_graph(self))
+                precedences = [Precedence(child.id_job, parent.id_job)
+                               for path in paths
+                               for child, parent in zip(path, path[1:])]
+                components = [Component(path[0].id_job, 0) for path in paths]  # Component weight is not set, can be set manually
+
+                self.precedences = precedences
+                self.components = components
                 pass
             case _:
                 print_error("Unrecognized split option")
@@ -125,14 +135,28 @@ class ProblemModifier:
         return None
 
     @property
-    def jobs(self):
+    def jobs(self) -> list[Job]:
         return self._jobs
 
+    @jobs.setter
+    def jobs(self, value: list[Job]):
+        self._jobs = value
+
     @property
-    def precedences(self):
+    def precedences(self) -> list[Precedence]:
         return self._precedences
 
+    @precedences.setter
+    def precedences(self, value: list[Precedence]):
+        self._precedences = value
+
+    @property
+    def components(self) -> list[Component]:
+        return self._components
+
+    @components.setter
+    def components(self, value: list[Component]):
+        self._components = value
 
 def modify_instance(problem_instance: ProblemInstance) -> ProblemModifier:
     return ProblemModifier(problem_instance)
-
