@@ -84,7 +84,7 @@ def paths_traversal(graph: nx.DiGraph):
     :param graph: The graph in which to traverse the paths.
     :return: A collection of paths using all graph nodes. All the paths are vertex-disjoint.
     """
-    successors: dict[Job, list[Job]] = {node: list(graph.successors(node)) for node in graph.nodes if len(list(graph.successors(node))) > 0}
+    successors: dict[Job, set[Job]] = {node: set(graph.successors(node)) for node in graph.nodes if len(set(graph.successors(node))) > 0}
     in_degrees = {node: d for node, d in graph.in_degree if d > 0}
     no_in = deque()
     for node, d in graph.in_degree:
@@ -92,23 +92,26 @@ def paths_traversal(graph: nx.DiGraph):
             no_in.append(node)
 
     paths = []
+    visited = set()
     while no_in:
         node = no_in.popleft()
-
         path = [node]
+        visited |= {node}
         while node in successors:  # while there are successors for node...
-            old_node, node = node, successors[node].pop(random.randrange(0, len(successors[node])))
-            for successor in successors[old_node]:
+            successors[node] -= visited  # remove visited nodes from successors
+            if not successors[node]:  # if there are no unvisited successors...
+                break  # path is complete
+            old_node, node = node, random.choice(list(successors[node]))  # node is a random successor
+            for successor in successors[old_node]:  # update successors in-degrees
                 in_degrees[successor] -= 1
                 if in_degrees[successor] == 0:
                     del in_degrees[successor]
                     no_in.append(successor)
             del successors[old_node]
+            visited |= {node}
             path.append(node)  # add this new node to the path
 
         paths.append(path)
-
-    # TODO new algorithm: paths are not disjoint
 
     return paths
 
