@@ -107,7 +107,7 @@ class Resource:
         return self._id_resource
 
     def __str__(self):
-        return f"Resource{{id: {self.id_resource}, type: {self.type}, capacity: {self.capacity}}}"
+        return f"Resource{{id: {self.id_resource}, type: {self.type}}}"
 
 
 class ResourceConsumption:
@@ -191,7 +191,7 @@ class Job:
         return self._id_job
 
     def __str__(self):
-        return f"Job{{id: {self.id_job}, duration: {self.duration}, resource_consumption: {self.resource_consumption}, due_date: {self.due_date}}}"
+        return f"Job{{id: {self.id_job}}}"
 
 
 class Precedence:
@@ -294,7 +294,7 @@ class Component:
         self._weight = value
 
     def __str__(self):
-        return f"Component{{id_root_job: {self.id_root_job}, weight: {self.weight}}}"
+        return f"Component{{id_root_job: {self.id_root_job}}}"
 
 
 class ProblemInstance:

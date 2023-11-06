@@ -59,10 +59,10 @@ class ProblemModifier:
 
             case "gradual":
                 if gradual_interval is None:
-                    gradual_interval = [0,0]
+                    gradual_interval = (0, 0)
                 for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
-                    parent_end = parent.due_date if parent is not None else gradual_base
-                    node.due_date = parent_end + node.duration + random.uniform(*gradual_interval)
+                    parent_end = jobs_by_id[parent].due_date if parent is not None else gradual_base
+                    jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + random.uniform(*gradual_interval)
             case _:
                 print_error("Unrecognized choice type for computing due dates")
 
