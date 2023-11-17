@@ -16,7 +16,9 @@ class Solver:
         if model is not None:
             return self.__solve_model(model)
         elif problem_instance is not None:
-            model = build_model(problem_instance)
+            model = build_model(problem_instance) \
+                .optimize_model(opt="Tardiness all") \
+                .get_model()
             return self.__solve_model(model)
         else:
             raise TypeError("No problem instance nor model was specified to solve")
@@ -45,5 +47,21 @@ if __name__ == "__main__":
     solve_result = s.solve(inst)
     if solve_result.is_solution():
         solution = solve_result.get_solution()
-        solution.print_solution()
+        # solution.print_solution()
         plot_solution(inst, solution)
+
+        alt_inst = inst.copy()
+
+        # ~~~~~ Modifications ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        alt_inst.resources[2].capacity += 10
+
+        alt_model = build_model(alt_inst) \
+            .optimize_model(opt="Tardiness selected", priority_jobs=random.choices(inst.jobs, k=3)) \
+            .restrain_model_based_on_solution(solution) \
+            .minimize_model_solution_difference(solution) \
+            .get_model()
+        alt_solve_result = s.solve(model=alt_model)
+        if alt_solve_result.is_solution():
+            alt_solution = alt_solve_result.get_solution()
+            # alt_solution.print_solution()
+            plot_solution(alt_inst, alt_solution)
