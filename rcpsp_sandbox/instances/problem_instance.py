@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Optional, Collection
+from typing import Optional, Collection, Self
 
 from instances.utils import list_of
 
@@ -46,6 +46,11 @@ class AvailabilityInterval:
     @capacity.setter
     def capacity(self, value: int or None):
         self._capacity = value
+
+    def copy(self) -> Self:
+        return AvailabilityInterval(start=self.start,
+                                    end=self.end,
+                                    capacity=self.capacity)
 
     def __str__(self):
         return (f"[{self.start, self.end}]" if self.capacity is None
@@ -103,8 +108,19 @@ class Resource:
     def key(self) -> str:
         return f"{self.type}{self.id_resource}"
 
+    def copy(self) -> Self:
+        return Resource(id_resource=self.id_resource,
+                        resource_type=self.type,
+                        capacity=self.capacity,
+                        availability=self.availability.copy() if self.availability is not None else None)
+
     def __hash__(self):
-        return self._id_resource
+        return hash((self._id_resource, self._type))
+
+    def __eq__(self, other):
+        return isinstance(other, Resource)\
+            and self.id_resource == other.id_resource \
+            and self.type == other.type
 
     def __str__(self):
         return f"Resource{{id: {self.id_resource}, type: {self.type}}}"
@@ -124,6 +140,9 @@ class ResourceConsumption:
     @consumption_by_resource.setter
     def consumption_by_resource(self, value: dict[Resource, int]):
         self._consumption_by_resource = value
+
+    def copy(self) -> Self:
+        return ResourceConsumption(consumption_by_resource=self.consumption_by_resource.copy())
 
     def __getitem__(self, resource: Resource or int):
         return self.consumption_by_resource[resource]
@@ -187,8 +206,19 @@ class Job:
     def completed(self, value: bool):
         self._completed = value
 
+    def copy(self) -> Self:
+        return Job(id_job=self.id_job,
+                   duration=self.duration,
+                   resource_consumption=self.resource_consumption.copy(),
+                   due_date=self.due_date,
+                   completed=self.completed)
+
     def __hash__(self):
         return self._id_job
+
+    def __eq__(self, other):
+        return isinstance(other, Job)\
+            and self.id_job == other.id_job
 
     def __str__(self):
         return f"Job{{id: {self.id_job}}}"
@@ -220,8 +250,17 @@ class Precedence:
     def id_parent(self, value: int):
         self._id_parent = value
 
+    def copy(self) -> Self:
+        return Precedence(id_child=self.id_child,
+                          id_parent=self.id_parent)
+
     def __hash__(self):
         return hash((self._id_child, self._id_parent))
+
+    def __eq__(self, other):
+        return isinstance(other, Precedence)\
+            and self.id_child == other.id_child\
+            and self.id_parent == other.id_parent
 
     def __str__(self):
         return f"Precedence{{child: {self.id_child}, parent: {self.id_parent}}}"
@@ -263,6 +302,11 @@ class Project:
     def tardiness_cost(self, value: int):
         self._tardiness_cost = value
 
+    def copy(self) -> Self:
+        return Project(id_project=self.id_project,
+                       due_date=self.due_date,
+                       tardiness_cost=self.tardiness_cost)
+
     def __str__(self):
         return f"Project{{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
 
@@ -292,6 +336,10 @@ class Component:
     @weight.setter
     def weight(self, value: int):
         self._weight = value
+
+    def copy(self) -> Self:
+        return Component(id_root_job=self.id_root_job,
+                         weight=self.weight)
 
     def __str__(self):
         return f"Component{{id_root_job: {self.id_root_job}}}"
@@ -381,6 +429,15 @@ class ProblemInstance:
     @components.setter
     def components(self, value: list[Component]):
         self._components = value
+
+    def copy(self) -> Self:
+        return ProblemInstance(horizon=self.horizon,
+                               projects=[p.copy() for p in self.projects],
+                               resources=[r.copy() for r in self.resources],
+                               jobs=[j.copy() for j in self.jobs],
+                               precedences=[p.copy() for p in self.precedences],
+                               components=[c.copy() for c in self.components] if self.components is not None else None,
+                               name=self.name)
 
     def __str__(self):
         return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
