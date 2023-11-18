@@ -1,5 +1,6 @@
+from collections import defaultdict
 from enum import StrEnum
-from typing import Optional, Collection, Self
+from typing import Optional, Collection, Self, Iterable
 
 from rcpsp_sandbox.instances.utils import list_of
 
@@ -162,7 +163,7 @@ class Job:
                  id_job: int,
                  duration: int,
                  resource_consumption: ResourceConsumption,
-                 due_date: int or None = None,
+                 due_date: int = 0,
                  completed: bool = False):
         self._id_job = id_job
         self._duration = duration
@@ -354,7 +355,14 @@ class ProblemInstance:
     _resources: list[Resource] = []
     _jobs: list[Job] = []
     _precedences: list[Precedence] = []
-    _components: list[Component] or None = None
+    _components: list[Component] = []
+
+    _projects_by_id: dict[int, Project] = {}
+    _resources_by_id: dict[int, Resource] = {}
+    _jobs_by_id: dict[int, Job] = {}
+    _precedences_by_id_child: dict[int, Iterable[Precedence]] = {}
+    _precedences_by_id_parent: dict[int, Iterable[Precedence]] = {}
+    _components_by_id_root_job: dict[int, Component] = {}
 
     def __init__(self,
                  horizon: int,
@@ -372,7 +380,7 @@ class ProblemInstance:
         self._resources = list_of(resources)
         self._jobs = list_of(jobs)
         self._precedences = list_of(precedences)
-        self._components = list_of(components) if components is not None else None
+        self._components = list_of(components) if components is not None else [Component(self._jobs[0].id_job, 1)]
 
     @property
     def name(self) -> Optional[str]:
@@ -399,12 +407,24 @@ class ProblemInstance:
         self._projects = value
 
     @property
+    def projects_by_id(self) -> dict[int, Project]:
+        if len(self._projects_by_id) != len(self._projects):
+            self._projects_by_id = {p.id_project: p for p in self._projects}
+        return self._projects_by_id
+
+    @property
     def resources(self) -> list[Resource]:
         return self._resources
 
     @resources.setter
     def resources(self, value: list[Resource]):
         self._resources = value
+
+    @property
+    def resources_by_id(self) -> dict[int, Resource]:
+        if len(self._resources_by_id) != len(self._resources):
+            self._resources_by_id = {r.id_resource: r for r in self._resources}
+        return self._resources_by_id
 
     @property
     def jobs(self) -> list[Job]:
@@ -415,12 +435,35 @@ class ProblemInstance:
         self._jobs = value
 
     @property
+    def jobs_by_id(self) -> dict[int, Job]:
+        if len(self._jobs_by_id) != len(self._jobs):
+            self._jobs_by_id = {j.id_job: j for j in self._jobs}
+        return self._jobs_by_id
+
+    @property
     def precedences(self) -> list[Precedence]:
         return self._precedences
 
     @precedences.setter
     def precedences(self, value: list[Precedence]):
         self._precedences = value
+
+        # Recompute precedence index as automatically checking and recomputing it in the appropriate properties is expensive
+        self._precedences_by_id_child = defaultdict(list)
+        self._precedences_by_id_parent = defaultdict(list)
+        for p in self._precedences:
+            self._precedences_by_id_child[p.id_child] += [p]
+            self._precedences_by_id_parent[p.id_parent] += [p]
+
+    @property
+    def precedences_by_id_child(self) -> dict[int, Iterable[Precedence]]:
+        # This is not recomputed automatically as it is hard to check
+        return self._precedences_by_id_child
+
+    @property
+    def precedences_by_id_parent(self) -> dict[int, Iterable[Precedence]]:
+        # This is not recomputed automatically as it is hard to check
+        return self._precedences_by_id_parent
 
     @property
     def components(self) -> list[Component] or None:
@@ -430,13 +473,19 @@ class ProblemInstance:
     def components(self, value: list[Component]):
         self._components = value
 
+    @property
+    def components_by_id_root_job(self) -> dict[int, Component]:
+        if len(self._components_by_id_root_job) != len(self._components):
+            self._components_by_id_root_job = {c.id_root_job: c for c in self._components}
+        return self._components_by_id_root_job
+
     def copy(self) -> Self:
         return ProblemInstance(horizon=self.horizon,
                                projects=[p.copy() for p in self.projects],
                                resources=[r.copy() for r in self.resources],
                                jobs=[j.copy() for j in self.jobs],
                                precedences=[p.copy() for p in self.precedences],
-                               components=[c.copy() for c in self.components] if self.components is not None else None,
+                               components=[c.copy() for c in self.components],
                                name=self.name)
 
     def __str__(self):
