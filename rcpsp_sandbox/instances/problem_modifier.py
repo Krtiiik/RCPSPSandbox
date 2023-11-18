@@ -54,7 +54,7 @@ class ProblemModifier:
                 target_jobs = (self.jobs if target_jobs is None
                                else (jobs_by_id[id_job] for id_job in target_jobs))
                 for job in target_jobs:
-                    due_date = random.uniform(interval[0], interval[1])
+                    due_date = round(random.uniform(interval[0], interval[1]))
                     try_assign(job, due_date)
 
             case "gradual":
@@ -62,7 +62,7 @@ class ProblemModifier:
                     gradual_interval = (0, 0)
                 for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
                     parent_end = jobs_by_id[parent].due_date if parent is not None else gradual_base
-                    jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + random.uniform(*gradual_interval)
+                    jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + round(random.uniform(*gradual_interval))
             case _:
                 print_error("Unrecognized choice type for computing due dates")
 
@@ -124,7 +124,7 @@ class ProblemModifier:
                 instance_graph.remove_nodes_from([source, target])
 
                 graph_components = list(nx.weakly_connected_components(instance_graph))
-                components = [Component(next(iter(component)), 0) for component in graph_components]
+                components = [Component(next(iter(component)), 1) for component in graph_components]
                 precedences = [Precedence(u, v) for u, v in instance_graph.edges]
 
                 self.jobs = [job for job in self.jobs if job.id_job not in {source, target}]
@@ -142,7 +142,7 @@ class ProblemModifier:
                 instance_graph = build_instance_graph(self)
                 instance_graph: nx.DiGraph = nx.union_all(instance_graph.subgraph(subtree) for subtree in subtrees)
 
-                components = [Component(subtree[0], 0)
+                components = [Component(subtree[0], 1)
                               for subtree in subtrees]
                 precedences = [Precedence(u, v)
                                for u, v in instance_graph.edges]
@@ -154,7 +154,7 @@ class ProblemModifier:
                 precedences = [Precedence(child, parent)
                                for path in paths
                                for child, parent in zip(path, path[1:])]
-                components = [Component(path[0], 0) for path in paths]  # Component weight is not set, can be set manually
+                components = [Component(path[0], 1) for path in paths]  # Component weight is not set, can be set manually
 
                 self.precedences = precedences
                 self.components = components
