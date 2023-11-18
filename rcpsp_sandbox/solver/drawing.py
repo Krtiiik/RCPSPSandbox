@@ -1,10 +1,15 @@
+import random
+
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from docplex.cp.expression import INTERVAL_MIN, INTERVAL_MAX
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.solution import CpoModelSolution
 import docplex.cp.utils_visu as visu
 
 from instances.problem_instance import ProblemInstance
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance
+from rcpsp_sandbox.solver.utils import compute_component_jobs
 
 
 def plot_solution(problem_instance: ProblemInstance,

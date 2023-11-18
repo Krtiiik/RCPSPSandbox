@@ -1,6 +1,22 @@
 import random
+from typing import Iterable, Tuple
+
 from docplex.cp.model import CpoModel
-from docplex.cp.solution import CpoSolveResult
+from docplex.cp.solution import CpoSolveResult, CpoModelSolution
+
+from rcpsp_sandbox.instances.drawing import draw_instance_graph
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
+from rcpsp_sandbox.solver.drawing import plot_solution
+from rcpsp_sandbox.instances.problem_modifier import modify_instance
+from rcpsp_sandbox.solver.model_builder import build_model
+from rcpsp_sandbox.solver.utils import get_solution_job_interval_solutions, compute_component_jobs
+
+
+class SolveResult:
+    result: CpoSolveResult
+
+    def __init__(self, cpo_solve_result):
+        self.result = cpo_solve_result
 
 from instances.drawing import draw_instance_graph
 from instances.problem_instance import ProblemInstance

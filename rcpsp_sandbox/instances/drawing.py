@@ -5,9 +5,9 @@ import networkx as nx
 import matplotlib
 import matplotlib.pyplot
 
-from instances.algorithms import build_instance_graph, traverse_instance_graph
-from instances.problem_instance import ProblemInstance, Job
-from utils import print_error
+from rcpsp_sandbox.instances.algorithms import build_instance_graph, traverse_instance_graph
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
+from rcpsp_sandbox.utils import print_error
 
 
 def draw_instance_graph(instance: ProblemInstance = None,

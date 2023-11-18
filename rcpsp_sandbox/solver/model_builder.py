@@ -1,17 +1,15 @@
-import itertools
 import math
 from collections import defaultdict
 from typing import Collection, Iterable, Literal, Tuple, Self
 
 from docplex.cp import modeler
-from docplex.cp.expression import interval_var, CpoExpr, CpoIntervalVar
+from docplex.cp.expression import interval_var, CpoExpr
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
-from instances.algorithms import traverse_instance_graph
-from instances.problem_instance import ProblemInstance, Resource, Job
-from utils import index_groups
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Resource, Job
+from rcpsp_sandbox.solver.utils import compute_component_jobs, get_solution_job_interval_solutions, get_model_job_intervals
 
 
 class ModelBuilder:
@@ -27,14 +25,14 @@ class ModelBuilder:
 
     def optimize_model(self,
                        opt: Literal["Tardiness all", "Tardiness selected"] = "Tardiness all",
-                       priority_jobs: Collection[Job] = None) -> Self:
+                       priority_jobs: Iterable[Job] = None) -> Self:
         """
         Optimizes the model by adding an optimization goal. The optimization can minimize the total tardiness of all
         job components, tardiness of selected priority job components.
 
         Args:
             opt (Literal["None", "Tardiness all", "Tardiness selected"], optional): The optimization option to use. Defaults to "None".
-            priority_jobs (Collection[Job], optional): The collection of selected jobs to use for the "Tardiness selected" optimization option. Defaults to None.
+            priority_jobs (Iterable[Job], optional): The collection of selected jobs to use for the "Tardiness selected" optimization option. Defaults to None.
 
         Raises:
             ValueError: If an unrecognized optimization option is provided or if the "Tardiness selected" option is used without providing a non-empty collection of selected jobs.
@@ -43,7 +41,7 @@ class ModelBuilder:
             raise ValueError(f"Unrecognized optimization option: {opt}")
 
         if opt in ["Tardiness all", "Tardiness selected"]:
-            component_jobs_by_root_job = ModelBuilder.__compute_component_jobs(self.instance)
+            component_jobs_by_root_job = compute_component_jobs(self.instance)
             weights_by_id_root_job = {c.id_root_job: c.weight for c in self.instance.components}
 
             if opt == "Tardiness all":
@@ -69,6 +67,7 @@ class ModelBuilder:
 
     def restrain_model_based_on_solution(self,
                                          solution: CpoModelSolution,
+                                         exclude: Iterable[Job] = None,
                                          eps: float = 1.) -> Self:
         """
         Restrains the given model based on the given solution.
@@ -78,38 +77,54 @@ class ModelBuilder:
 
         Args:
             solution (CpoModelSolution): The solution to use for restraining the model.
+            exclude (Iterable[Job], optional): The collection of jobs to exclude from the restraint. Defaults to None.
             eps (float, optional): The tolerance for the size of the job intervals. Defaults to 1.
         """
         model_job_intervals, solution_job_interval_solutions = ModelBuilder.__get_model_solution_job_intervals(self.model, solution)
+        excluded = set(j.id_job for j in exclude) if exclude is not None else {}
 
         constraints = []
-        for id_job in model_job_intervals.keys():
+        to_restrain = (j for j in model_job_intervals.keys() if j not in excluded)
+        for id_job in to_restrain:
             interval, interval_solution = model_job_intervals[id_job], solution_job_interval_solutions[id_job]
-            lo, hi = interval_solution.get_size() - eps, interval_solution.get_size() + eps
-            constraints.append(lo <= modeler.start_of(interval) <= hi)
+            lo, hi = interval_solution.get_start() - eps, interval_solution.get_start() + eps
+            constraints.append(modeler.start_of(interval) >= lo)
+            constraints.append(modeler.start_of(interval) <= hi)
 
         self.model.add(constraints)
 
         return self
 
-    def minimize_model_solution_difference(self, solution: CpoModelSolution) -> Self:
+    def minimize_model_solution_difference(self, solution: CpoModelSolution, exclude: Iterable[Job] = None, alpha: float = 1.) -> Self:
         """
         Minimizes the difference between the start times of the jobs in the given model and solution.
 
         Args:
             solution (CpoModelSolution): The solution to minimize the difference for.
+            exclude (Iterable[Job], optional): The collection of jobs to exclude from the minimization. Defaults to None.
+            alpha (float, optional): The weight of the difference in the minimization sum. Defaults to 1.
         """
+        excluded = set(j.id_job for j in exclude) if exclude is not None else {}
         model_job_intervals, solution_job_interval_solutions = ModelBuilder.__get_model_solution_job_intervals(self.model, solution)
 
         criteria = modeler.sum(modeler.abs(modeler.start_of(model_job_intervals[id_job])
                                            - solution_job_interval_solutions[id_job].get_start())
-                               for id_job in solution_job_interval_solutions.keys())
-        optimization_goal = modeler.minimize(criteria)
+                               for id_job in solution_job_interval_solutions.keys()
+                               if id_job not in excluded)
 
-        # TODO
+        # !!! This is a nasty piece of code !!!
+        #
+        # We assume that the optimization of the current model is a minimization of a value.
+        # We then extract the value, sum it with the new criteria and minimize that new sum.
+        # Should new optimization, especially not a minimization, get added, this will need
+        # a rework.
+        #
+        # It is also a dangerous implementation-dependent operation as the original
+        # optimization value is extracted from inside the CpoFunctionCall class.
         obj_old = self.model.objective
+        obj_old_expr = obj_old.children[0]
         self.model.remove(obj_old)
-        self.model.add(modeler.minimize(obj_old.children[0] + criteria))
+        self.model.add(modeler.minimize(obj_old_expr + (alpha * criteria)))
 
         return self
 
@@ -270,35 +285,9 @@ class ModelBuilder:
                            for root_job, jobs in component_jobs)
 
     @staticmethod
-    def __compute_component_jobs(problem_instance: ProblemInstance) -> dict[Job, Collection[Job]]:
-        """
-        Given a problem instance, returns a dictionary where each key is a root job of a component and the value is a
-        collection of jobs that belong to that component.
-
-        :param problem_instance: The problem instance to compute the component jobs for.
-        :return: A dictionary where each key is a root job of a component and the value is a collection of jobs that belong
-                 to that component.
-        """
-        jobs_by_id = {j.id_job: j for j in problem_instance.jobs}
-        jobs_components_grouped = [[jobs_by_id[i[0]] for i in group]
-                                   for _k, group in itertools.groupby(
-                traverse_instance_graph(problem_instance, search="components topological generations",
-                                        yield_state=True),
-                key=lambda x: x[1])]  # we assume that the order in which jobs are returned is determined by the components, so we do not sort by component id
-        component_jobs_by_root_job = index_groups(jobs_components_grouped,
-                                                  [jobs_by_id[c.id_root_job] for c in problem_instance.components])
-        return component_jobs_by_root_job
-
-    @staticmethod
     def __get_model_solution_job_intervals(model: CpoModel, solution: CpoModelSolution) -> Tuple[dict[int, interval_var], dict[int, CpoIntervalVarSolution]]:
-        solution_job_interval_solutions: dict[int, CpoIntervalVarSolution] = \
-            {int(var_solution.get_name()[4:]): var_solution
-             for var_solution in solution.get_all_var_solutions()
-             if var_solution is CpoIntervalVarSolution and var_solution.get_name().startswith("Job")}
-        model_job_intervals: dict[int, CpoIntervalVar] = \
-            {int(var.get_name()[4:]): var
-             for var in model.get_all_variables()
-             if var is CpoIntervalVar and var.get_name().startswith("Job")}
+        model_job_intervals = get_model_job_intervals(model)
+        solution_job_interval_solutions = get_solution_job_interval_solutions(solution)
 
         return model_job_intervals, solution_job_interval_solutions
 

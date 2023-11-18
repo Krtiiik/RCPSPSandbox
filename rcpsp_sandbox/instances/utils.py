@@ -1,6 +1,6 @@
-import sys
 from typing import Any, Iterable, TypeVar, Sequence
 
+from rcpsp_sandbox.utils import print_error
 
 T = TypeVar('T')
 
@@ -36,7 +36,3 @@ def chunk(sequence: Sequence[T],
 
 def str_or_default(x: Any):
     return str(x) if x is not None else ""
-
-
-def print_error(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
