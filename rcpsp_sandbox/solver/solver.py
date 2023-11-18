@@ -18,24 +18,48 @@ class SolveResult:
     def __init__(self, cpo_solve_result):
         self.result = cpo_solve_result
 
-from instances.drawing import draw_instance_graph
-from instances.problem_instance import ProblemInstance
-from drawing import plot_solution
-from instances.problem_modifier import modify_instance
-from model_builder import build_model
+    def tardiness_value(self, instance: ProblemInstance, selected_jobs: Iterable[Job] = None):
+        interval_solutions = get_solution_job_interval_solutions(self.result.get_solution())
+        job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
+                   else interval_solutions.keys())
+        component_jobs = compute_component_jobs(instance)
+        components_by_id_root_job = {c.id_root_job: c for c in instance.components}
+        job_component_id_root_job = {j: root_job.id_job
+                                     for root_job, jobs in component_jobs.items()
+                                     for j in jobs}
+        jobs_by_id = {j.id_job: j for j in instance.jobs}
+        value = sum(max(0, (interval_solutions[job_id].get_end() - jobs_by_id[job_id].due_date)
+                            * components_by_id_root_job[job_component_id_root_job[jobs_by_id[job_id]]].weight)
+                    for job_id in job_ids)
+        return value
+
+    def difference_from(self, other_solution: CpoModelSolution, selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:
+        # TODO compute difference metric
+        assert self.result.is_solution()
+        self_solution = self.result.get_solution()
+        self_interval_solutions, other_interval_solutions = get_solution_job_interval_solutions(
+            self_solution), get_solution_job_interval_solutions(other_solution)
+        assert self_interval_solutions.keys() == other_interval_solutions.keys()
+
+        job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
+                   else self_interval_solutions.keys())
+        differences = {job_id: self_interval_solutions[job_id].get_end() - other_interval_solutions[job_id].get_end()
+                       for job_id in job_ids}
+        difference = sum(abs(diff) for diff in differences.values())
+        return difference, differences
 
 
 class Solver:
     def solve(self,
               problem_instance: ProblemInstance or None = None,
-              model: CpoModel or None = None) -> CpoSolveResult:
+              model: CpoModel or None = None) -> SolveResult:
         if model is not None:
-            return self.__solve_model(model)
+            return SolveResult(self.__solve_model(model))
         elif problem_instance is not None:
             model = build_model(problem_instance) \
                 .optimize_model(opt="Tardiness all") \
                 .get_model()
-            return self.__solve_model(model)
+            return SolveResult(self.__solve_model(model))
         else:
             raise TypeError("No problem instance nor model was specified to solve")
 
