@@ -1,23 +1,18 @@
-import random
+from typing import Iterable
 
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 from docplex.cp.expression import INTERVAL_MIN, INTERVAL_MAX
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.solution import CpoModelSolution
 import docplex.cp.utils_visu as visu
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance
-from rcpsp_sandbox.solver.utils import compute_component_jobs
+from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
+from rcpsp_sandbox.solver.solution_utils import solution_difference, solution_tardiness_value
+from rcpsp_sandbox.solver.utils import compute_component_jobs, get_solution_job_interval_solutions
 
-
-# COLORS = ["gray", "darkgray", "lightcoral", "darkred", "tomato", "orangered", "chocolate", "darkorange", "orange",
-#           "gold", "yellow", "greenyellow", "lime", "green", "turquoise", "aqua", "deepskyblue", "navy", "blueviolet",
-#           "magenta", "crimson"]
-# random.shuffle(COLORS)
-COLORS = ['darkred', 'gold', 'lime', 'lightcoral', 'turquoise', 'greenyellow', 'orange', 'gray', 'deepskyblue',
-          'aqua', 'crimson', 'darkorange', 'chocolate', 'green', 'navy', 'darkgray', 'yellow', 'tomato', 'blueviolet',
-          'magenta', 'orangered']
+COLORS = ['gold', 'lime', 'chocolate', 'lightcoral', 'turquoise', 'orange', 'gray', 'deepskyblue', 'tomato',
+          'blueviolet', 'aqua', 'darkorange', 'green', 'navy', 'greenyellow', 'darkgray', 'yellow', 'magenta',
+          'crimson', 'darkred', 'orangered']
 
 
 class ColorMap:
@@ -69,3 +64,22 @@ def plot_solution(problem_instance: ProblemInstance,
         visu.function(segments=load[resource.id_resource], style='area', color='green')
     plt.rcParams["figure.figsize"] = (14, 20)
     visu.show()
+
+
+def print_difference(original: CpoModelSolution, original_instance: ProblemInstance,
+                     alternative: CpoModelSolution, alternative_instance: ProblemInstance,
+                     selected_jobs: Iterable[Job]) -> None:
+    diff_total, diffs = solution_difference(original, alternative)
+    print("Difference:", diff_total)
+    print(solution_tardiness_value(original, original_instance, selected_jobs), solution_tardiness_value(alternative, alternative_instance, selected_jobs))
+    # print(*diffs.items(), sep='\n')
+    print("job", "orig", "alt")
+    orig, alt = get_solution_job_interval_solutions(original), get_solution_job_interval_solutions(alternative)
+    job_pairs = zip(sorted(original_instance.jobs, key=lambda j: j.id_job),
+                    sorted(alternative_instance.jobs, key=lambda j: j.id_job))
+    for j1, j2 in job_pairs:
+        assert j1.id_job == j2.id_job
+        print(j1.id_job,
+              max(0, orig[j1.id_job].end - j1.due_date),
+              max(0, alt[j2.id_job].end - j2.due_date),
+              ("!!!" if orig[j1.id_job] != alt[j2.id_job] else ''))
