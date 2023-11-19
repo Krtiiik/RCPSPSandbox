@@ -77,6 +77,7 @@ def __draw_graph(graph: nx.DiGraph,
     ax.set_xticks([])
     ax.set_yticks([])
     ax.autoscale()
+    plt.rcParams["figure.dpi"] = 300
 
     if save_as is not None:
         matplotlib.pyplot.savefig(save_as, dpi=300)

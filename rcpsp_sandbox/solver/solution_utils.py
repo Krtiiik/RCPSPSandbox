@@ -36,7 +36,7 @@ def solution_difference(a: CpoModelSolution,
 
     job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
                else a_interval_solutions.keys())
-    differences = {job_id: a_interval_solutions[job_id].get_end() - b[job_id].get_end()
+    differences = {job_id: a_interval_solutions[job_id].get_end() - b_interval_solutions[job_id].get_end()
                    for job_id in job_ids}
     difference = sum(abs(diff) for diff in differences.values())
     return difference, differences
