@@ -1,4 +1,5 @@
 import itertools
+import math
 from typing import Iterable, Tuple
 
 from docplex.cp.expression import INTERVAL_MIN, INTERVAL_MAX
@@ -62,6 +63,17 @@ def plot_solution(problem_instance: ProblemInstance,
                                            for i_comp, comp_id_root_job in enumerate(component_jobs.keys())
                                            for job in component_jobs[comp_id_root_job]}
     cm = ColorMap(len(problem_instance.components))
+    max_t = max(fit_to_width,
+                max(solution.get_var_solution(i).get_end() for i in job_intervals.values()))
+    days_count = math.ceil(max_t)
+
+    def compute_resource_pauses(r: Resource):
+        values = [0] + [i_day * 24 + t
+                        for i_day in range(days_count)
+                        for av in r.availability
+                        for t in [av.start, av.end]]
+        pauses = list(itertools.pairwise(values))[::2]
+        return pauses
 
     # ~~~ Load computation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if split_components:
@@ -97,6 +109,23 @@ def plot_solution(problem_instance: ProblemInstance,
         for resource, consumption in job.resource_consumption.consumption_by_resource.items():
             if consumption > 0:
                 add_load(resource, job, job_interval, consumption)
+
+    # ~~~ Pauses in load ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if split_components:
+        for resource in problem_instance.resources:
+            pauses = compute_resource_pauses(resource)
+            for p_start, p_end in pauses:
+                for i_comp in load.keys():
+                    load[i_comp][resource.id_resource].set_value(p_start, p_end, 0)
+    else:
+        for resource in problem_instance.resources:
+            pauses = compute_resource_pauses(resource)
+            for p_start, p_end in pauses:
+                if split_resource_consumption:
+                    for _, f in load[resource.id_resource]:
+                        f.set_value(p_start, p_end, 0)
+                else:
+                    load[resource.id_resource].set_value(p_start, p_end, 0)
 
     # ~~~ Plotting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if split_components:
