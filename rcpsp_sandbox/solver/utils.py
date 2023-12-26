@@ -1,12 +1,13 @@
 import itertools
+import sys
 from typing import Iterable, TypeVar, Collection
 
 from docplex.cp.expression import interval_var, CpoIntervalVar
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
+from instances.algorithms import traverse_instance_graph
+from instances.problem_instance import ProblemInstance, Job
 
 
 T = TypeVar('T')
@@ -61,3 +62,7 @@ def get_model_job_intervals(model: CpoModel) -> dict[int, interval_var]:
     return {int(var.get_name()[4:]): var
             for var in model.get_all_variables()
             if isinstance(var, CpoIntervalVar) and var.get_name().startswith("Job")}
+
+
+def print_error(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)

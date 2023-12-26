@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import StrEnum
 from typing import Optional, Collection, Self, Iterable
 
-from rcpsp_sandbox.instances.utils import list_of
+from instances.utils import list_of
 
 
 class ResourceType(StrEnum):

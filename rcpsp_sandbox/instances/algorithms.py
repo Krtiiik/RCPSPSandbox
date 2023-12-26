@@ -5,8 +5,8 @@ from typing import Generator, Literal
 
 import networkx as nx
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
-from rcpsp_sandbox.utils import print_error
+from instances.problem_instance import ProblemInstance, Job
+from instances.utils import print_error
 
 
 def build_instance_graph(instance) -> nx.DiGraph:

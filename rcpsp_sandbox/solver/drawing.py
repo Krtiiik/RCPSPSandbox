@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tabulate
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Resource
-from rcpsp_sandbox.solver.solution_utils import solution_difference, solution_tardiness_value
-from rcpsp_sandbox.solver.utils import compute_component_jobs, get_solution_job_interval_solutions
-from rcpsp_sandbox.utils import print_error
+from instances.problem_instance import ProblemInstance, Job, Resource
+from solver.solution_utils import solution_difference, solution_tardiness_value
+from solver.utils import compute_component_jobs, get_solution_job_interval_solutions, print_error
+
 
 COLORS = [
     'xkcd:green',

@@ -4,11 +4,11 @@ from typing import Self, Literal
 
 import networkx as nx
 
-from rcpsp_sandbox.instances.instance_builder import InstanceBuilder
-from rcpsp_sandbox.instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
+from instances.instance_builder import InstanceBuilder
+from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job, Precedence, Component
-from rcpsp_sandbox.utils import print_error
+from instances.problem_instance import ProblemInstance, Job, Precedence, Component
+from utils import print_error
 
 
 class ProblemModifier:

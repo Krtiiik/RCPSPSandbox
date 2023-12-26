@@ -1,6 +1,6 @@
 from typing import Any, Iterable, TypeVar, Sequence
 
-from rcpsp_sandbox.utils import print_error
+from utils import print_error
 
 T = TypeVar('T')
 

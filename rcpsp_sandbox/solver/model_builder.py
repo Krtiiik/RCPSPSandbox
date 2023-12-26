@@ -8,8 +8,8 @@ from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Resource, Job
-from rcpsp_sandbox.solver.utils import compute_component_jobs, get_solution_job_interval_solutions, get_model_job_intervals
+from instances.problem_instance import ProblemInstance, Resource, Job
+from solver.utils import compute_component_jobs, get_solution_job_interval_solutions, get_model_job_intervals
 
 
 class ModelBuilder:

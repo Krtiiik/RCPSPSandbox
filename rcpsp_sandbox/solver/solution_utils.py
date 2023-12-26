@@ -2,8 +2,8 @@ from typing import Iterable, Tuple
 
 from docplex.cp.solution import CpoModelSolution
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
-from rcpsp_sandbox.solver.utils import get_solution_job_interval_solutions, compute_component_jobs
+from instances.problem_instance import ProblemInstance, Job
+from solver.utils import get_solution_job_interval_solutions, compute_component_jobs
 
 
 def solution_tardiness_value(solution: CpoModelSolution,

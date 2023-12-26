@@ -3,12 +3,12 @@ import random
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoSolveResult, CpoModelSolution, CpoIntervalVarSolution
 
-import rcpsp_sandbox.instances.problem_instance
-from rcpsp_sandbox.instances.drawing import draw_instance_graph
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Job
-from rcpsp_sandbox.solver.drawing import plot_solution, print_difference
-from rcpsp_sandbox.instances.problem_modifier import modify_instance
-from rcpsp_sandbox.solver.model_builder import build_model
+import instances.problem_instance
+from instances.drawing import draw_instance_graph
+from instances.problem_instance import ProblemInstance, Job
+from solver.drawing import plot_solution, print_difference
+from instances.problem_modifier import modify_instance
+from solver.model_builder import build_model
 
 
 class Solver:

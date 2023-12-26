@@ -1,6 +1,6 @@
 from typing import TypeVar, Iterable, Optional
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Resource, Job, Precedence, Project, Component
+from instances.problem_instance import ProblemInstance, Resource, Job, Precedence, Project, Component
 
 T = TypeVar("T")
 

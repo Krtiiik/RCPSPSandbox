@@ -3,10 +3,10 @@ import os
 from typing import IO, Iterable, Any
 from collections import defaultdict
 
-from rcpsp_sandbox.instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
+from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
     ResourceType, Component, AvailabilityInterval
-from rcpsp_sandbox.instances.instance_builder import InstanceBuilder
-from rcpsp_sandbox.instances.utils import try_open_read, chunk, str_or_default
+from instances.instance_builder import InstanceBuilder
+from instances.utils import try_open_read, chunk, str_or_default
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
