@@ -25,19 +25,3 @@ def solution_tardiness_value(solution: CpoModelSolution,
                 for job_id in job_ids)
 
     return value
-
-
-def solution_difference(a: CpoModelSolution,
-                        b: CpoModelSolution,
-                        selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:
-    a_interval_solutions = get_solution_job_interval_solutions(a)
-    b_interval_solutions = get_solution_job_interval_solutions(b)
-    assert a_interval_solutions.keys() == b_interval_solutions.keys()
-
-    job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
-               else a_interval_solutions.keys())
-    differences = {job_id: a_interval_solutions[job_id].get_end() - b_interval_solutions[job_id].get_end()
-                   for job_id in job_ids}
-    difference = sum(abs(diff) for diff in differences.values())
-    return difference, differences
-

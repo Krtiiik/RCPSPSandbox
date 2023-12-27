@@ -52,17 +52,7 @@ def compute_component_jobs(problem_instance: ProblemInstance) -> dict[Job, Colle
     return component_jobs_by_root_job
 
 
-def get_solution_job_interval_solutions(solution: CpoModelSolution) -> dict[int, CpoIntervalVarSolution]:
-    return {int(var_solution.get_name()[4:]): var_solution
-            for var_solution in solution.get_all_var_solutions()
-            if isinstance(var_solution, CpoIntervalVarSolution) and var_solution.expr.get_name().startswith("Job")}
-
-
 def get_model_job_intervals(model: CpoModel) -> dict[int, interval_var]:
     return {int(var.get_name()[4:]): var
             for var in model.get_all_variables()
             if isinstance(var, CpoIntervalVar) and var.get_name().startswith("Job")}
-
-
-def print_error(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)

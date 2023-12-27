@@ -5,11 +5,15 @@ from typing import Optional, Collection, Self, Iterable
 from instances.utils import list_of
 
 
+# ~~~~~~~ ResourceType ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 class ResourceType(StrEnum):
     RENEWABLE = 'R'
     NONRENEWABLE = 'N'
     DOUBLY_CONSTRAINED = 'D'
 
+
+# ~~~~~~~ AvailabilityInterval ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class AvailabilityInterval:
     _start: int
@@ -60,6 +64,18 @@ class AvailabilityInterval:
     def __iter__(self):
         return iter((self.start, self.end))
 
+
+# ~~~~~~~ ResourceAvailability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class ResourceAvailability:
+    _base_intervals: list[AvailabilityInterval]
+    _override_intervals: list[AvailabilityInterval]
+
+    def __init__(self, base_intervals: list[AvailabilityInterval]) -> None:
+        self._base_intervals = base_intervals
+
+
+# ~~~~~~~ Resource ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class Resource:
     _id_resource: int
@@ -127,6 +143,8 @@ class Resource:
         return f"Resource{{id: {self.id_resource}, type: {self.type}}}"
 
 
+# ~~~~~~~ ResourceConsumption ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 class ResourceConsumption:
     _consumption_by_resource: dict[Resource, int]
 
@@ -151,6 +169,8 @@ class ResourceConsumption:
     def __str__(self):
         return f"ResourceConsumption{{consumptions: {self.consumption_by_resource}}}"
 
+
+# ~~~~~~~ Job ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class Job:
     _id_job: int
@@ -225,6 +245,8 @@ class Job:
         return f"Job{{id: {self.id_job}}}"
 
 
+# ~~~~~~~ Precedence ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 class Precedence:
     _id_child: int
     _id_parent: int
@@ -266,6 +288,8 @@ class Precedence:
     def __str__(self):
         return f"Precedence{{child: {self.id_child}, parent: {self.id_parent}}}"
 
+
+# ~~~~~~~ Project ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class Project:
     _id_project: int
@@ -312,6 +336,8 @@ class Project:
         return f"Project{{id: {self.id_project}, due date: {self.due_date}, tardiness cost: {self.tardiness_cost}}}"
 
 
+# ~~~~~~~ Component ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 class Component:
     _id_root_job: int
     _weight: int
@@ -345,6 +371,8 @@ class Component:
     def __str__(self):
         return f"Component{{id_root_job: {self.id_root_job}}}"
 
+
+# ~~~~~~~ ProblemInstance ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class ProblemInstance:
     _name: Optional[str]
