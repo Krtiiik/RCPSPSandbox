@@ -97,6 +97,10 @@ class Resource:
     def id_resource(self) -> int:
         return self._id_resource
 
+    @id_resource.setter
+    def id_resource(self, value: int):
+        self._id_resource = value
+
     @property
     def type(self) -> ResourceType:
         return self._type
@@ -194,6 +198,10 @@ class Job:
     @property
     def id_job(self) -> int:
         return self._id_job
+
+    @id_job.setter
+    def id_job(self, value: int):
+        self._id_job = value
 
     @property
     def duration(self) -> int:
@@ -310,6 +318,10 @@ class Project:
     @property
     def id_project(self) -> int:
         return self._id_project
+
+    @id_project.setter
+    def id_project(self, value: int):
+        self._id_project = value
 
     @property
     def due_date(self) -> int:
