@@ -40,11 +40,12 @@ def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
 
     node_locations = dict()
     traversed_nodes = list(traverse_instance_graph(graph=graph, search="components topological generations", yield_state=True))
-    grouped_nodes = ((k_comp, k_gen, [n[0] for n in nodes])
-                     for k_comp, comp in itertools.groupby(traversed_nodes, key=lambda n: n[1])
-                     for k_gen, nodes in itertools.groupby(comp, key=lambda n: n[2]))
+    grouped_nodes = list((k_comp, k_gen, [n[0] for n in nodes])
+                         for k_comp, comp in itertools.groupby(traversed_nodes, key=lambda n: n[1])
+                         for k_gen, nodes in itertools.groupby(comp, key=lambda n: n[2]))
+    y_base_offset = (y_scale * max(len(nodes) for _, _, nodes in grouped_nodes))
     for i_comp, i_gen, nodes in grouped_nodes:
-        y_base = i_comp * 50
+        y_base = i_comp * y_base_offset
         x = i_gen * 100
         y_offset = ((y_scale * (len(nodes) - 1)) // 2)
         for i_node, node in enumerate(nodes):
