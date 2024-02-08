@@ -78,7 +78,8 @@ def solution_difference(a: Solution,
 def solution_tardiness_value(solution: Solution,
                              selected_jobs: Iterable[Job] = None) -> int:
     """
-    Computes the tardiness value of a solution.
+    Computes the tardiness value of a solution. The tardiness value is the sum of the squares of the tardiness of each
+    job in the solution.
 
     :param solution: The solution to compute the tardiness value for.
     :param selected_jobs: The jobs to compute the tardiness value for. If None, all jobs are used.
@@ -96,8 +97,8 @@ def solution_tardiness_value(solution: Solution,
                                  for j in jobs}
     jobs_by_id = {j.id_job: j for j in solution.instance.jobs}
 
-    value = sum(max(0, (interval_solutions[job_id].get_end() - jobs_by_id[job_id].due_date)
-                    * components_by_id_root_job[job_component_id_root_job[jobs_by_id[job_id]]].weight)
+    value = sum(max(0, (interval_solutions[job_id].get_end() - jobs_by_id[job_id].due_date) ** 2
+                       * components_by_id_root_job[job_component_id_root_job[jobs_by_id[job_id]]].weight)
                 for job_id in job_ids)
 
     return value

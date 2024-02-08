@@ -10,9 +10,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tabulate
 
+from utils import print_error
 from instances.problem_instance import ProblemInstance, Job, Resource
-from solver.solution_utils import solution_difference, solution_tardiness_value
-from solver.utils import compute_component_jobs, get_solution_job_interval_solutions, print_error
+from solver.solution import Solution, solution_tardiness_value
+from solver.utils import compute_component_jobs
 
 
 COLORS = [
@@ -42,7 +43,7 @@ class ColorMap:
 
 
 def plot_solution(problem_instance: ProblemInstance,
-                  solution: CpoModelSolution,
+                  solution: Solution,
                   fit_to_width: int = 0,
                   split_components: bool = False,
                   split_resource_consumption: bool = False,
@@ -57,14 +58,14 @@ def plot_solution(problem_instance: ProblemInstance,
 
     # ~~~ Indices and structures ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     job_intervals = {int(var_solution.get_name()[4:]): var_solution.get_var()
-                     for var_solution in solution.get_all_var_solutions()}
+                     for var_solution in solution.solve_result.get_all_var_solutions()}
     component_jobs = compute_component_jobs(problem_instance)
     job_component_index: dict[int, int] = {job.id_job: i_comp
                                            for i_comp, comp_id_root_job in enumerate(component_jobs.keys())
                                            for job in component_jobs[comp_id_root_job]}
     cm = ColorMap(len(problem_instance.components))
     max_t = max(fit_to_width,
-                max(solution.get_var_solution(i).get_end() for i in job_intervals.values()))
+                max(solution.solve_result.get_var_solution(i).get_end() for i in job_intervals.values()))
     days_count = math.ceil(max_t)
 
     def compute_resource_pauses(r: Resource):
@@ -105,7 +106,7 @@ def plot_solution(problem_instance: ProblemInstance,
                 load[r.id_resource].add_value(ji.get_start(), ji.get_end(), c)
 
     for job in problem_instance.jobs:
-        job_interval = solution.get_var_solution(job_intervals[job.id_job])
+        job_interval = solution.solve_result.get_var_solution(job_intervals[job.id_job])
         for resource, consumption in job.resource_consumption.consumption_by_resource.items():
             if consumption > 0:
                 add_load(resource, job, job_interval, consumption)
@@ -143,7 +144,7 @@ def plot_solution(problem_instance: ProblemInstance,
                 interval = job_intervals[job.id_job]
                 interval_name = interval.get_name()[4:]
                 color = cm[job_component_index[job.id_job]]
-                visu.interval(solution.get_var_solution(interval), color, interval_name)
+                visu.interval(solution.solve_result.get_var_solution(interval), color, interval_name)
             plot_component_consumption(i_comp)
 
         plt.rcParams["figure.figsize"] = (12, 4*comp_count)
@@ -165,7 +166,7 @@ def plot_solution(problem_instance: ProblemInstance,
             interval = job_intervals[job.id_job]
             interval_name = interval.get_name()[4:]
             color = cm[job_component_index[job.id_job]]
-            visu.interval(solution.get_var_solution(interval), color, interval_name)
+            visu.interval(solution.solve_result.get_var_solution(interval), color, interval_name)
         for i, resource in enumerate(sorted(problem_instance.resources, key=lambda r: r.key)):
             visu.panel(resource.key)
             visu.function(segments=[(INTERVAL_MIN, INTERVAL_MAX, resource.capacity)], style='area', color=i)
@@ -179,12 +180,12 @@ def plot_solution(problem_instance: ProblemInstance,
     visu.show()
 
 
-def print_difference(original: CpoModelSolution, original_instance: ProblemInstance,
-                     alternative: CpoModelSolution, alternative_instance: ProblemInstance,
+def print_difference(original: Solution, original_instance: ProblemInstance,
+                     alternative: Solution, alternative_instance: ProblemInstance,
                      selected_jobs: Iterable[Job] = None) -> None:
-    diff_total, diffs = solution_difference(original, alternative)
+    diff_total, diffs = original.difference_to(alternative, selected_jobs)
     print("Difference:", diff_total)
-    print(solution_tardiness_value(original, original_instance, selected_jobs), solution_tardiness_value(alternative, alternative_instance, selected_jobs))
+    print(solution_tardiness_value(original, selected_jobs), solution_tardiness_value(alternative, selected_jobs))
 
     selected = set(j.id_job for j in (selected_jobs if selected_jobs is not None else original_instance.jobs))  # Assuming both instances have the same jobs (wouldn't make much sense otherwise anyway)
     original_jobs = (j for j in original_instance.jobs if j.id_job in selected)
@@ -192,7 +193,7 @@ def print_difference(original: CpoModelSolution, original_instance: ProblemInsta
     job_pairs = list(zip(sorted(original_jobs, key=lambda j: j.id_job),
                          sorted(alternative_jobs, key=lambda j: j.id_job)))
 
-    orig, alt = get_solution_job_interval_solutions(original), get_solution_job_interval_solutions(alternative)
+    orig, alt = original.job_interval_solutions, alternative.job_interval_solutions
 
     def org_end(j): return orig[j.id_job].end
     def alt_end(j): return alt[j.id_job].end

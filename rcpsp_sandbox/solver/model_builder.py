@@ -6,10 +6,11 @@ from docplex.cp import modeler
 from docplex.cp.expression import interval_var, CpoExpr
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
-from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
+from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.problem_instance import ProblemInstance, Resource, Job
-from solver.utils import compute_component_jobs, get_solution_job_interval_solutions, get_model_job_intervals
+from solver.solution import Solution
+from solver.utils import compute_component_jobs, get_model_job_intervals
 
 
 class ModelBuilder:
@@ -66,7 +67,7 @@ class ModelBuilder:
         return self
 
     def restrain_model_based_on_solution(self,
-                                         solution: CpoModelSolution,
+                                         solution: Solution,
                                          exclude: Iterable[Job] = None,
                                          eps: float = 1.) -> Self:
         """
@@ -76,7 +77,7 @@ class ModelBuilder:
         corresponding job intervals in the solution.
 
         Args:
-            solution (CpoModelSolution): The solution to use for restraining the model.
+            solution (Solution): The solution to use for restraining the model.
             exclude (Iterable[Job], optional): The collection of jobs to exclude from the restraint. Defaults to None.
             eps (float, optional): The tolerance for the size of the job intervals. Defaults to 1.
         """
@@ -95,12 +96,12 @@ class ModelBuilder:
 
         return self
 
-    def minimize_model_solution_difference(self, solution: CpoModelSolution, exclude: Iterable[Job] = None, alpha: float = 1.) -> Self:
+    def minimize_model_solution_difference(self, solution: Solution, exclude: Iterable[Job] = None, alpha: float = 1.) -> Self:
         """
         Minimizes the difference between the start times of the jobs in the given model and solution.
 
         Args:
-            solution (CpoModelSolution): The solution to minimize the difference for.
+            solution (Solution): The solution to minimize the difference for.
             exclude (Iterable[Job], optional): The collection of jobs to exclude from the minimization. Defaults to None.
             alpha (float, optional): The weight of the difference in the minimization sum. Defaults to 1.
         """
@@ -285,9 +286,9 @@ class ModelBuilder:
                            for root_job, jobs in component_jobs)
 
     @staticmethod
-    def __get_model_solution_job_intervals(model: CpoModel, solution: CpoModelSolution) -> Tuple[dict[int, interval_var], dict[int, CpoIntervalVarSolution]]:
+    def __get_model_solution_job_intervals(model: CpoModel, solution: Solution) -> Tuple[dict[int, interval_var], dict[int, CpoIntervalVarSolution]]:
         model_job_intervals = get_model_job_intervals(model)
-        solution_job_interval_solutions = get_solution_job_interval_solutions(solution)
+        solution_job_interval_solutions = solution.job_interval_solutions()
 
         return model_job_intervals, solution_job_interval_solutions
 
