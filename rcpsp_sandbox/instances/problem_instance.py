@@ -23,7 +23,7 @@ class AvailabilityInterval:
     def __init__(self,
                  start: int,
                  end: int,
-                 capacity: int or None = None):
+                 capacity: int):
         self._start = start
         self._end = end
         self._capacity = capacity
@@ -62,7 +62,7 @@ class AvailabilityInterval:
                 else f"[{self.start}, {self.end}]<{self.capacity}>")
 
     def __iter__(self):
-        return iter((self.start, self.end))
+        return iter((self.start, self.end, self.capacity))
 
 
 # ~~~~~~~ ResourceAvailability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -63,7 +63,7 @@ def parse_json(filename: str,
     if is_extended:
         for i, r in enumerate(instance_object["Resources"]):
             def build_availability(av):
-                interval = AvailabilityInterval(start=av["Start"], end=av["End"])
+                interval = AvailabilityInterval(start=av["Start"], end=av["End"], capacity=r["Capacity"])
                 if "Capacity" in av:
                     interval.capacity = av["Capacity"]
                 return interval
@@ -320,6 +320,9 @@ def __parse_psplib_internal(file: IO,
             if resource.key not in intervals_by_resource_key:
                 continue
             resource.availability = intervals_by_resource_key[resource.key]
+            for availability_interval in resource.availability:
+                if availability_interval.capacity is None:
+                    availability_interval.capacity = resource.capacity
 
     return build()
 

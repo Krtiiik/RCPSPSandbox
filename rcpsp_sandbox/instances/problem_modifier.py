@@ -7,7 +7,7 @@ import networkx as nx
 from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from instances.problem_instance import ProblemInstance, Job, Precedence, Component
+from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, ResourceAvailability, Component
 from utils import print_error
 
 
@@ -16,6 +16,7 @@ class ProblemModifier:
 
     _jobs: list[Job] = []
     _precedences: list[Precedence] = []
+    _resources: list[Resource] = []
     _components: list[Component] = []
 
     def __init__(self,
@@ -24,7 +25,13 @@ class ProblemModifier:
 
         self._jobs = original_instance.jobs[:]
         self._precedences = original_instance.precedences[:]
+        self._resources = original_instance.resources[:]
         self._components = original_instance.components[:]
+
+    def assign_resource_availabilities(self) -> Self:
+        for component in self.components:
+            component.availability = ResourceAvailability([0, 24])
+        return self
 
     def assign_job_due_dates(self,
                              choice: str = Literal["uniform", "gradual"],
@@ -188,6 +195,14 @@ class ProblemModifier:
     @precedences.setter
     def precedences(self, value: list[Precedence]):
         self._precedences = value
+
+    @property
+    def resources(self) -> list[Resource]:
+        return self._resources
+
+    @resources.setter
+    def resources(self, value: list[Resource]):
+        self._resources = value
 
     @property
     def components(self) -> list[Component]:

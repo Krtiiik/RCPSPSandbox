@@ -1,10 +1,8 @@
 import itertools
-import sys
 from typing import Iterable, TypeVar, Collection
 
 from docplex.cp.expression import interval_var, CpoIntervalVar
 from docplex.cp.model import CpoModel
-from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
 from instances.algorithms import traverse_instance_graph
 from instances.problem_instance import ProblemInstance, Job

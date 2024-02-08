@@ -148,12 +148,14 @@ class ModelBuilder:
         Returns:
             Tuple[CpoModel, Dict[int, IntervalVar]]: A tuple containing the built model and a dictionary of job intervals.
         """
-        resource_availabilities = {resource: ModelBuilder.__build_resource_availability(resource, problem_instance.horizon)
-                                   for resource in problem_instance.resources}
-        job_intervals = {job.id_job: interval_var(name=f"Job {job.id_job}",
-                                                  size=job.duration,
-                                                  intensity=ModelBuilder.__build_job_execution_availability(job, resource_availabilities))
-                         for job in problem_instance.jobs}
+        resource_availabilities = {
+            resource: ModelBuilder.__build_resource_availability(resource, problem_instance.horizon)
+            for resource in problem_instance.resources}
+        job_intervals = {
+            job.id_job: interval_var(name=f"Job {job.id_job}",
+                                     size=job.duration,
+                                     intensity=ModelBuilder.__build_job_execution_availability(job, resource_availabilities))
+            for job in problem_instance.jobs}
         precedence_constraints = [
             modeler.end_before_start(job_intervals[precedence.id_child], job_intervals[precedence.id_parent])
             for precedence in problem_instance.precedences]
@@ -161,7 +163,7 @@ class ModelBuilder:
             resource: [job for job in problem_instance.jobs if job.resource_consumption[resource] > 0]
             for resource in problem_instance.resources}
         resource_capacity_constraints = [
-            ModelBuilder.__build_resource_capacity_constraint(resource, jobs_consuming_resource, job_intervals)
+            ModelBuilder.__build_resource_capacity_constraint(resource, resource_availabilities[resource], jobs_consuming_resource, job_intervals)
             for resource in problem_instance.resources]
 
         model = CpoModel(problem_instance.name)
@@ -187,8 +189,8 @@ class ModelBuilder:
         step_values = dict()
         for i_day in range(days_count):
             day_offset = i_day * 24
-            for start, end in day_operating_hours:
-                step_values[day_offset + start] = 1
+            for start, end, capacity in day_operating_hours:
+                step_values[day_offset + start] = capacity
                 step_values[day_offset + end] = 0
 
         steps = sorted(step_values.items())
@@ -196,6 +198,7 @@ class ModelBuilder:
 
     @staticmethod
     def __build_resource_capacity_constraint(resource: Resource,
+                                             resource_availability: CpoStepFunction,
                                              jobs_consuming_resource: dict[Resource, list[Job]],
                                              job_intervals: dict[int, interval_var], ) -> CpoExpr:
         """
@@ -214,6 +217,7 @@ class ModelBuilder:
         Returns:
             CpoExpr: The constraint expression.
         """
+        # TODO variable capacity
         return (modeler.sum(modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
                             for job in jobs_consuming_resource[resource])
                 <= resource.capacity)
@@ -238,7 +242,7 @@ class ModelBuilder:
         step_values = defaultdict(lambda: True)
         for resource in used_resources:
             for step in resource_availabilities[resource].get_step_list():
-                time, is_available = step[0], (step[1] == 1)
+                time, is_available = step[0], (step[1] > 0)
                 step_values[time] &= is_available  # If `resource` is not available at `time`, the job cannot be executed at `time`.
 
         steps = sorted((step[0], 100 if step[1] else 0)
