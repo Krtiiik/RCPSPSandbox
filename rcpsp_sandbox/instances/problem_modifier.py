@@ -169,6 +169,27 @@ class ProblemModifier:
                 print_error(f"Unrecognized split option: {split}")
         return self
 
+    def merge_with(self, other: ProblemInstance) -> Self:
+        other_jobs = other.jobs[:]
+        other_precedences = other.precedences[:]
+        other_components = other.components[:]
+
+        id_offset = 1 + max(job.id_job for job in self.jobs)
+        for job in other_jobs:
+            job.id_job += id_offset
+        for precedence in other_precedences:
+            precedence.id_child += id_offset
+            precedence.id_parent += id_offset
+        for component in other_components:
+            component.id_root_job += id_offset
+
+        self.jobs.extend(other_jobs)
+        self.precedences.extend(other_precedences)
+        # Resources are assumed to be the same
+        self.components.extend(other_components)
+
+        return self
+
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:
         builder = InstanceBuilder()
         builder.add_jobs(self.jobs)
