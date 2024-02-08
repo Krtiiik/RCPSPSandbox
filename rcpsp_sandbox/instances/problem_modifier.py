@@ -7,7 +7,7 @@ import networkx as nx
 from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, ResourceAvailability, Component
+from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, ResourceAvailability, AvailabilityInterval, Component
 from utils import print_error
 
 
@@ -29,8 +29,8 @@ class ProblemModifier:
         self._components = original_instance.components[:]
 
     def assign_resource_availabilities(self) -> Self:
-        for component in self.components:
-            component.availability = ResourceAvailability([0, 24])
+        for resource in self.resources:
+            resource.availability = [AvailabilityInterval(0, 24, resource.capacity)]
         return self
 
     def assign_job_due_dates(self,

@@ -8,7 +8,7 @@ from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoIntervalVarSolution
 
-from instances.problem_instance import ProblemInstance, Resource, Job
+from instances.problem_instance import ProblemInstance, Resource, Job, Component
 from solver.solution import Solution
 from solver.utils import compute_component_jobs, get_model_job_intervals
 
@@ -21,6 +21,8 @@ class ModelBuilder:
 
     @staticmethod
     def build_model(instance: ProblemInstance) -> 'ModelBuilder':
+        if instance.components is None or instance.components == []:
+            instance.components = [Component(1, 1)]
         model, job_intervals = ModelBuilder.__base_model(instance)
         return ModelBuilder(instance, model, job_intervals)
 
@@ -184,7 +186,7 @@ class ModelBuilder:
         Returns:
             CpoStepFunction: A step function representing the availability of the resource.
         """
-        day_operating_hours = resource.availability if resource.availability is not None else [(0, 24)]
+        day_operating_hours = resource.availability if resource.availability is not None else [(0, 24, resource.capacity)]
         days_count = math.ceil(horizon / 24)
         step_values = dict()
         for i_day in range(days_count):
