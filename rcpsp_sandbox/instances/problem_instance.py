@@ -18,7 +18,7 @@ class ResourceType(StrEnum):
 class AvailabilityInterval:
     _start: int
     _end: int
-    _capacity: int or None
+    _capacity: int
 
     def __init__(self,
                  start: int,

@@ -14,17 +14,28 @@ from solver.utils import compute_component_jobs, get_model_job_intervals
 
 
 class ModelBuilder:
-    def __init__(self, instance: ProblemInstance, model: CpoModel, job_intervals: dict[int, interval_var]):
+    instance: ProblemInstance
+    model: CpoModel
+
+    _job_intervals: dict[int, interval_var]
+    _precedence_constraints: list[CpoExpr]
+    _resource_capacity_constraints: list[CpoExpr]
+    _resource_capacity_changes_intervals: dict[Resource, list[Tuple[int, int, interval_var]]]
+
+    def __init__(self, instance: ProblemInstance, model: CpoModel):
         self.instance = instance
         self.model = model
-        self.job_intervals = job_intervals
+
+        self._job_intervals = dict()
+        self._precedence_constraints = []
+        self._resource_capacity_constraints = []
+        self._resource_capacity_changes_intervals = dict()
 
     @staticmethod
     def build_model(instance: ProblemInstance) -> 'ModelBuilder':
         if instance.components is None or instance.components == []:
             instance.components = [Component(1, 1)]
-        model, job_intervals = ModelBuilder.__base_model(instance)
-        return ModelBuilder(instance, model, job_intervals)
+        return ModelBuilder(instance, CpoModel(instance.name)).__base_model(instance)
 
     def optimize_model(self,
                        opt: Literal["Tardiness all", "Tardiness selected"] = "Tardiness all",
@@ -131,11 +142,42 @@ class ModelBuilder:
 
         return self
 
+    def change_resource_capacities(self, changes: dict[Resource, Iterable[Tuple[int, int, int]]]) -> Self:
+        """
+        Changes the capacities of the given resources in the model.
+
+        Args:
+            changes (dict[Resource, Tuple[int, int, int]]): A dictionary mapping resources to their new capacities. The
+                new capacities are represented as tuples (start, end, capacity), where start and end are the times when
+                the capacity change occurs.
+
+        Returns:
+            ModelBuilder: The modified model builder.
+        """
+
+        jobs_consuming_resource = {
+            resource: [job for job in self.instance.jobs if job.resource_consumption[resource] > 0]
+            for resource in self.instance.resources}
+        variable_resource_capacity_constraints = [
+            self.__build_resource_capacity_constraint(resource, jobs_consuming_resource, self._job_intervals, changes[resource] if resource in changes else None)
+            for resource in self.instance.resources]
+
+        self.model.remove(self._resource_capacity_constraints)
+        self.model.add(variable_resource_capacity_constraints)
+
+        self._resource_capacity_constraints = variable_resource_capacity_constraints
+
+        for resource in changes:
+            if resource not in self._resource_capacity_changes_intervals:
+                self._resource_capacity_changes_intervals[resource] = []
+            self._resource_capacity_changes_intervals[resource] += changes[resource]
+
+        return self
+
     def get_model(self):
         return self.model
 
-    @staticmethod
-    def __base_model(problem_instance: ProblemInstance) -> Tuple[CpoModel, dict[int, interval_var]]:
+    def __base_model(self, problem_instance: ProblemInstance) -> Self:
         """
         Builds a base model for the given problem instance.
 
@@ -146,33 +188,40 @@ class ModelBuilder:
 
         Args:
             problem_instance (ProblemInstance): The problem instance to build the model for.
-
-        Returns:
-            Tuple[CpoModel, Dict[int, IntervalVar]]: A tuple containing the built model and a dictionary of job intervals.
         """
         resource_availabilities = {
             resource: ModelBuilder.__build_resource_availability(resource, problem_instance.horizon)
             for resource in problem_instance.resources}
+
         job_intervals = {
             job.id_job: interval_var(name=f"Job {job.id_job}",
                                      size=job.duration,
                                      intensity=ModelBuilder.__build_job_execution_availability(job, resource_availabilities))
             for job in problem_instance.jobs}
+
         precedence_constraints = [
             modeler.end_before_start(job_intervals[precedence.id_child], job_intervals[precedence.id_parent])
             for precedence in problem_instance.precedences]
+
         jobs_consuming_resource = {
             resource: [job for job in problem_instance.jobs if job.resource_consumption[resource] > 0]
             for resource in problem_instance.resources}
+
         resource_capacity_constraints = [
-            ModelBuilder.__build_resource_capacity_constraint(resource, resource_availabilities[resource], jobs_consuming_resource, job_intervals)
+            self.__build_resource_capacity_constraint(resource, jobs_consuming_resource, job_intervals, None)
             for resource in problem_instance.resources]
 
         model = CpoModel(problem_instance.name)
         model.add(job_intervals.values())
         model.add(precedence_constraints)
         model.add(resource_capacity_constraints)
-        return model, job_intervals
+
+        self.model = model
+        self._job_intervals = job_intervals
+        self._precedence_constraints = precedence_constraints
+        self._resource_capacity_constraints = resource_capacity_constraints
+
+        return self
 
     @staticmethod
     def __build_resource_availability(resource: Resource, horizon: int) -> CpoStepFunction:
@@ -198,11 +247,11 @@ class ModelBuilder:
         steps = sorted(step_values.items())
         return CpoStepFunction(steps)
 
-    @staticmethod
-    def __build_resource_capacity_constraint(resource: Resource,
-                                             resource_availability: CpoStepFunction,
+    def __build_resource_capacity_constraint(self,
+                                             resource: Resource,
                                              jobs_consuming_resource: dict[Resource, list[Job]],
-                                             job_intervals: dict[int, interval_var], ) -> CpoExpr:
+                                             job_intervals: dict[int, interval_var],
+                                             capacity_changes: Iterable[Tuple[int,int,int]]) -> CpoExpr:
         """
         Builds a constraint that ensures the capacity of a given resource is not exceeded by the jobs consuming it.
 
@@ -215,13 +264,41 @@ class ModelBuilder:
             resource (Resource): The resource to check the capacity for.
             jobs_consuming_resource (dict[Resource, list[Job]]): A dictionary mapping resources to the jobs that consume them.
             job_intervals (dict[int, interval_var]): A dictionary mapping job IDs to their corresponding interval variables.
+            capacity_changes (Iterable[Tuple[int,int,int]], optional): An iterable of tuples representing capacity changes
 
         Returns:
             CpoExpr: The constraint expression.
         """
-        # TODO variable capacity
-        return (modeler.sum(modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
-                            for job in jobs_consuming_resource[resource])
+        consumption_pulses = [modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
+                              for job in jobs_consuming_resource[resource]]
+
+        blocking_pulses = []
+        if capacity_changes is not None:
+            capacity_changes = sorted(capacity_changes)
+            increases = [change for change in capacity_changes if change[2] > resource.capacity]
+            decreases = [change for change in capacity_changes if change[2] < resource.capacity]
+
+            # Capacity increases
+            # Constructs a blocking pulse function spanning (possibly some) decreases
+            max_capacity = max(resource.capacity, max((change[2] for change in increases), default=0))
+            last_end = 0
+            last_capacity = resource.capacity
+            for start, end, capacity in increases:
+                if start > last_end:
+                    blocking_pulses.append(modeler.pulse((last_end, start), max_capacity - last_capacity))
+                blocking_pulses.append(modeler.pulse((start, end), max_capacity - capacity))
+
+                last_end = end
+                last_capacity = capacity
+
+            if last_end < self.instance.horizon:
+                blocking_pulses.append(modeler.pulse((last_end, self.instance.horizon), max_capacity - last_capacity))
+
+            # Capacity decreases
+            for start, end, capacity in decreases:
+                blocking_pulses.append(modeler.pulse((start, end), resource.capacity - capacity))
+
+        return (modeler.sum(consumption_pulses + blocking_pulses)
                 <= resource.capacity)
 
     @staticmethod
@@ -310,3 +387,13 @@ def build_model(problem_instance: ProblemInstance) -> ModelBuilder:
         ModelBuilder: The model builder instance with built base model.
     """
     return ModelBuilder.build_model(problem_instance)
+
+def edit_model(model: CpoModel, problem_instance: ProblemInstance) -> ModelBuilder:
+    """
+    Edits the given model.
+
+    Args:
+        model (CpoModel): The model to edit.
+        problem_instance (ProblemInstance): The problem instance of the model.
+    """
+    return ModelBuilder(problem_instance, model, get_model_job_intervals(model))
