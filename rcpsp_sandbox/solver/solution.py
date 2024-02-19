@@ -23,6 +23,10 @@ class Solution:
     def difference_to(self, other: 'Solution', selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:
         return solution_difference(self, other, selected_jobs)
 
+    def plot(self, *args, **kwargs):
+        from solver.drawing import plot_solution
+        plot_solution(self.instance, self, *args, **kwargs)
+
     @property
     def job_interval_solutions(self) -> dict[int, CpoIntervalVarSolution]:
         if self._cached_job_interval_solutions is None:
