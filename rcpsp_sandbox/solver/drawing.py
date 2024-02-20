@@ -50,7 +50,7 @@ def plot_solution(problem_instance: ProblemInstance,
                   save_as: str = None):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
-    TODO
+    TODO values of step functions not reaching zero over the full horizon do not start at zero
     """
     if not visu.is_visu_enabled():
         print_error("docplex visu is not enabled, aborting plot...")

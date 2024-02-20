@@ -3,7 +3,8 @@ from collections import defaultdict
 from typing import Collection, Iterable, Literal, Tuple, Self
 
 from docplex.cp import modeler
-from docplex.cp.expression import interval_var, CpoExpr
+from docplex.cp.catalog import Oper_end_before_start, Oper_less_or_equal
+from docplex.cp.expression import interval_var, CpoExpr, CpoFunctionCall
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoIntervalVarSolution
@@ -71,7 +72,7 @@ class ModelBuilder:
 
             weighted_tardiness = (self.instance.projects[0].tardiness_cost  # assuming only a single project
                                   * ModelBuilder.__criteria_component_tardiness_sum(required_component_jobs,
-                                                                                    self.job_intervals,
+                                                                                    self._job_intervals,
                                                                                     weights_by_id_root_job))
             optimization_goal = modeler.minimize(weighted_tardiness)
 
@@ -269,6 +270,7 @@ class ModelBuilder:
         Returns:
             CpoExpr: The constraint expression.
         """
+        max_capacity = max(resource.capacity, max(change[2] for change in capacity_changes) if capacity_changes else 0)
         consumption_pulses = [modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
                               for job in jobs_consuming_resource[resource]]
 
@@ -280,7 +282,6 @@ class ModelBuilder:
 
             # Capacity increases
             # Constructs a blocking pulse function spanning (possibly some) decreases
-            max_capacity = max(resource.capacity, max((change[2] for change in increases), default=0))
             last_end = 0
             last_capacity = resource.capacity
             for start, end, capacity in increases:
@@ -292,14 +293,14 @@ class ModelBuilder:
                 last_capacity = capacity
 
             if last_end < self.instance.horizon:
-                blocking_pulses.append(modeler.pulse((last_end, self.instance.horizon), max_capacity - last_capacity))
+                blocking_pulses.append(modeler.pulse((last_end, self.instance.horizon), last_capacity - resource.capacity))
 
             # Capacity decreases
             for start, end, capacity in decreases:
                 blocking_pulses.append(modeler.pulse((start, end), resource.capacity - capacity))
 
         return (modeler.sum(consumption_pulses + blocking_pulses)
-                <= resource.capacity)
+                <= max_capacity)
 
     @staticmethod
     def __build_job_execution_availability(job: Job,
@@ -388,6 +389,7 @@ def build_model(problem_instance: ProblemInstance) -> ModelBuilder:
     """
     return ModelBuilder.build_model(problem_instance)
 
+
 def edit_model(model: CpoModel, problem_instance: ProblemInstance) -> ModelBuilder:
     """
     Edits the given model.
@@ -396,4 +398,8 @@ def edit_model(model: CpoModel, problem_instance: ProblemInstance) -> ModelBuild
         model (CpoModel): The model to edit.
         problem_instance (ProblemInstance): The problem instance of the model.
     """
-    return ModelBuilder(problem_instance, model, get_model_job_intervals(model))
+    builder = ModelBuilder(problem_instance, model)
+    builder._job_intervals = get_model_job_intervals(model)
+    builder._precedence_constraints = [expr for expr, _loc in model.get_all_expressions() if isinstance(expr, CpoFunctionCall) and expr.operation == Oper_end_before_start]
+    builder._resource_capacity_constraints = [expr for expr, _loc in model.get_all_expressions() if isinstance(expr, CpoFunctionCall) and expr.operation == Oper_less_or_equal]
+    return builder

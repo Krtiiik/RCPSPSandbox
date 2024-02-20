@@ -67,8 +67,8 @@ def solution_difference(a: Solution,
     :return: A tuple where the first element is the difference and the second element is a dictionary where each key is
     the id of a job and each value is the difference between the end times of that job in the two solutions.
     """
-    a_interval_solutions = a.job_interval_solutions()
-    b_interval_solutions = b.job_interval_solutions()
+    a_interval_solutions = a.job_interval_solutions
+    b_interval_solutions = b.job_interval_solutions
     assert a_interval_solutions.keys() == b_interval_solutions.keys()
 
     job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
@@ -90,7 +90,7 @@ def solution_tardiness_value(solution: Solution,
 
     :return: The tardiness value of the solution.
     """
-    interval_solutions = solution.job_interval_solutions()
+    interval_solutions = solution.job_interval_solutions
     job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
                else interval_solutions.keys())
     component_jobs = compute_component_jobs(solution.instance)
