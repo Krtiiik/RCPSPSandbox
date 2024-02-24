@@ -1,8 +1,11 @@
 import itertools
 import random
+from collections import defaultdict
+from queue import Queue
 from typing import Self, Literal
 
 import networkx as nx
+import networkx.algorithms
 
 from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
@@ -118,7 +121,8 @@ class ProblemModifier:
         return self
 
     def split_job_components(self,
-                             split: Literal["trim source target", "random roots", "paths"]) -> Self:
+                             split: Literal["trim source target", "random roots", "paths", "gradual"],
+                             gradual_level: int = 1) -> Self:
         match split:
             case "trim source target":
                 instance_graph = build_instance_graph(self)
@@ -165,6 +169,31 @@ class ProblemModifier:
 
                 self.precedences = precedences
                 self.components = components
+            case "gradual":
+                graph: nx.DiGraph = build_instance_graph(self, reversed=True)
+                topo_gens = list(nx.algorithms.topological_generations(graph))
+
+                # gradual_level indicates the depth of the component roots
+                # Right side of the graph picks child edges
+                for gen in topo_gens[:gradual_level]:
+                    for v in gen:
+                        edges = graph.out_edges(v)
+                        selected = random.choice(list(edges))
+                        graph.remove_edges_from(set(edges) - {selected})
+
+                # Left side of the graph picks parent edges
+                for gen in topo_gens[gradual_level + 1:]:
+                    for v in gen:
+                        edges = graph.in_edges(v)
+                        selected = random.choice(list(edges))
+                        graph.remove_edges_from(set(edges) - {selected})
+
+                first_gen = nx.topological_generations(graph).send(None)
+                components = [Component(root, 1) for root in first_gen]
+
+                self.precedences = [Precedence(v, u) for u, v in graph.edges]
+                self.components = components
+
             case _:
                 print_error(f"Unrecognized split option: {split}")
         return self

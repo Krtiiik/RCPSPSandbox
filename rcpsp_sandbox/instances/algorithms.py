@@ -9,15 +9,18 @@ from instances.problem_instance import ProblemInstance, Job
 from instances.utils import print_error
 
 
-def build_instance_graph(instance) -> nx.DiGraph:
+def build_instance_graph(instance, reversed: bool = False) -> nx.DiGraph:
     """
     Builds a job-graph of the given problem instance.
     :param instance: The instance to build the graph of. Any object with `jobs` and `precedences` properties can be given.
+    :param reversed: Indicates whether to reverse the precedence edges.
     :return: The oriented job-graph of the problem instance.
     """
+    def build_edge(precedence): return ((precedence.id_child, precedence.id_parent)
+                                        if not reversed else (precedence.id_parent, precedence.id_child))
     graph = nx.DiGraph()
     graph.add_nodes_from(job.id_job for job in instance.jobs)
-    graph.add_edges_from((precedence.id_child, precedence.id_parent) for precedence in instance.precedences)
+    graph.add_edges_from(build_edge(precedence) for precedence in instance.precedences)
     return graph
 
 
