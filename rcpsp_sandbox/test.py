@@ -1,5 +1,6 @@
 import random
 
+import bottlenecks
 import instances.io as iio
 from instances.drawing import draw_instance_graph
 from solver.drawing import print_difference
@@ -8,7 +9,7 @@ from solver.solver import Solver
 from instances.problem_modifier import modify_instance
 
 # INSTANCE_LOC = "./psplib"
-INSTANCE_LOC = "../../Data/RCPSP/j30/j3040_10.sm"
+INSTANCE_LOC = "../../Data/j30/j3040_10.sm"
 
 # SPLIT_COMPONENTS = True
 SPLIT_RESOURCE_CONSUMPTION = False
@@ -18,12 +19,11 @@ def main():
     random.seed(42)
 
     instance = iio.parse_psplib(INSTANCE_LOC)
-    draw_instance_graph(instance, block=False)
-
     instance = modify_instance(instance) \
-               .split_job_components(split="paths") \
+               .split_job_components(split="gradual", gradual_level=2) \
                .assign_resource_availabilities() \
                .generate_modified_instance()
+    draw_instance_graph(instance)
 
     model = build_model(instance) \
             .optimize_model() \
