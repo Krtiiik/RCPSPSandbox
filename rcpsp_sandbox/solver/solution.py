@@ -32,8 +32,8 @@ class Solution:
         if self._cached_job_interval_solutions is None:
             self._cached_job_interval_solutions = \
                 {int(var_solution.get_name()[4:]): var_solution
-                for var_solution in self._solve_result.get_all_var_solutions()
-                if isinstance(var_solution, CpoIntervalVarSolution) and var_solution.expr.get_name().startswith("Job")}
+                 for var_solution in self._solve_result.get_all_var_solutions()
+                 if isinstance(var_solution, CpoIntervalVarSolution) and var_solution.expr.get_name().startswith("Job")}
 
         return self._cached_job_interval_solutions
 
