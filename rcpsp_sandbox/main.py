@@ -11,7 +11,7 @@ from instances.problem_modifier import modify_instance
 parser = argparse.ArgumentParser()
 parser.add_argument("input_file", default=None, type=str, help="Path to instance file")
 parser.add_argument("--input_format", default="psplib", type=str, help="Format of the input instance file (psplib or json)")
-parser.add_argument("--output_file", default="psplib", type=str, help="Output file path")
+parser.add_argument("--output_file", default=None, type=str, help="Output file path")
 parser.add_argument("--output_format", default="psplib", type=str, help="Format of the output instance file (psplib or json)")
 parser.add_argument("--seed", default=42, type=int, help="Seed for random generators")
 
@@ -35,13 +35,17 @@ def main(args: argparse.Namespace):
 
     draw_instance_graph(instance, block=True, highlighted_nodes=[c.id_root_job for c in instance.components])
 
-    # result = Solver().solve(instance)
-    # plot_solution(instance, result.solution)
+    result = Solver().solve(instance)
+    plot_solution(instance, result.solution)
 
-    if args.output_format == "psplib":
-        serialize_psplib(instance, args.output_file)
-    elif args.output_format == "json":
-        serialize_json(instance, args.output_file)
+    if args.output_file is not None:
+        if args.output_format == "psplib" or args.output_file.endswith((".sm", ".mm", ".rp")):
+            serialize_psplib(instance, args.output_file)
+        elif args.output_format == "json" or args.output_file.endswith((".json",)):
+            serialize_json(instance, args.output_file)
+        else:
+            print_error(f"Unrecognized output format specified: {args.output_format}")
+            return
 
 
 if __name__ == "__main__":
