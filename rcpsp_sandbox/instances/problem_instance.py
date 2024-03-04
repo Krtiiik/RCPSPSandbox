@@ -65,16 +65,6 @@ class AvailabilityInterval:
         return iter((self.start, self.end, self.capacity))
 
 
-# ~~~~~~~ ResourceAvailability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-class ResourceAvailability:
-    _base_intervals: list[AvailabilityInterval]
-    _override_intervals: list[AvailabilityInterval]
-
-    def __init__(self, base_intervals: list[AvailabilityInterval]) -> None:
-        self._base_intervals = base_intervals
-
-
 # ~~~~~~~ Resource ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class Resource:
