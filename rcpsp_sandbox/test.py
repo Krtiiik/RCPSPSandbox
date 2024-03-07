@@ -1,3 +1,4 @@
+import functools
 import random
 
 import bottlenecks.metrics as mtr
@@ -32,10 +33,16 @@ def main():
 
     solution = Solver().solve(instance, model=model)
 
-    mw = mtr.evaluate_solution(solution, mtr.machine_workload, evaluation_name="MU")
-    mur = mtr.evaluate_solution(solution, mtr.machine_utilization_rate, evaluation_name="MUR")
-    auad = mtr.evaluate_solution(solution, mtr.average_uninterrupted_active_duration, evaluation_name="AUAD")
-    mtr.print_evaluation(instance, [mw, mur, auad])
+    mtr.print_evaluation(instance, [
+        # mtr.evaluate_solution(solution, mtr.machine_workload, evaluation_name="MU"),
+        # mtr.evaluate_solution(solution, mtr.machine_utilization_rate, evaluation_name="MUR"),
+        # mtr.evaluate_solution(solution, mtr.average_uninterrupted_active_duration, evaluation_name="AUAD"),
+        mtr.evaluate_solution(solution, mtr.machine_resource_workload, evaluation_name="MRW"),
+        mtr.evaluate_solution(solution, mtr.machine_resource_utilization_rate, evaluation_name="MRUR"),
+        mtr.evaluate_solution(solution, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="consumption"), evaluation_name="AUAC_1"),
+        mtr.evaluate_solution(solution, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="consumption ratio"), evaluation_name="AUAC_2"),
+        mtr.evaluate_solution(solution, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="averaged consumption"), evaluation_name="AUAC_3"),
+    ])
 
     solution.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
     solution.plot(split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
@@ -46,10 +53,16 @@ def main():
 
     solution_alt = Solver().solve(instance, model=model)
 
-    mw = mtr.evaluate_solution(solution_alt, mtr.machine_workload, evaluation_name="MU")
-    mur = mtr.evaluate_solution(solution_alt, mtr.machine_utilization_rate, evaluation_name="MUR")
-    auad = mtr.evaluate_solution(solution_alt, mtr.average_uninterrupted_active_duration, evaluation_name="AUAD")
-    mtr.print_evaluation(instance, [mw, mur, auad])
+    mtr.print_evaluation(instance, [
+        # mtr.evaluate_solution(solution_alt, mtr.machine_workload, evaluation_name="MU"),
+        # mtr.evaluate_solution(solution_alt, mtr.machine_utilization_rate, evaluation_name="MUR"),
+        # mtr.evaluate_solution(solution_alt, mtr.average_uninterrupted_active_duration, evaluation_name="AUAD"),
+        mtr.evaluate_solution(solution_alt, mtr.machine_resource_workload, evaluation_name="MRW"),
+        mtr.evaluate_solution(solution_alt, mtr.machine_resource_utilization_rate, evaluation_name="MRUR"),
+        mtr.evaluate_solution(solution_alt, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="consumption"), evaluation_name="AUAC_1"),
+        mtr.evaluate_solution(solution_alt, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="consumption ratio"), evaluation_name="AUAC_2"),
+        mtr.evaluate_solution(solution_alt, functools.partial(mtr.average_uninterrupted_active_consumption, average_over="averaged consumption"), evaluation_name="AUAC_3"),
+    ])
 
     solution_alt.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
     solution_alt.plot(split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
