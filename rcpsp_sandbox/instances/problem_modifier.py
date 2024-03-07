@@ -1,16 +1,13 @@
 import itertools
 import random
-from collections import defaultdict
-from queue import Queue
-from typing import Self, Literal
+from typing import Self, Literal, Iterable, Tuple
 
 import networkx as nx
-import networkx.algorithms
 
 from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, ResourceAvailability, AvailabilityInterval, Component
+from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, AvailabilityInterval, Component
 from utils import print_error
 
 
@@ -31,9 +28,16 @@ class ProblemModifier:
         self._resources = original_instance.resources[:]
         self._components = original_instance.components[:]
 
-    def assign_resource_availabilities(self) -> Self:
+    def assign_resource_availabilities(self,
+                                       availabilities: dict[int, Iterable[Tuple[int, int]]] = None,
+                                       ) -> Self:
+        if availabilities is None:
+            availabilities = {resource.id_resource: [(0, 24)] for resource in self.resources}
+
         for resource in self.resources:
-            resource.availability = [AvailabilityInterval(0, 24, resource.capacity)]
+            resource.availability = [AvailabilityInterval(start, end, resource.capacity)
+                                     for start, end in availabilities[resource.id_resource]]
+
         return self
 
     def assign_job_due_dates(self,
