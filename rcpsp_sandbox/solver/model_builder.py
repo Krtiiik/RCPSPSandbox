@@ -120,38 +120,6 @@ class ModelBuilder:
 
         return self
 
-    def change_resource_capacities(self, changes: dict[Resource, Iterable[Tuple[int, int, int]]]) -> Self:
-        """
-        Changes the capacities of the given resources in the model.
-
-        Args:
-            changes (dict[Resource, Tuple[int, int, int]]): A dictionary mapping resources to their new capacities. The
-                new capacities are represented as tuples (start, end, capacity), where start and end are the times when
-                the capacity change occurs.
-
-        Returns:
-            ModelBuilder: The modified model builder.
-        """
-
-        jobs_consuming_resource = {
-            resource: [job for job in self.instance.jobs if job.resource_consumption[resource] > 0]
-            for resource in self.instance.resources}
-        variable_resource_capacity_constraints = [
-            self.__build_resource_capacity_constraint(resource, jobs_consuming_resource, self._job_intervals, changes[resource] if resource in changes else None)
-            for resource in self.instance.resources]
-
-        self.model.remove(self._resource_capacity_constraints)
-        self.model.add(variable_resource_capacity_constraints)
-
-        self._resource_capacity_constraints = variable_resource_capacity_constraints
-
-        for resource in changes:
-            if resource not in self._resource_capacity_changes_intervals:
-                self._resource_capacity_changes_intervals[resource] = []
-            self._resource_capacity_changes_intervals[resource] += changes[resource]
-
-        return self
-
     def get_model(self):
         return self.model
 

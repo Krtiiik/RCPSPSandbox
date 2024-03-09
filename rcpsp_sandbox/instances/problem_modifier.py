@@ -245,6 +245,23 @@ class ProblemModifier:
 
         return self
 
+    def change_resource_availability(self,
+                                     changes: dict[Resource, Iterable[Tuple[int, int, int]]],
+                                     ) -> Self:
+        for resource in self._resources:
+            if resource not in changes:
+                continue
+            resource.availability.exception_intervals += [AvailabilityInterval(start, end, capacity)
+                                                          for start, end, capacity in changes[resource]]
+            resource.availability.exception_intervals.sort(key=lambda i: i.start)
+
+            last_end = 0
+            for interval in resource.availability.exception_intervals:
+                assert last_end <= interval.start
+                last_end = interval.end
+
+        return self
+
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:
         builder = InstanceBuilder()
         builder.add_jobs(self.jobs)
