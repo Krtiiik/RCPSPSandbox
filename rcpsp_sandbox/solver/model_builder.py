@@ -174,6 +174,7 @@ class ModelBuilder:
         job_intervals = {
             job.id_job: interval_var(name=f"Job {job.id_job}",
                                      size=job.duration,
+                                     length=job.duration,
                                      intensity=ModelBuilder.__build_job_execution_availability(job, resource_availabilities))
             for job in problem_instance.jobs}
 
