@@ -57,16 +57,13 @@ def plot_solution(problem_instance: ProblemInstance,
         return
 
     # ~~~ Indices and structures ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    job_intervals = {int(var_solution.get_name()[4:]): var_solution.get_var()
-                     for var_solution in solution.solve_result.get_all_var_solutions()}
+    job_interval_solutions = solution.job_interval_solutions
     component_jobs = compute_component_jobs(problem_instance)
     job_component_index: dict[int, int] = {job.id_job: i_comp
                                            for i_comp, comp_id_root_job in enumerate(component_jobs.keys())
                                            for job in component_jobs[comp_id_root_job]}
     cm = ColorMap(len(problem_instance.components))
-    max_t = max(fit_to_width,
-                max(solution.solve_result.get_var_solution(i).get_end() for i in job_intervals.values()))
-    days_count = math.ceil(max_t)
+    days_count = math.ceil(max(interval_solution.get_end() for interval_solution in job_interval_solutions.values()))
 
     def compute_resource_pauses(r: Resource):
         values = [0] + [i_day * 24 + t
@@ -106,27 +103,10 @@ def plot_solution(problem_instance: ProblemInstance,
                 load[r.id_resource].add_value(ji.get_start(), ji.get_end(), c)
 
     for job in problem_instance.jobs:
-        job_interval = solution.solve_result.get_var_solution(job_intervals[job.id_job])
+        job_interval = job_interval_solutions[job.id_job]
         for resource, consumption in job.resource_consumption.consumption_by_resource.items():
             if consumption > 0:
                 add_load(resource, job, job_interval, consumption)
-
-    # ~~~ Pauses in load ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if split_components:
-        for resource in problem_instance.resources:
-            pauses = compute_resource_pauses(resource)
-            for p_start, p_end in pauses:
-                for i_comp in load.keys():
-                    load[i_comp][resource.id_resource].set_value(p_start, p_end, 0)
-    else:
-        for resource in problem_instance.resources:
-            pauses = compute_resource_pauses(resource)
-            for p_start, p_end in pauses:
-                if split_resource_consumption:
-                    for _, f in load[resource.id_resource]:
-                        f.set_value(p_start, p_end, 0)
-                else:
-                    load[resource.id_resource].set_value(p_start, p_end, 0)
 
     # ~~~ Plotting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if split_components:
@@ -141,13 +121,12 @@ def plot_solution(problem_instance: ProblemInstance,
         for i_comp, root_job in enumerate(component_jobs.keys()):
             visu.panel(f"Component {str(i_comp)}")
             for job in component_jobs[root_job]:
-                interval = job_intervals[job.id_job]
-                interval_name = interval.get_name()[4:]
+                interval_solution = job_interval_solutions[job.id_job]
                 color = cm[job_component_index[job.id_job]]
-                visu.interval(solution.solve_result.get_var_solution(interval), color, interval_name)
+                visu.interval(interval_solution, color, str(job.id_job))
             plot_component_consumption(i_comp)
 
-        plt.rcParams["figure.figsize"] = (12, 4*comp_count)
+        plt.rcParams["figure.figsize"] = (12, 4*(1 + comp_count))
     else:
         if split_resource_consumption:
             def plot_resource_consumption(r: Resource):
@@ -163,16 +142,24 @@ def plot_solution(problem_instance: ProblemInstance,
         visu.timeline("Solution", horizon=fit_to_width)
         visu.panel("Jobs")
         for job in problem_instance.jobs:
-            interval = job_intervals[job.id_job]
-            interval_name = interval.get_name()[4:]
+            interval_solution = job_interval_solutions[job.id_job]
             color = cm[job_component_index[job.id_job]]
-            visu.interval(solution.solve_result.get_var_solution(interval), color, interval_name)
+            visu.interval(interval_solution, color, str(job.id_job))
         for i, resource in enumerate(sorted(problem_instance.resources, key=lambda r: r.key)):
             visu.panel(resource.key)
-            visu.function(segments=[(INTERVAL_MIN, INTERVAL_MAX, resource.capacity)], style='area', color=i)
+
+            segments = []
+            last_x = 0
+            for p_start, p_end in compute_resource_pauses(resource):
+                segments.append((last_x, p_start, resource.capacity))
+                segments.append((p_start, p_end, 0))
+                last_x = p_end
+
+            visu.function(segments=segments, style='area', color=i)
+            # visu.function(segments=[(INTERVAL_MIN, INTERVAL_MAX, resource.capacity)], style='area', color=i)
             plot_resource_consumption(resource)
 
-        plt.rcParams["figure.figsize"] = (12, 16)
+        plt.rcParams["figure.figsize"] = (12, 4*(1 + len(problem_instance.resources)))
 
     plt.rcParams["figure.dpi"] = 300
     if save_as is not None:
