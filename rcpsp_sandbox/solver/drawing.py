@@ -13,8 +13,7 @@ import tabulate
 from utils import print_error
 from instances.problem_instance import ProblemInstance, Job, Resource
 from solver.solution import Solution, solution_tardiness_value
-from solver.utils import compute_component_jobs
-
+from solver.utils import compute_component_jobs, build_resource_availability
 
 COLORS = [
     'xkcd:green',
@@ -148,15 +147,8 @@ def plot_solution(problem_instance: ProblemInstance,
         for i, resource in enumerate(sorted(problem_instance.resources, key=lambda r: r.key)):
             visu.panel(resource.key)
 
-            segments = []
-            last_x = 0
-            for p_start, p_end in compute_resource_pauses(resource):
-                segments.append((last_x, p_start, resource.capacity))
-                segments.append((p_start, p_end, 0))
-                last_x = p_end
-
+            segments = build_resource_availability(resource, problem_instance.horizon)
             visu.function(segments=segments, style='area', color=i)
-            # visu.function(segments=[(INTERVAL_MIN, INTERVAL_MAX, resource.capacity)], style='area', color=i)
             plot_resource_consumption(resource)
 
         plt.rcParams["figure.figsize"] = (12, 4*(1 + len(problem_instance.resources)))

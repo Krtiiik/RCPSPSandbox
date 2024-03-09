@@ -11,8 +11,7 @@ from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.problem_instance import ProblemInstance, Resource, Job, Component
 from solver.solution import Solution
-from solver.utils import get_model_job_intervals
-from utils import interval_overlap_function
+from solver.utils import get_model_job_intervals, build_resource_availability
 
 
 class ModelBuilder:
@@ -154,25 +153,6 @@ class ModelBuilder:
 
         return self
 
-    @staticmethod
-    def __build_resource_availability(resource: Resource, horizon: int) -> list[tuple[int, int, int]]:
-        """
-        Builds a step function representing the availability of a resource over time.
-
-        Args:
-            resource (Resource): The resource to build the availability function for.
-            horizon (int): The total number of hours in the planning horizon.
-
-        Returns:
-            CpoStepFunction: A step function representing the availability of the resource.
-        """
-        days_count = math.ceil(horizon / 24)
-        intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
-                     for i_day in range(days_count)
-                     for start, end, capacity in resource.availability.periodical_intervals]
-        return interval_overlap_function(intervals + resource.availability.exception_intervals,
-                                         first_x=0, last_x=days_count*24)
-
     def __build_resource_capacity_constraint(self,
                                              resource: Resource,
                                              job_intervals: dict[int, interval_var],
@@ -195,7 +175,7 @@ class ModelBuilder:
             CpoExpr: The constraint expression.
         """
         jobs_consuming_resource = [job for job in self.instance.jobs if job.resource_consumption[resource] > 0]
-        capacity_intervals = ModelBuilder.__build_resource_availability(resource, horizon)
+        capacity_intervals = build_resource_availability(resource, horizon)
         max_capacity = max(resource.capacity, max(i[2] for i in capacity_intervals))
         consumption_pulses = [modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
                               for job in jobs_consuming_resource]
@@ -203,31 +183,6 @@ class ModelBuilder:
         blocking_pulses = [modeler.pulse((start, end), max_capacity - capacity)
                            for start, end, capacity in capacity_intervals
                            if capacity < max_capacity]
-
-        # blocking_pulses = []
-        # if capacity_changes is not None:
-        #     capacity_changes = sorted(capacity_changes)
-        #     increases = [change for change in capacity_changes if change[2] > resource.capacity]
-        #     decreases = [change for change in capacity_changes if change[2] < resource.capacity]
-        #
-        #     # Capacity increases
-        #     # Constructs a blocking pulse function spanning (possibly some) decreases
-        #     last_end = 0
-        #     last_capacity = resource.capacity
-        #     for start, end, capacity in increases:
-        #         if start > last_end:
-        #             blocking_pulses.append(modeler.pulse((last_end, start), max_capacity - last_capacity))
-        #         blocking_pulses.append(modeler.pulse((start, end), max_capacity - capacity))
-        #
-        #         last_end = end
-        #         last_capacity = capacity
-        #
-        #     if last_end < self.instance.horizon:
-        #         blocking_pulses.append(modeler.pulse((last_end, self.instance.horizon), last_capacity - resource.capacity))
-        #
-        #     # Capacity decreases
-        #     for start, end, capacity in decreases:
-        #         blocking_pulses.append(modeler.pulse((start, end), resource.capacity - capacity))
 
         return (modeler.sum(consumption_pulses + blocking_pulses)
                 <= max_capacity)
