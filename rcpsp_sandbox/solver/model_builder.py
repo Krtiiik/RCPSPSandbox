@@ -11,7 +11,7 @@ from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.problem_instance import ProblemInstance, Resource, Job, Component
 from solver.solution import Solution
-from solver.utils import compute_component_jobs, get_model_job_intervals
+from solver.utils import get_model_job_intervals
 
 
 class ModelBuilder:
@@ -24,59 +24,35 @@ class ModelBuilder:
     _resource_capacity_changes_intervals: dict[Resource, list[Tuple[int, int, interval_var]]]
 
     def __init__(self, instance: ProblemInstance, model: CpoModel):
-        self.instance = instance
-        self.model = model
+        self.instance: ProblemInstance = instance
+        self.model: CpoModel = model
 
-        self._job_intervals = dict()
-        self._precedence_constraints = []
-        self._resource_capacity_constraints = []
-        self._resource_capacity_changes_intervals = dict()
+        self._job_intervals: dict[int, interval_var] = dict()
+        self._precedence_constraints: list[CpoExpr] = []
+        self._resource_capacity_constraints: list[CpoExpr] = []
+        self._resource_capacity_changes_intervals: dict[Resource, list[Tuple[int, int, interval_var]]] = dict()
 
     @staticmethod
     def build_model(instance: ProblemInstance) -> 'ModelBuilder':
-        if instance.components is None or instance.components == []:
-            instance.components = [Component(1, 1)]
         return ModelBuilder(instance, CpoModel(instance.name)).__base_model(instance)
 
     def optimize_model(self,
-                       opt: Literal["Tardiness all", "Tardiness selected"] = "Tardiness all",
-                       priority_jobs: Iterable[Job] = None) -> Self:
-        """
-        Optimizes the model by adding an optimization goal. The optimization can minimize the total tardiness of all
-        job components, tardiness of selected priority job components.
-
-        Args:
-            opt (Literal["None", "Tardiness all", "Tardiness selected"], optional): The optimization option to use. Defaults to "None".
-            priority_jobs (Iterable[Job], optional): The collection of selected jobs to use for the "Tardiness selected" optimization option. Defaults to None.
-
-        Raises:
-            ValueError: If an unrecognized optimization option is provided or if the "Tardiness selected" option is used without providing a non-empty collection of selected jobs.
-        """
-        if opt not in ["Tardiness all", "Tardiness selected"]:
+                       opt: Literal["tardiness"] = "tardiness",
+                       selected: Iterable[Component] = None,
+                       ) -> Self:
+        if opt not in ["tardiness"]:
             raise ValueError(f"Unrecognized optimization option: {opt}")
 
-        if opt in ["Tardiness all", "Tardiness selected"]:
-            component_jobs_by_root_job = compute_component_jobs(self.instance)
-            weights_by_id_root_job = {c.id_root_job: c.weight for c in self.instance.components}
+        components = list(selected) if selected is not None else self.instance.components
 
-            if opt == "Tardiness all":
-                required_component_jobs = component_jobs_by_root_job.items()
-            else:  # opt == "Tardiness selected"
-                if priority_jobs is None:
-                    raise ValueError(
-                        "Tardiness selected optimization option requires a non-empty collection of priority jobs.")
-                selected_set = set(priority_jobs)
-                required_component_jobs = [(root_job, jobs)
-                                           for root_job, jobs in component_jobs_by_root_job.items()
-                                           if (selected_set & set(jobs))]  # If the intersection of the selected jobs and the jobs in the component is non-empty, the component is required.
+        def tardiness(c: Component):
+            value = modeler.end_of(self._job_intervals[c.id_root_job]) - self.instance.jobs_by_id[c.id_root_job].due_date
+            return modeler.max(0, value)
 
-            weighted_tardiness = (self.instance.projects[0].tardiness_cost  # assuming only a single project
-                                  * ModelBuilder.__criteria_component_tardiness_sum(required_component_jobs,
-                                                                                    self._job_intervals,
-                                                                                    weights_by_id_root_job))
-            optimization_goal = modeler.minimize(weighted_tardiness)
+        weighted_tardiness = modeler.sum(component.weight * tardiness(component) for component in components)
+        optimization_goal = modeler.minimize(weighted_tardiness)
 
-            self.model.add(optimization_goal)
+        self.model.add(optimization_goal)
 
         return self
 
@@ -329,46 +305,6 @@ class ModelBuilder:
         steps = sorted((step[0], 100 if step[1] else 0)
                        for step in step_values.items())
         return CpoStepFunction(steps)
-
-    @staticmethod
-    def __criteria_most_tardy_job_tardiness(jobs: Collection[Job],
-                                            job_intervals: dict[int, interval_var]) -> CpoExpr:
-        """
-        Calculates the maximum tardiness of all jobs in the given collection, based on their due dates and completion times.
-
-        The tardiness of a job is defined as the difference between its completion time and its due date, if the job is
-        completed after its due date. If no job is completed after its due date, the maximum tardiness is 0.
-
-        Args:
-            jobs: A collection of Job objects.
-            job_intervals: A dictionary mapping job IDs to their corresponding interval variables.
-
-        Returns:
-            A CpoExpr representing the maximum tardiness of all jobs in the collection.
-        """
-        tardiness_of_jobs = (modeler.end_of(job_intervals[job.id_job]) - job.due_date for job in jobs)
-        return modeler.max(modeler.max(tardiness_of_jobs), 0)
-
-    @staticmethod
-    def __criteria_component_tardiness_sum(component_jobs: Iterable[Tuple[Job, Collection[Job]]],
-                                           job_intervals: dict[int, interval_var],
-                                           weights_by_id_root_job: dict[int, int]) -> CpoExpr:
-        """
-        Computes the sum of the weighted tardiness of the most tardy job in each component.
-
-        Args:
-            component_jobs: An iterable of tuples, where each tuple contains a root job and a collection of jobs that belong
-                to the same component as the root job.
-            job_intervals: A dictionary that maps job IDs to their corresponding interval variables.
-            weights_by_id_root_job: A dictionary that maps the IDs of root jobs to their corresponding weights.
-
-        Returns:
-            A CpoExpr object representing the sum of the weighted tardiness of the most tardy job in each component.
-        """
-        return modeler.sum(weights_by_id_root_job[root_job.id_job]  # each component has its weight in the sum
-                           * ModelBuilder.__criteria_most_tardy_job_tardiness(jobs, job_intervals)
-                           # each component contributes only through the tardiest job
-                           for root_job, jobs in component_jobs)
 
     @staticmethod
     def __get_model_solution_job_intervals(model: CpoModel, solution: Solution) -> Tuple[dict[int, interval_var], dict[int, CpoIntervalVarSolution]]:
