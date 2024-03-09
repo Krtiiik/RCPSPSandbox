@@ -4,7 +4,7 @@ from typing import IO, Iterable, Any
 from collections import defaultdict
 
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
-    ResourceType, Component, AvailabilityInterval
+    ResourceType, Component, AvailabilityInterval, ResourceAvailability
 from instances.instance_builder import InstanceBuilder
 from instances.utils import try_open_read, chunk, str_or_default
 
@@ -287,9 +287,9 @@ def __parse_psplib_internal(file: IO,
         def availability_interval_from_shift_mode(resource_shift_mode: int):
             match resource_shift_mode:
                 case 1:
-                    return [AvailabilityInterval(start=8, end=16)]
+                    return [AvailabilityInterval(start=8, end=16, capacity=1)]
                 case 2:
-                    return [AvailabilityInterval(start=6, end=22)]
+                    return [AvailabilityInterval(start=6, end=22, capacity=1)]
                 case _:
                     raise ParseError.in_file(file, line_num, "Unexpected resource shift mode")
 
@@ -297,7 +297,7 @@ def __parse_psplib_internal(file: IO,
         for _ in range(len(resources)):
             id_resource_str, shift_mode_str = parse_split_line((0, 1))
             id_resource = try_parse_value(id_resource_str)
-            availability = availability_interval_from_shift_mode(try_parse_value(shift_mode_str))
+            availability = ResourceAvailability(availability_interval_from_shift_mode(try_parse_value(shift_mode_str)))
             resource_by_id[id_resource].availability = availability
 
     else:  # RESOURCE AVAILABILITIES
@@ -319,8 +319,8 @@ def __parse_psplib_internal(file: IO,
         for resource in resources:
             if resource.key not in intervals_by_resource_key:
                 continue
-            resource.availability = intervals_by_resource_key[resource.key]
-            for availability_interval in resource.availability:
+            resource.availability = ResourceAvailability(intervals_by_resource_key[resource.key])
+            for availability_interval in resource.availability.periodical_intervals:
                 if availability_interval.capacity is None:
                     availability_interval.capacity = resource.capacity
 
@@ -457,13 +457,13 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     table_header(*table_headers)
     dashes()
     for resource in instance.resources:
-        first_availability: AvailabilityInterval = resource.availability[0]
+        first_availability: AvailabilityInterval = resource.availability.periodical_intervals[0]
         table_line(lengths,
                    resource.key,
                    first_availability.start,
                    first_availability.end,
                    str_or_default(first_availability.capacity))
-        for availability in resource.availability[1:]:
+        for availability in resource.availability.periodical_intervals[1:]:
             table_line(lengths,
                        "",
                        availability.start,
@@ -636,14 +636,17 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
         }
 
         if self._is_extended:
-            def serialize_availability(availability: AvailabilityInterval):
-                obj = {"Start": availability.start, "End": availability.end}
-                if availability.capacity is not None:
-                    obj["Capacity"] = availability.capacity
+            def serialize_interval(interval: AvailabilityInterval):
+                return {
+                    "Start": interval.start,
+                    "End": interval.end,
+                    "Capacity": interval.capacity,
+                }
 
-                return obj
-
-            resource_object["Availability"] = [serialize_availability(av) for av in resource.availability]
+            resource_object["Availability"] = {
+                "Periodical": [serialize_interval(interval) for interval in resource.availability.periodical_intervals],
+                "Exception": [serialize_interval(interval) for interval in resource.availability.exception_intervals],
+            }
 
         return resource_object
 

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from enum import StrEnum
 from typing import Optional, Collection, Self, Iterable
 
@@ -13,56 +13,37 @@ class ResourceType(StrEnum):
     DOUBLY_CONSTRAINED = 'D'
 
 
-# ~~~~~~~ AvailabilityInterval ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~ ResourceAvailability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class AvailabilityInterval:
-    _start: int
-    _end: int
-    _capacity: int
+AvailabilityInterval = namedtuple("AvailabilityInterval", ["start", 'end', "capacity"])
+
+
+class ResourceAvailability:
+    _periodical_intervals: list[AvailabilityInterval]
+    _exception_intervals: list[AvailabilityInterval]
 
     def __init__(self,
-                 start: int,
-                 end: int,
-                 capacity: int):
-        self._start = start
-        self._end = end
-        self._capacity = capacity
+                 periodical_intervals: Iterable[AvailabilityInterval],
+                 exception_intervals: Iterable[AvailabilityInterval] = None,
+                 ):
+        self._periodical_intervals = list_of(periodical_intervals)
+        self._exception_intervals = list_of(exception_intervals) if exception_intervals is not None else []
 
     @property
-    def start(self) -> int:
-        return self._start
+    def periodical_intervals(self) -> list[AvailabilityInterval]:
+        return self._periodical_intervals
 
-    @start.setter
-    def start(self, value: int):
-        self._start = value
-
-    @property
-    def end(self) -> int:
-        return self._end
-
-    @end.setter
-    def end(self, value: int):
-        self._end = value
+    @periodical_intervals.setter
+    def periodical_intervals(self, value: Iterable[AvailabilityInterval]):
+        self._periodical_intervals = list_of(value)
 
     @property
-    def capacity(self) -> int or None:
-        return self._capacity
+    def exception_intervals(self):
+        return self._exception_intervals
 
-    @capacity.setter
-    def capacity(self, value: int or None):
-        self._capacity = value
-
-    def copy(self) -> Self:
-        return AvailabilityInterval(start=self.start,
-                                    end=self.end,
-                                    capacity=self.capacity)
-
-    def __str__(self):
-        return (f"[{self.start, self.end}]" if self.capacity is None
-                else f"[{self.start}, {self.end}]<{self.capacity}>")
-
-    def __iter__(self):
-        return iter((self.start, self.end, self.capacity))
+    @exception_intervals.setter
+    def exception_intervals(self, value: Iterable[AvailabilityInterval]):
+        self._exception_intervals = list_of(value)
 
 
 # ~~~~~~~ Resource ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,17 +52,17 @@ class Resource:
     _id_resource: int
     _type: ResourceType
     _capacity: int
-    _availability: list[AvailabilityInterval] or None
+    _availability: ResourceAvailability
 
     def __init__(self,
                  id_resource: int,
                  resource_type: ResourceType,
                  capacity: int,
-                 availability: list[AvailabilityInterval] or None = None):
+                 availability: ResourceAvailability = None):
         self._id_resource = id_resource
         self._type = resource_type
         self._capacity = capacity
-        self._availability = availability
+        self._availability = availability if availability is not None else ResourceAvailability([AvailabilityInterval(0, 24, capacity)])
 
     @property
     def id_resource(self) -> int:
@@ -108,11 +89,11 @@ class Resource:
         self._capacity = value
 
     @property
-    def availability(self) -> list[AvailabilityInterval] or None:
+    def availability(self) -> ResourceAvailability:
         return self._availability
 
     @availability.setter
-    def availability(self, value: list[AvailabilityInterval] or None):
+    def availability(self, value: ResourceAvailability):
         self._availability = value
 
     @property

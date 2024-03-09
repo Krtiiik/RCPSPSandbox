@@ -68,7 +68,7 @@ def plot_solution(problem_instance: ProblemInstance,
     def compute_resource_pauses(r: Resource):
         values = [0] + [i_day * 24 + t
                         for i_day in range(days_count)
-                        for av in r.availability
+                        for av in r.availability.periodical_intervals
                         for t in [av.start, av.end]]
         pauses = list(itertools.pairwise(values))[::2]
         return pauses

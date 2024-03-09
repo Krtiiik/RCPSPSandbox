@@ -214,7 +214,7 @@ class ModelBuilder:
         Returns:
             CpoStepFunction: A step function representing the availability of the resource.
         """
-        day_operating_hours = resource.availability if resource.availability is not None else [(0, 24, resource.capacity)]
+        day_operating_hours = resource.availability.periodical_intervals if resource.availability is not None else [(0, 24, resource.capacity)]
         days_count = math.ceil(horizon / 24)
         step_values = dict()
         for i_day in range(days_count):

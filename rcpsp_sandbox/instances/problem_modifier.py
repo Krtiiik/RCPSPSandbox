@@ -7,7 +7,8 @@ import networkx as nx
 from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
-from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, AvailabilityInterval, Component
+from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, AvailabilityInterval, Component, \
+    ResourceAvailability
 from utils import print_error
 
 
@@ -35,8 +36,9 @@ class ProblemModifier:
             availabilities = {resource.id_resource: [(0, 24)] for resource in self.resources}
 
         for resource in self.resources:
-            resource.availability = [AvailabilityInterval(start, end, resource.capacity)
-                                     for start, end in availabilities[resource.id_resource]]
+            periodical_intervals = [AvailabilityInterval(start, end, resource.capacity)
+                                    for start, end in availabilities[resource.id_resource]]
+            resource.availability = ResourceAvailability(periodical_intervals)
 
         return self
 
