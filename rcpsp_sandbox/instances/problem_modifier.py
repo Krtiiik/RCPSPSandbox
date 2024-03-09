@@ -41,7 +41,7 @@ class ProblemModifier:
         return self
 
     def assign_job_due_dates(self,
-                             choice: str = Literal["uniform", "gradual"],
+                             choice: str = Literal["uniform", "gradual", "earliest"],
                              interval: tuple[int, int] = None,
                              target_jobs: list[int] = None,
                              gradual_base: int = None,
@@ -77,6 +77,26 @@ class ProblemModifier:
                 for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
                     parent_end = jobs_by_id[parent].due_date if parent is not None else gradual_base
                     jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + round(random.uniform(*gradual_interval))
+            case "earliest":
+                def get_duedate(j): return jobs_by_id[j].due_date
+                def get_duration(j): return jobs_by_id[j].duration
+
+                def try_update(j, pred):
+                    pred_bound = get_duedate(pred) + get_duration(j)
+                    if pred_bound > get_duedate(j):
+                        jobs_by_id[j].due_date = pred_bound
+
+                graph = build_instance_graph(self)
+                for node in topological_sort(graph):
+                    jobs_by_id[node].due_date = 0
+                    for predecessor in graph.in_edges(node):
+                        try_update(node, predecessor)
+
+                if target_jobs is not None:
+                    to_keep = set(target_jobs)
+                    for id_job in jobs_by_id:
+                        if id_job not in to_keep:
+                            jobs_by_id[id_job].due_date = None
             case _:
                 print_error("Unrecognized choice type for computing due dates")
 
