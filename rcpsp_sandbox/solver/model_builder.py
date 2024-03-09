@@ -110,22 +110,23 @@ class ModelBuilder:
 
         return self
 
-    def minimize_model_solution_difference(self, solution: Solution, exclude: Iterable[Job] = None, alpha: float = 1.) -> Self:
+    def minimize_model_solution_difference(self, solution: Solution, selected: Iterable[Job] = None, alpha: float = 1.) -> Self:
         """
         Minimizes the difference between the start times of the jobs in the given model and solution.
 
         Args:
             solution (Solution): The solution to minimize the difference for.
-            exclude (Iterable[Job], optional): The collection of jobs to exclude from the minimization. Defaults to None.
+            selected (Iterable[Job], optional): The collection of jobs to minimize for. If None, all the jobs are used.
+                Defaults to None.
             alpha (float, optional): The weight of the difference in the minimization sum. Defaults to 1.
         """
-        excluded = set(j.id_job for j in exclude) if exclude is not None else {}
-        model_job_intervals, solution_job_interval_solutions = ModelBuilder.__get_model_solution_job_intervals(self.model, solution)
+        job_ids = (set(j.id_job for j in self.instance.jobs)
+                   if selected is None
+                   else set(selected))
 
-        criteria = modeler.sum(modeler.abs(modeler.start_of(model_job_intervals[id_job])
-                                           - solution_job_interval_solutions[id_job].get_start())
-                               for id_job in solution_job_interval_solutions.keys()
-                               if id_job not in excluded)
+        def difference_for(id_job): return modeler.abs(modeler.start_of(self._job_intervals[id_job])
+                                                       - solution.job_interval_solutions[id_job].get_start())
+        criteria = modeler.sum(difference_for(id_job) for id_job in job_ids)
 
         # !!! This is a nasty piece of code !!!
         #
