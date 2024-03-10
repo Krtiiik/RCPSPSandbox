@@ -92,7 +92,13 @@ class InstanceBuilder:
                 raise InstanceBuilderError(f"Unexpected instance property {{{key}: {value}}}")
 
     def build_instance(self) -> ProblemInstance:
-        return ProblemInstance(self._horizon, self._projects, self._resources, self._jobs, self._precedences, self._components, name=self._name)
+        return ProblemInstance(self._horizon,
+                               sorted(self._projects, key=lambda p: p.id_project),
+                               sorted(self._resources, key=lambda r: r.key),
+                               sorted(self._jobs, key=lambda j: j.id_job),
+                               sorted(self._precedences, key=lambda p: (p.id_child, p.id_parent)),
+                               sorted(self._components, key=lambda c: c.id_root_job),
+                               name=self._name)
 
     def clear(self):
         self._projects.clear()
