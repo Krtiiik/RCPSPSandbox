@@ -81,7 +81,10 @@ def __draw_graph(graph: nx.DiGraph,
         highlighted_nodes = set()
 
     x_max, y_max = max(x[0] for x in node_locations.values()), max(x[1] for x in node_locations.values())
-    matplotlib.pyplot.figure(figsize=(x_max / 100, y_max / 10))
+    matplotlib.pyplot.figure(
+        figsize=(x_max / 100, y_max / 10),
+        dpi=300,
+    )
 
     ax = matplotlib.pyplot.gca()
     for id_job, loc in node_locations.items():
@@ -97,7 +100,6 @@ def __draw_graph(graph: nx.DiGraph,
     ax.set_xticks([])
     ax.set_yticks([])
     ax.autoscale()
-    plt.rcParams["figure.dpi"] = 300
 
     if save_as is not None:
         matplotlib.pyplot.savefig(save_as, dpi=300)
