@@ -43,9 +43,9 @@ class ColorMap:
 
 def plot_solution(problem_instance: ProblemInstance,
                   solution: Solution,
-                  fit_to_width: int = 0,
                   split_components: bool = False,
                   split_resource_consumption: bool = False,
+                  plot_resource_capacity: bool = True,
                   save_as: str = None):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
@@ -62,15 +62,6 @@ def plot_solution(problem_instance: ProblemInstance,
                                            for i_comp, comp_id_root_job in enumerate(component_jobs.keys())
                                            for job in component_jobs[comp_id_root_job]}
     cm = ColorMap(len(problem_instance.components))
-    days_count = math.ceil(max(interval_solution.get_end() for interval_solution in job_interval_solutions.values()))
-
-    def compute_resource_pauses(r: Resource):
-        values = [0] + [i_day * 24 + t
-                        for i_day in range(days_count)
-                        for av in r.availability.periodical_intervals
-                        for t in [av.start, av.end]]
-        pauses = list(itertools.pairwise(values))[::2]
-        return pauses
 
     # ~~~ Load computation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if split_components:
@@ -115,7 +106,7 @@ def plot_solution(problem_instance: ProblemInstance,
             for i_f, f in enumerate(fs):
                 visu.function(segments=f, style='area', color=i_f)
 
-        visu.timeline("Solution", horizon=fit_to_width)
+        visu.timeline("Solution")
         comp_count = len(component_jobs.keys())
         for i_comp, root_job in enumerate(component_jobs.keys()):
             visu.panel(f"Component {str(i_comp)}")
@@ -138,7 +129,7 @@ def plot_solution(problem_instance: ProblemInstance,
                 # noinspection PyTypeChecker
                 visu.function(segments=load[r.id_resource], style='area', color='green')
 
-        visu.timeline("Solution", horizon=fit_to_width)
+        visu.timeline("Solution")
         visu.panel("Jobs")
         for job in problem_instance.jobs:
             interval_solution = job_interval_solutions[job.id_job]
@@ -147,8 +138,10 @@ def plot_solution(problem_instance: ProblemInstance,
         for i, resource in enumerate(sorted(problem_instance.resources, key=lambda r: r.key)):
             visu.panel(resource.key)
 
-            segments = build_resource_availability(resource, problem_instance.horizon)
-            visu.function(segments=segments, style='area', color=i)
+            if plot_resource_capacity:
+                segments = build_resource_availability(resource, problem_instance.horizon)
+                visu.function(segments=segments, style='area', color=i)
+
             plot_resource_consumption(resource)
 
         plt.rcParams["figure.figsize"] = (12, 4*(1 + len(problem_instance.resources)))
