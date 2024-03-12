@@ -34,6 +34,29 @@ class ModelBuilder:
     def build_model(instance: ProblemInstance) -> 'ModelBuilder':
         return ModelBuilder(instance, CpoModel(instance.name)).__base_model()
 
+    def with_precedences(self) -> Self:
+        precedence_constraints = [
+            modeler.end_before_start(self._job_intervals[precedence.id_child],
+                                     self._job_intervals[precedence.id_parent])
+            for precedence in self.instance.precedences]
+
+        self.model.add(precedence_constraints)
+
+        self._precedence_constraints = precedence_constraints
+
+        return self
+
+    def with_resource_constraints(self) -> Self:
+        resource_capacity_constraints = [
+            self.__build_resource_capacity_constraint(resource, self._job_intervals, self.instance.horizon)
+            for resource in self.instance.resources]
+
+        self.model.add(resource_capacity_constraints)
+
+        self._resource_capacity_constraints = resource_capacity_constraints
+
+        return self
+
     def optimize_model(self,
                        opt: Literal["tardiness"] = "tardiness",
                        selected: Iterable[Component] = None,
@@ -124,32 +147,15 @@ class ModelBuilder:
     def __base_model(self) -> Self:
         """
         Builds a base model for the given problem instance.
-
-        The base model contains the following constraints:
-        - Precedence constraints between jobs.
-        - Resource capacity constraints.
-        - Job execution availability constraints.
         """
         job_intervals = {job.id_job: interval_var(name=f"Job {job.id_job}", size=job.duration, length=job.duration)
                          for job in self.instance.jobs}
 
-        precedence_constraints = [
-            modeler.end_before_start(job_intervals[precedence.id_child], job_intervals[precedence.id_parent])
-            for precedence in self.instance.precedences]
-
-        resource_capacity_constraints = [
-            self.__build_resource_capacity_constraint(resource, job_intervals, self.instance.horizon)
-            for resource in self.instance.resources]
-
         model = CpoModel(self.instance.name)
         model.add(job_intervals.values())
-        model.add(precedence_constraints)
-        model.add(resource_capacity_constraints)
 
         self.model = model
         self._job_intervals = job_intervals
-        self._precedence_constraints = precedence_constraints
-        self._resource_capacity_constraints = resource_capacity_constraints
 
         return self
 
