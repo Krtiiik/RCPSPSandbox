@@ -196,7 +196,7 @@ class ProblemModifier:
                 self.precedences = precedences
                 self.components = components
             case "gradual":
-                graph: nx.DiGraph = build_instance_graph(self, reversed=True)
+                graph: nx.DiGraph = build_instance_graph(self, reverse=True)
                 topo_gens = list(nx.algorithms.topological_generations(graph))
 
                 # gradual_level indicates the depth of the component roots
