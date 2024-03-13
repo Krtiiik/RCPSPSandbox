@@ -54,8 +54,7 @@ def print_evaluation(instance: ProblemInstance, evaluations: Iterable[MetricEval
 
 def machine_workload(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
     mw = sum(job.duration
-             for job in instance.jobs
-             if job.resource_consumption.consumption_by_resource[resource] > 0)
+             for job in __jobs_consuming_resource(instance, resource))
     return T_MetricResult(mw)
 
 
@@ -72,9 +71,8 @@ def average_uninterrupted_active_duration(solution: Solution, instance: ProblemI
 
 
 def machine_resource_workload(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
-    mrw = sum(job.duration * job.resource_consumption.consumption_by_resource[resource]
-              for job in instance.jobs
-              if job.resource_consumption.consumption_by_resource[resource] > 0)
+    mrw = sum(job.duration * consumption
+              for job, consumption in __jobs_consuming_resource(instance, resource, yield_consumption=True))
     return T_MetricResult(mrw)
 
 
@@ -134,6 +132,13 @@ def __compute_active_periods(solution: Solution, instance: ProblemInstance, reso
     periods.append(current_period)
 
     return periods
+
+
+def __jobs_consuming_resource(instance: ProblemInstance, resource: Resource, yield_consumption: bool = False) -> Iterable[Job]:
+    for job in instance.jobs:
+        consumption = job.resource_consumption.consumption_by_resource[resource]
+        if consumption > 0:
+            yield job, consumption if yield_consumption else job
 
 
 def avg(it: Iterable):
