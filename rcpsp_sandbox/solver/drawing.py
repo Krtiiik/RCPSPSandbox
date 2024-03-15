@@ -1,44 +1,17 @@
 import itertools
-import math
 from typing import Iterable, Tuple
 
-from docplex.cp.expression import INTERVAL_MIN, INTERVAL_MAX
 from docplex.cp.function import CpoStepFunction
-from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
+from docplex.cp.solution import CpoIntervalVarSolution
 import docplex.cp.utils_visu as visu
 import matplotlib.pyplot as plt
 import numpy as np
 import tabulate
 
-from utils import print_error
+from utils import print_error, compute_component_jobs, ColorMap
 from instances.problem_instance import ProblemInstance, Job, Resource
 from solver.solution import Solution, solution_tardiness_value
-from solver.utils import compute_component_jobs, build_resource_availability
-
-COLORS = [
-    'xkcd:green',
-    'xkcd:orange',
-    'xkcd:red',
-    'xkcd:violet',
-    'xkcd:blue',
-    'xkcd:yellow green',
-    # 'xkcd:yellow',
-    'xkcd:yellow orange',
-    # 'xkcd:red orange',
-    'xkcd:red violet',
-    'xkcd:blue violet',
-    'xkcd:blue green'
-]
-
-
-class ColorMap:
-    def __init__(self, color_count):
-        self.range = color_count
-        self.colors = COLORS
-
-    def __getitem__(self, item):
-        assert isinstance(item, int)
-        return self.colors[item % len(self.colors)]
+from solver.utils import build_resource_availability
 
 
 def plot_solution(problem_instance: ProblemInstance,

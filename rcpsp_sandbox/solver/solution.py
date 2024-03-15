@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 from docplex.cp.solution import CpoSolveResult, CpoIntervalVarSolution
 
 from instances.problem_instance import Job, ProblemInstance
-from solver.utils import compute_component_jobs
+from utils import compute_component_jobs
 
 
 class Solution:
