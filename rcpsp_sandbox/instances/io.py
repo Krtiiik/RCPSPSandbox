@@ -301,10 +301,22 @@ def __parse_psplib_internal(file: IO,
             resource_by_id[id_resource].availability = availability
 
     else:  # RESOURCE AVAILABILITIES
-        skip_lines(2)  # table header and dashes
-        intervals_by_resource_key = defaultdict(list)
+        skip_lines(3)  # table header and dashes and "PERIODICAL"
+        periodical_intervals_by_resource_key = defaultdict(list)
+        exceptional_intervals_by_resource_key = defaultdict(list)
         current_line = read_line()
         resource_key = ""
+        while (not current_line.startswith('EXCEPTIONAL')):
+            if not current_line.startswith(' '):  # New resource
+                resource_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
+            else:
+                start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2), 2)
+            start, end = try_parse_value(start_str), try_parse_value(end_str)
+            capacity = try_parse_value(capacity_str.strip()) if capacity_str != "" else None
+            periodical_intervals_by_resource_key[resource_key].append(AvailabilityInterval(start, end, capacity))
+
+            current_line = read_line()
+        current_line = read_line()
         while (not current_line.startswith('*')) and (current_line != ""):
             if not current_line.startswith(' '):  # New resource
                 resource_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
@@ -312,15 +324,17 @@ def __parse_psplib_internal(file: IO,
                 start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2), 2)
             start, end = try_parse_value(start_str), try_parse_value(end_str)
             capacity = try_parse_value(capacity_str.strip()) if capacity_str != "" else None
-            intervals_by_resource_key[resource_key].append(AvailabilityInterval(start, end, capacity))
+            exceptional_intervals_by_resource_key[resource_key].append(AvailabilityInterval(start, end, capacity))
 
             current_line = read_line()
 
         for resource in resources:
-            if resource.key not in intervals_by_resource_key:
-                continue
-            resource.availability = ResourceAvailability(intervals_by_resource_key[resource.key])
+            resource.availability = ResourceAvailability(periodical_intervals_by_resource_key[resource.key],
+                                                         exceptional_intervals_by_resource_key[resource.key])
             for availability_interval in resource.availability.periodical_intervals:
+                if availability_interval.capacity is None:
+                    availability_interval.capacity = resource.capacity
+            for availability_interval in resource.availability.exception_intervals:
                 if availability_interval.capacity is None:
                     availability_interval.capacity = resource.capacity
 
@@ -456,6 +470,7 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     table_headers, lengths = table_header_setup("resource", "start", "end", "(capacity)")
     table_header(*table_headers)
     dashes()
+    header_line("PERIODICAL")
     for resource in instance.resources:
         first_availability: AvailabilityInterval = resource.availability.periodical_intervals[0]
         table_line(lengths,
@@ -464,6 +479,22 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
                    first_availability.end,
                    str_or_default(first_availability.capacity))
         for availability in resource.availability.periodical_intervals[1:]:
+            table_line(lengths,
+                       "",
+                       availability.start,
+                       availability.end,
+                       str_or_default(availability.capacity))
+    header_line("EXCEPTIONAL")
+    for resource in instance.resources:
+        if not resource.availability.exception_intervals:
+            continue
+        first_availability: AvailabilityInterval = resource.availability.exception_intervals[0]
+        table_line(lengths,
+                   resource.key,
+                   first_availability.start,
+                   first_availability.end,
+                   str_or_default(first_availability.capacity))
+        for availability in resource.availability.exception_intervals[1:]:
             table_line(lengths,
                        "",
                        availability.start,
@@ -572,17 +603,32 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
 
     for r in obj["Resources"]:
         check_key_in("Availability", r, "Instance object > Resources")
-        check_type_of(r["Availability"], list, "Instance object > Resources > Availability")
+        check_type_of(r["Availability"], dict, "Instance object > Resources > Availability")
 
-        for availability in r["Availability"]:
-            check_key_in("Start", availability, "Instance object > Resources > Availability")
-            check_type_of(availability["Start"], int, "Instance object > Resources > Availability > Start")
+        check_key_in("Periodical", r["Availability"], "Instance object > Resource > Availability")
+        check_type_of(r["Availability"]["Periodical"], list, "Instance object > Resource > Availability > Periodical")
+        check_key_in("Exceptional", r["Availability"], "Instance object > Resource > Availability")
+        check_type_of(r["Availability"]["Exceptional"], list, "Instance object > Resource > Availability > Exceptional")
 
-            check_key_in("End", availability, "Instance object > Resources > Availability")
-            check_type_of(availability["End"], int, "Instance object > Resources > Availability > End")
+        for periodical in r["Availability"]["Periodical"]:
+            check_key_in("Start", periodical, "Instance object > Resources > Availability > Periodical")
+            check_type_of(periodical["Start"], int, "Instance object > Resources > Availability > Periodical > Start")
 
-            if "Capacity" in availability:
-                check_type_of(availability["Capacity"], int, "Instance object > Resources > Availability > Capacity")
+            check_key_in("End", periodical, "Instance object > Resources > Availability > Periodical")
+            check_type_of(periodical["End"], int, "Instance object > Resources > Availability > Periodical > End")
+
+            if "Capacity" in periodical:
+                check_type_of(periodical["Capacity"], int, "Instance object > Resources > Availability > Periodical > Capacity")
+
+        for exceptional in r["Availability"]["Exceptional"]:
+            check_key_in("Start", exceptional, "Instance object > Resources > Availability > Exceptional")
+            check_type_of(exceptional["Start"], int, "Instance object > Resources > Availability > Exceptional > Start")
+
+            check_key_in("End", exceptional, "Instance object > Resources > Availability > Exceptional")
+            check_type_of(exceptional["End"], int, "Instance object > Resources > Availability > Exceptional > End")
+
+            if "Capacity" in exceptional:
+                check_type_of(exceptional["Capacity"], int, "Instance object > Resources > Availability > Exceptional > Capacity")
 
 
 class ParseError(Exception):
