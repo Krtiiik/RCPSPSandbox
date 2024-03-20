@@ -6,7 +6,6 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import networkx as nx
 import matplotlib
-import matplotlib.pyplot
 
 from instances.algorithms import build_instance_graph, traverse_instance_graph, compute_earliest_completion_times
 from instances.problem_instance import ProblemInstance, Job
@@ -42,14 +41,15 @@ def draw_instance_graph(instance: ProblemInstance = None,
     __draw_graph(graph, node_locations, block, highlighted_nodes=highlighted_nodes, save_as=save_as)
 
 
-def draw_components_graph(instance: ProblemInstance):
+def draw_components_graph(instance: ProblemInstance,
+                          save_as: str or None = None):
     jobs_by_id = {j.id_job: j for j in instance.jobs}
     component_jobs = compute_component_jobs(instance)
     earliest_completion_times = compute_earliest_completion_times(instance)
 
     layered = []
     ns = []
-    for i_comp, component in enumerate(instance.components):
+    for i_comp, component in enumerate(sorted(instance.components, key=lambda c: c.id_root_job)):
         root_job = jobs_by_id[component.id_root_job]
         intervals = [(earliest_completion_times[job] - job.duration, earliest_completion_times[job], job.id_job) for job in component_jobs[root_job]]
         events = sorted([(itv[0], +1) for itv in intervals]
@@ -72,33 +72,40 @@ def draw_components_graph(instance: ProblemInstance):
 
         ns.append(n)
 
+    SCALE = 1
     f, axarr = plt.subplots(len(instance.components),
                             sharex='col',
-                            gridspec_kw=dict(height_ratios=[n + 1.5 for n in ns])
+                            # gridspec_kw=dict(height_ratios=[n + 1.5 for n in ns]),
+                            height_ratios=[SCALE*n + 1.5 for n in ns],
                             )
     f.subplots_adjust(hspace=0)
+    f.set_figheight(SCALE*sum(ns)/3)
+
     cm = ColorMap(len(instance.components))
 
     horizon = max(earliest_completion_times[job] + job.duration for job in instance.jobs)
-    for i_comp, component in enumerate(instance.components):
+    for i_comp, component in enumerate(sorted(instance.components, key=lambda c: c.id_root_job)):
         n = ns[i_comp]
         ax = axarr[i_comp]
+        ax.autoscale(enable=None, axis="y", tight=True)
         color = cm[i_comp]
         for x in range(0, horizon, 5):
-            ax.vlines(x, 0, n + 1, colors="lightgray", linestyle="dotted", lw=1)
+            ax.vlines(x, 0, 1, transform=ax.get_xaxis_transform(), colors="lightgray", linestyle="dotted", lw=1)
         ax.set_yticks([])
         ax.set_yticklabels([])
         for itv in layered[i_comp]:
-            ax.plot([itv[0], itv[1]], [n - itv[3], n - itv[3]], marker='|', markeredgecolor=(0.52, 0.52, 0.52),
-                    markersize=16, color=color)
-            ax.hlines(n - itv[3], itv[0], itv[1], colors=color, lw=8)
-            ax.text(float(itv[0] + itv[1]) / 2, n - itv[3], itv[2], horizontalalignment='center',
-                    verticalalignment='center')
-        ax.vlines(jobs_by_id[component.id_root_job].due_date, 0, n+1, colors="red", linestyle='-', lw=1)
+            ax.plot([itv[0], itv[1]], [SCALE*(n - itv[3]), SCALE*(n - itv[3])], marker='|', markeredgecolor=(0.52, 0.52, 0.52), markersize=8, color=color)
+            ax.hlines(SCALE*(n - itv[3]), itv[0], itv[1], colors=color, lw=8)
+            ax.text(float(itv[0] + itv[1]) / 2, SCALE*(n - itv[3]), itv[2], horizontalalignment='center', verticalalignment='center')
+        ax.vlines(jobs_by_id[component.id_root_job].due_date, 0, SCALE*(n+1), transform=ax.get_xaxis_transform(), colors="red", linestyle='-', lw=1)
 
     plt.margins(0.05)
     plt.xlim(left=0)
     plt.tight_layout()
+
+    if save_as is not None:
+        plt.savefig(save_as)
+
     plt.show()
 
 
@@ -142,18 +149,18 @@ def __draw_graph(graph: nx.DiGraph,
         highlighted_nodes = set()
 
     x_max, y_max = max(x[0] for x in node_locations.values()), max(x[1] for x in node_locations.values())
-    matplotlib.pyplot.figure(
+    plt.figure(
         figsize=(x_max / 100, y_max / 10),
         dpi=300,
     )
 
-    ax = matplotlib.pyplot.gca()
+    ax = plt.gca()
     for id_job, loc in node_locations.items():
         # ax.add_patch(matplotlib.patches.Circle(loc, 2, color='b'))
-        matplotlib.pyplot.text(*loc, str(id_job), ha='center', va="center", size=5,
-                               bbox=dict(boxstyle="round",
-                                         ec="red",
-                                         fc=("green" if id_job in highlighted_nodes else "lightcoral")))
+        plt.text(*loc, str(id_job), ha='center', va="center", size=5,
+                 bbox=dict(boxstyle="round",
+                           ec="red",
+                           fc=("green" if id_job in highlighted_nodes else "lightcoral")))
 
     edge_lines = [[node_locations[e[0]], node_locations[e[1]]] for e in graph.edges]
     ax.add_collection(matplotlib.collections.LineCollection(edge_lines))
@@ -163,7 +170,7 @@ def __draw_graph(graph: nx.DiGraph,
     ax.autoscale()
 
     if save_as is not None:
-        matplotlib.pyplot.savefig(save_as, dpi=300)
+        plt.savefig(save_as, dpi=300)
 
     plt.show(block=block)
 

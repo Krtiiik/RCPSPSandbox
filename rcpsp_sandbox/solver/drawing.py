@@ -32,8 +32,9 @@ def plot_solution(problem_instance: ProblemInstance,
     job_interval_solutions = solution.job_interval_solutions
     component_jobs = compute_component_jobs(problem_instance)
     job_component_index: dict[int, int] = {job.id_job: i_comp
-                                           for i_comp, comp_id_root_job in enumerate(component_jobs.keys())
+                                           for i_comp, comp_id_root_job in enumerate(sorted(component_jobs.keys(), key=lambda j: j.id_job))
                                            for job in component_jobs[comp_id_root_job]}
+
     cm = ColorMap(len(problem_instance.components))
 
     # ~~~ Load computation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
