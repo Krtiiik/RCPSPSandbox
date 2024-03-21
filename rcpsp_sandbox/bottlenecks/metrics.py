@@ -1,11 +1,13 @@
+import math
 from typing import Callable, Iterable, Literal
 
+import numpy as np
 import tabulate
 from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.problem_instance import Resource, ProblemInstance, Job
 from solver.solution import Solution
-from utils import print_error
+from utils import print_error, interval_overlap_function
 
 T_MetricResult = float
 T_Evaluation = dict[Resource, T_MetricResult]
@@ -106,7 +108,63 @@ def average_uninterrupted_active_consumption(solution: Solution, instance: Probl
     return T_MetricResult(auad)
 
 
+def cumulative_delay(solution: Solution, instance: ProblemInstance, resource: Resource,
+                     earliest_completion_times: dict[Job, int]) -> T_MetricResult:
+    value = 0
+    for job, consumption in __jobs_consuming_resource(instance, resource, yield_consumption=True):
+        delay = earliest_completion_times[job]
+        value += job.duration * consumption * delay
+
+    return T_MetricResult(value)
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def capacity_surplus(solution: Solution, instance: ProblemInstance
+                     ) -> dict[Resource, list[tuple[int, int, int]]]:
+    surpluses = dict()
+    for resource in instance.resources:
+        capacity_f = __compute_resource_availability(resource, instance.horizon)
+        consumption_f = __compute_resource_consumption(instance, solution, resource)
+        consumption_f = [(s, e, -c) for s, e, c in consumption_f]
+        surplus_f = interval_overlap_function(capacity_f + consumption_f)
+        surpluses[resource] = surplus_f
+    return surpluses
+
+
+def capacity_transfer_matrix(solution: Solution, instance: ProblemInstance) -> np.array:
+    capacity_surpluses = 
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def __compute_resource_availability(resource: Resource, horizon: int) -> list[tuple[int, int, int]]:
+    """
+    Builds a step function representing the availability of a resource over time.
+
+    Args:
+        resource (Resource): The resource to build the availability function for.
+        horizon (int): The total number of hours in the planning horizon.
+
+    Returns:
+        CpoStepFunction: A step function representing the availability of the resource.
+    """
+    days_count = math.ceil(horizon / 24)
+    intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
+                 for i_day in range(days_count)
+                 for start, end, capacity in resource.availability.periodical_intervals]
+    return interval_overlap_function(intervals + resource.availability.exception_intervals,
+                                     first_x=0, last_x=days_count * 24)
+
+
+def __compute_resource_consumption(instance, solution, resource):
+    consumptions = []
+    for job, consumption in __jobs_consuming_resource(instance, resource, yield_consumption=True):
+        int_solution = solution.job_interval_solutions[job.id_job]
+        consumptions.append((int_solution.start, int_solution.end, consumption))
+    consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=math.ceil(instance.horizon / 24))
+    return consumption_f
+
 
 def __machine_worktime(solution: Solution, instance: ProblemInstance, resource: Resource) -> int:
     def completion_time(j): return solution.job_interval_solutions[j.id_job].end
