@@ -1,11 +1,14 @@
+import itertools
 import math
 from typing import Callable, Iterable, Literal
 
+import networkx as nx
 import numpy as np
 import tabulate
 from docplex.cp.solution import CpoIntervalVarSolution
 
-from instances.problem_instance import Resource, ProblemInstance, Job
+from instances.algorithms import build_instance_graph
+from instances.problem_instance import Resource, ProblemInstance, Job, ResourceConsumption
 from solver.solution import Solution
 from utils import print_error, interval_overlap_function
 
@@ -133,7 +136,83 @@ def capacity_surplus(solution: Solution, instance: ProblemInstance
 
 
 def capacity_transfer_matrix(solution: Solution, instance: ProblemInstance) -> np.array:
-    capacity_surpluses = 
+    # capacity_surpluses =
+    pass
+
+
+def time_changing_relaxed_suffixes(instance: ProblemInstance, solution: Solution,
+                                   granularity: int = 1,
+                                   ):
+    start_times = {job.id_job: solution.job_interval_solutions[job.id_job].start for job in instance.jobs}
+    completion_times = {job.id_job: solution.job_interval_solutions[job.id_job].end for job in instance.jobs}
+    durations = {job.id_job: job.duration for job in instance.jobs}
+    predecessors = {job.id_job: [] for job in instance.jobs}
+    for precedence in instance.precedences:
+        predecessors[precedence.id_parent].append(precedence.id_child)
+
+    t_to_job_to_start = ([dict()] * instance.horizon if granularity == 1
+                         else dict())
+
+    def prep_t(_t):
+        if granularity > 1:
+            t_to_job_to_start[_t] = dict()
+
+    started = set()
+    graph = build_instance_graph(instance)
+    jobs_topological = list(nx.topological_sort(graph))
+    for t in range(0, instance.horizon, granularity):
+        prep_t(t)
+        for job_id in jobs_topological:
+            if job_id in started:
+                t_to_job_to_start[t][job_id] = start_times[job_id]
+            else:
+                if start_times[job_id] <= t:
+                    started.add(job_id)
+                    t_to_job_to_start[t][job_id] = start_times[job_id]
+                else:
+                    earliest_bound = max((t_to_job_to_start[t][predecessor] + durations[predecessor] for predecessor, _ in graph.in_edges(job_id)), default=0)
+                    t_to_job_to_start[t][job_id] = earliest_bound
+
+    return {t: t_to_job_to_start[t] for t in range(0, instance.horizon, granularity)}
+
+
+def relaxed_intervals(instance: ProblemInstance, solution: Solution,
+                      granularity: int = 1,
+                      component: int = None,
+                      ):
+    t_job_start = time_changing_relaxed_suffixes(instance, solution, granularity)
+    durations = {j.id_job: j.duration for j in instance.jobs}
+    consumptions = {j.id_job: j.resource_consumption for j in instance.jobs}
+    start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
+
+    t_consumptions = {t: [] for t in t_job_start}
+    for t, t1 in itertools.pairwise(sorted(t_job_start)):
+        for job_id in t_job_start[t]:
+            start = t_job_start[t][job_id]
+            end = start + durations[job_id]
+            if end < t or start > t1:
+                continue
+            elif start == t and start < t1 and start < start_times[job_id]:
+                t_consumptions[t].append((t, end, consumptions[job_id]))
+            # else:
+            #     t_consumptions[t].append((max(t, start), min(t1, end), consumptions[job_id]))
+
+    return t_consumptions
+
+
+def relaxed_interval_consumptions(instance: ProblemInstance, solution: Solution,
+                                  granularity: int = 1,
+                                  component: int = None,
+                                  ):
+    interval_consumptions: dict[int, list[tuple[int, int, ResourceConsumption]]] = relaxed_intervals(instance, solution, granularity, component)
+    interval_consumptions_by_resource: dict[Resource, list[tuple[int, int, int]]] = {r: [] for r in instance.resources}
+    for t in interval_consumptions:
+        for start, end, consumptions in interval_consumptions[t]:
+            for resource in consumptions.consumption_by_resource:
+                if consumptions.consumption_by_resource[resource] > 0:
+                    interval_consumptions_by_resource[resource].append((start, end, consumptions.consumption_by_resource[resource]))
+
+    return {r: interval_overlap_function(interval_consumptions_by_resource[r], first_x=0, last_x=instance.horizon) for r in interval_consumptions_by_resource}
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -19,6 +19,7 @@ def plot_solution(problem_instance: ProblemInstance,
                   split_components: bool = False,
                   split_resource_consumption: bool = False,
                   plot_resource_capacity: bool = True,
+                  resource_functions: dict[Resource, list[tuple[int, int, int]]] = None,
                   save_as: str = None):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
@@ -117,6 +118,8 @@ def plot_solution(problem_instance: ProblemInstance,
                 visu.function(segments=segments, style='area', color=i)
 
             plot_resource_consumption(resource)
+            if resource_functions and resource in resource_functions:
+                visu.function(segments=resource_functions[resource], style='line')
 
         plt.rcParams["figure.figsize"] = (12, 4*(1 + len(problem_instance.resources)))
 
