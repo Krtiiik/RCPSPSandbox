@@ -2,6 +2,8 @@ import functools
 import os.path
 import random
 
+import docplex.cp.utils_visu as visu
+
 import bottlenecks.metrics as mtr
 import instances.io as iio
 from instances.algorithms import compute_earliest_completion_times
@@ -81,6 +83,35 @@ def modify_availability(inst, changes):
 
 if __name__ == "__main__":
     random.seed(42)
+
+    solver = Solver()
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j60", "j602_6.sm"))
+    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
+    instance = modify_instance(instance) \
+               .split_job_components(split="gradual", gradual_level=2) \
+               .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
+               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
+               .generate_modified_instance()
+    draw_instance_graph(instance)
+    draw_components_graph(instance)
+
+    model = get_model(instance)
+    solution = solver.solve(instance, model)
+    plot_solution(instance, solution, split_resource_consumption=True, plot_resource_capacity=True,
+                  resource_functions=mtr.relaxed_interval_consumptions(instance, solution, granularity=10))
+
+    instance_alt = modify_availability(instance, {
+        instance.resources[0]: [(30, 34, 10)],
+        instance.resources[1]: [(50, 53, 10)],
+    })
+    model_alt = get_model(instance_alt)
+    solution_alt = solver.solve(instance_alt, model_alt)
+    plot_solution(instance_alt, solution_alt, split_resource_consumption=True, plot_resource_capacity=True,
+                  resource_functions=mtr.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=10),
+                  )
+
+    print_difference(solution, instance, solution_alt, instance_alt)
+
     # main()
 
     # base = os.path.join('..', '..', 'Data', 'j60')
@@ -93,30 +124,30 @@ if __name__ == "__main__":
     #         .generate_modified_instance()
     #     draw_components_graph(instance, save_as=os.path.join('..', 'data', 'j60', name+'.jpg'))
 
-    solver = Solver()
-
-    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j60", "j602_6.sm"))
-    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
-    instance = modify_instance(instance) \
-               .split_job_components(split="gradual", gradual_level=2) \
-               .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
-               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
-               .generate_modified_instance()
-    draw_components_graph(instance)
-
-    model = get_model(instance, resource_constraint=False)
-    solution = solver.solve(instance, model)
-    plot_solution(instance, solution, split_resource_consumption=True, plot_resource_capacity=False)
-
-    model_alt = get_model(instance)
-    solution_alt = solver.solve(instance, model_alt)
-    plot_solution(instance, solution_alt, split_resource_consumption=True, plot_resource_capacity=True)
-
-    instance_alt = modify_instance(instance).change_resource_availability({instance.resources[0]: [(6, 14, 20)]}).generate_modified_instance()
-    model_alt = get_model(instance_alt)
-    solution_alt = solver.solve(instance_alt, model_alt)
-    plot_solution(instance_alt, solution_alt)
-    plot_solution(instance_alt, solution_alt, split_resource_consumption=True, plot_resource_capacity=True)
-    plot_solution(instance_alt, solution_alt, split_components=True, plot_resource_capacity=True)
+    # solver = Solver()
+    #
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j60", "j602_6.sm"))
+    # # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
+    # instance = modify_instance(instance) \
+    #            .split_job_components(split="gradual", gradual_level=2) \
+    #            .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
+    #            .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
+    #            .generate_modified_instance()
+    # draw_components_graph(instance)
+    #
+    # model = get_model(instance, resource_constraint=False)
+    # solution = solver.solve(instance, model)
+    # plot_solution(instance, solution, split_resource_consumption=True, plot_resource_capacity=False)
+    #
+    # model_alt = get_model(instance)
+    # solution_alt = solver.solve(instance, model_alt)
+    # plot_solution(instance, solution_alt, split_resource_consumption=True, plot_resource_capacity=True)
+    #
+    # instance_alt = modify_instance(instance).change_resource_availability({instance.resources[0]: [(6, 14, 20)]}).generate_modified_instance()
+    # model_alt = get_model(instance_alt)
+    # solution_alt = solver.solve(instance_alt, model_alt)
+    # plot_solution(instance_alt, solution_alt)
+    # plot_solution(instance_alt, solution_alt, split_resource_consumption=True, plot_resource_capacity=True)
+    # plot_solution(instance_alt, solution_alt, split_components=True, plot_resource_capacity=True)
 
     # print_difference(solution, instance, solution_alt, instance_alt)
