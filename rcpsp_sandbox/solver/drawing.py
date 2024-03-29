@@ -104,7 +104,7 @@ def plot_solution(problem_instance: ProblemInstance,
                 # noinspection PyTypeChecker
                 visu.function(segments=load[r.id_resource], style='area', color='green')
 
-        visu.timeline("Solution")
+        visu.timeline("Solution", origin=0)
         visu.panel("Jobs")
         for job in problem_instance.jobs:
             interval_solution = job_interval_solutions[job.id_job]
@@ -115,18 +115,18 @@ def plot_solution(problem_instance: ProblemInstance,
 
             if plot_resource_capacity:
                 segments = build_resource_availability(resource, problem_instance.horizon)
-                visu.function(segments=segments, style='area', color=i)
+                visu.function(segments=segments, style='area', color='grey')
 
             plot_resource_consumption(resource)
             if resource_functions and resource in resource_functions:
-                visu.function(segments=resource_functions[resource], style='line')
+                visu.function(segments=resource_functions[resource], style='line', color='c')
 
         plt.rcParams["figure.figsize"] = (12, 4*(1 + len(problem_instance.resources)))
 
     plt.rcParams["figure.dpi"] = 300
     if save_as is not None:
         visu.show(pngfile=save_as)
-    visu.show()
+    visu.show(origin=0)
 
 
 def print_difference(original: Solution, original_instance: ProblemInstance,

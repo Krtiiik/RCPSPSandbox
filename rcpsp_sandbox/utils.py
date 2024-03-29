@@ -66,18 +66,40 @@ def compute_component_jobs(problem_instance: "ProblemInstance") -> dict["Job", C
 
 
 COLORS = [
-    'xkcd:green',
-    'xkcd:orange',
-    'xkcd:red',
-    'xkcd:violet',
-    'xkcd:blue',
-    'xkcd:yellow green',
-    # 'xkcd:yellow',
-    'xkcd:yellow orange',
-    # 'xkcd:red orange',
-    'xkcd:red violet',
-    'xkcd:blue violet',
-    'xkcd:blue green'
+    '#a6cee3',
+    '#1f78b4',
+    '#b2df8a',
+    '#33a02c',
+    '#fb9a99',
+    '#e31a1c',
+    '#fdbf6f',
+    '#ff7f00',
+    '#cab2d6',
+    '#6a3d9a',
+
+    # '#8dd3c7',
+    # '#ffffb3',
+    # '#bebada',
+    # '#fb8072',
+    # '#80b1d3',
+    # '#fdb462',
+    # '#b3de69',
+    # '#fccde5',
+    # '#d9d9d9',
+    # '#bc80bd',
+
+    # 'xkcd:green',
+    # 'xkcd:orange',
+    # 'xkcd:red',
+    # 'xkcd:violet',
+    # 'xkcd:blue',
+    # 'xkcd:yellow green',
+    # # 'xkcd:yellow',
+    # 'xkcd:yellow orange',
+    # # 'xkcd:red orange',
+    # 'xkcd:red violet',
+    # 'xkcd:blue violet',
+    # 'xkcd:blue green'
 ]
 
 
