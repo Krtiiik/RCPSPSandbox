@@ -120,20 +120,13 @@ def cumulative_delay(solution: Solution, instance: ProblemInstance, resource: Re
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def capacity_surplus(solution: Solution, instance: ProblemInstance
-                     ) -> dict[Resource, list[tuple[int, int, int]]]:
-    surpluses = dict()
-    for resource in instance.resources:
-        capacity_f = __compute_resource_availability(resource, instance.horizon)
-        consumption_f = __compute_resource_consumption(instance, solution, resource)
-        consumption_f = [(s, e, -c) for s, e, c in consumption_f]
-        surplus_f = interval_overlap_function(capacity_f + consumption_f)
-        surpluses[resource] = surplus_f
-    return surpluses
-
-
-def capacity_transfer_matrix(solution: Solution, instance: ProblemInstance) -> np.array:
-    capacity_surpluses = 
+def capacity_surplus(solution: Solution, instance: ProblemInstance, resource: Resource,
+                       ) -> list[tuple[int, int, int]]:
+    capacity_f = __compute_resource_availability(resource, instance.horizon)
+    consumption_f = __compute_resource_consumption(instance, solution, resource)
+    consumption_f = [(s, e, -c) for s, e, c in consumption_f]
+    surplus_f = interval_overlap_function(capacity_f + consumption_f)
+    return surplus_f
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
