@@ -45,6 +45,10 @@ class ResourceAvailability:
     def exception_intervals(self, value: Iterable[AvailabilityInterval]):
         self._exception_intervals = list_of(value)
 
+    def copy(self) -> "ResourceAvailability":
+        return ResourceAvailability(periodical_intervals=self.periodical_intervals[:],
+                                    exception_intervals=self.exception_intervals[:])
+
 
 # ~~~~~~~ Resource ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

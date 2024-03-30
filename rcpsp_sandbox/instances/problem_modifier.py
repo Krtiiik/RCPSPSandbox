@@ -255,11 +255,6 @@ class ProblemModifier:
                                                           for start, end, capacity in changes[resource]]
             resource.availability.exception_intervals.sort(key=lambda i: i.start)
 
-            last_end = 0
-            for interval in resource.availability.exception_intervals:
-                assert last_end <= interval.start
-                last_end = interval.end
-
         return self
 
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:

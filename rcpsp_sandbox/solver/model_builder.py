@@ -107,19 +107,17 @@ class ModelBuilder:
 
         return self
 
-    def minimize_model_solution_difference(self, solution: Solution, selected: Iterable[Job] = None, alpha: float = 1.) -> Self:
+    def minimize_model_solution_difference(self, solution: Solution, excluded: Iterable[Job] = None, alpha: float = 1.) -> Self:
         """
         Minimizes the difference between the start times of the jobs in the given model and solution.
 
         Args:
             solution (Solution): The solution to minimize the difference for.
-            selected (Iterable[Job], optional): The collection of jobs to minimize for. If None, all the jobs are used.
-                Defaults to None.
+            excluded (Iterable[Job]): TODO
             alpha (float, optional): The weight of the difference in the minimization sum. Defaults to 1.
         """
-        job_ids = (set(j.id_job for j in self.instance.jobs)
-                   if selected is None
-                   else set(selected))
+
+        job_ids = set(j.id_job for j in self.instance.jobs) - (set(excluded) if excluded else set())
 
         def difference_for(id_job): return modeler.abs(modeler.start_of(self._job_intervals[id_job])
                                                        - solution.job_interval_solutions[id_job].get_start())
