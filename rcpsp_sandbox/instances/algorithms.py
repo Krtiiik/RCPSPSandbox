@@ -220,12 +220,20 @@ def subtree_traversal(graph: nx.DiGraph,
     return subtree
 
 
-def compute_earliest_completion_times(instance: ProblemInstance) -> dict[Job, int]:
+def compute_earliest_completion_times(instance: ProblemInstance,
+                                      given: dict[int, int] = None,
+                                      ) -> dict[Job, int]:
+    if not given:
+        given = {}
+
     durations = {j.id_job: j.duration for j in instance.jobs}
     graph = build_instance_graph(instance)
     earliest_completion_times: dict[int, int] = dict()
     for node in nx.topological_sort(graph):
-        earliest_bound = max((earliest_completion_times[predecessor] for predecessor, _ in graph.in_edges(node)), default=0)
-        earliest_completion_times[node] = earliest_bound + durations[node]
+        if node in given:
+            earliest_completion_times[node] = given[node]
+        else:
+            earliest_bound = max((earliest_completion_times[predecessor] for predecessor, _ in graph.in_edges(node)), default=0)
+            earliest_completion_times[node] = earliest_bound + durations[node]
 
     return {j: earliest_completion_times[j.id_job] for j in instance.jobs}

@@ -19,6 +19,7 @@ def plot_solution(problem_instance: ProblemInstance,
                   split_components: bool = False,
                   split_resource_consumption: bool = False,
                   plot_resource_capacity: bool = True,
+                  resource_functions: dict[Resource, list[tuple[int, int, int]]] = None,
                   save_as: str = None):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
