@@ -20,6 +20,7 @@ def plot_solution(problem_instance: ProblemInstance,
                   split_resource_consumption: bool = False,
                   plot_resource_capacity: bool = True,
                   resource_functions: dict[Resource, list[tuple[int, int, int]]] = None,
+                  highlight_jobs: Iterable[int] = None,
                   save_as: str = None):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
@@ -37,6 +38,10 @@ def plot_solution(problem_instance: ProblemInstance,
                                            for job in component_jobs[comp_id_root_job]}
 
     cm = ColorMap(len(problem_instance.components))
+    highlight_jobs = set(highlight_jobs) if highlight_jobs else set(j.id_job for j in problem_instance.jobs)
+
+    def get_color(x):
+        return cm[job_component_index[x]] if x in highlight_jobs else 'grey'
 
     # ~~~ Load computation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if split_components:
@@ -87,7 +92,7 @@ def plot_solution(problem_instance: ProblemInstance,
             visu.panel(f"Component {str(i_comp)}")
             for job in component_jobs[root_job]:
                 interval_solution = job_interval_solutions[job.id_job]
-                color = cm[job_component_index[job.id_job]]
+                color = get_color(job.id_job)
                 visu.interval(interval_solution, color, str(job.id_job))
             plot_component_consumption(i_comp)
 
@@ -108,7 +113,7 @@ def plot_solution(problem_instance: ProblemInstance,
         visu.panel("Jobs")
         for job in problem_instance.jobs:
             interval_solution = job_interval_solutions[job.id_job]
-            color = cm[job_component_index[job.id_job]]
+            color = get_color(job.id_job)
             visu.interval(interval_solution, color, str(job.id_job))
         for i, resource in enumerate(sorted(problem_instance.resources, key=lambda r: r.key)):
             visu.panel(resource.key)
