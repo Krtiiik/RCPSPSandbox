@@ -228,12 +228,13 @@ def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> 
                                 for r in instance.resources}
 
     completion_time_jobs = defaultdict(set)  # Mapping from time t to jobs with completion time t
-    job_consumption = defaultdict(set)  # Mapping from job to resources the job consumes
+    job_consumption = {}  # Mapping from job to resources the job consumes
     for job in instance.jobs:
+        job_consumption[job.id_job] = set()
         completion_time_jobs[completion_times[job.id_job]].add(job.id_job)
         for r, c in job.resource_consumption.consumption_by_resource.items():
             if c > 0:
-                job_consumption[job].add(r)
+                job_consumption[job.id_job].add(r)
 
     queue = Queue()
     queue.put(id_job)
