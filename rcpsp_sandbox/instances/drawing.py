@@ -9,6 +9,8 @@ import matplotlib
 
 from instances.algorithms import build_instance_graph, traverse_instance_graph, compute_earliest_completion_times
 from instances.problem_instance import ProblemInstance, Job
+from matplotlib.axes import Axes
+
 from utils import print_error, compute_component_jobs, ColorMap
 
 
@@ -86,7 +88,7 @@ def draw_components_graph(instance: ProblemInstance,
     horizon = max(earliest_completion_times[job] + job.duration for job in instance.jobs)
     for i_comp, component in enumerate(sorted(instance.components, key=lambda c: c.id_root_job)):
         n = ns[i_comp]
-        ax = axarr[i_comp]
+        ax = axarr[i_comp] if not isinstance(axarr, Axes) else axarr
         ax.autoscale(enable=None, axis="y", tight=True)
         color = cm[i_comp]
         for x in range(0, horizon, 5):

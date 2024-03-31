@@ -6,7 +6,7 @@ from collections import defaultdict
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
     ResourceType, Component, AvailabilityInterval, ResourceAvailability
 from instances.instance_builder import InstanceBuilder
-from instances.utils import try_open_read, chunk, str_or_default
+from instances.utils import try_open_read, chunk, str_or_default, modify_tuple
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 
@@ -331,12 +331,12 @@ def __parse_psplib_internal(file: IO,
         for resource in resources:
             resource.availability = ResourceAvailability(periodical_intervals_by_resource_key[resource.key],
                                                          exceptional_intervals_by_resource_key[resource.key])
-            for availability_interval in resource.availability.periodical_intervals:
+            for i, availability_interval in enumerate(resource.availability.periodical_intervals):
                 if availability_interval.capacity is None:
-                    availability_interval.capacity = resource.capacity
-            for availability_interval in resource.availability.exception_intervals:
+                    resource.availability.periodical_intervals[i] = modify_tuple(availability_interval, 2, resource.capacity)
+            for i, availability_interval in enumerate(resource.availability.exception_intervals):
                 if availability_interval.capacity is None:
-                    availability_interval.capacity = resource.capacity
+                    resource.availability.exception_intervals[i] = modify_tuple(availability_interval, 2, resource.capacity)
 
     return build()
 
