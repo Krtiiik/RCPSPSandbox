@@ -21,6 +21,8 @@ def interval_step_function(intervals: Iterable[tuple[int, int, int]],
     current = base_value
     steps: list[tuple[int, int]] = [(first_x, current)]
     for x in xs:
+        if value_diffs[x] == 0:
+            continue
         current += value_diffs[x]
         steps.append((x, current))
 
