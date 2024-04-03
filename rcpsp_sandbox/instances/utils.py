@@ -24,10 +24,6 @@ def list_of(items: Iterable[T]) -> list[T]:
     return items if items is list else list(items)
 
 
-def modify_tuple(old_tuple: tuple, index: int, new_value: Any) -> tuple:
-    return old_tuple[0:index] + (new_value,) + old_tuple[index + 1:]
-
-
 def chunk(sequence: Sequence[T],
           chunk_size: int) -> Iterable[Iterable[T]]:
     for i in range(0, len(sequence), chunk_size):

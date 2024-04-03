@@ -6,7 +6,8 @@ from collections import defaultdict
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
     ResourceType, Component, AvailabilityInterval, ResourceAvailability
 from instances.instance_builder import InstanceBuilder
-from instances.utils import try_open_read, chunk, str_or_default, modify_tuple
+from instances.utils import try_open_read, chunk, str_or_default
+from utils import modify_tuple
 
 PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 

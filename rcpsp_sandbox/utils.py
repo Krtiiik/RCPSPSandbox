@@ -140,3 +140,7 @@ def index_groups(groups: Iterable[Collection[T]], keys: Collection[T]) -> dict[T
         else:
             raise KeyError("Group does not contain a key")
     return index
+
+
+def modify_tuple(old_tuple: tuple, index: int, new_value: Any) -> tuple:
+    return old_tuple[0:index] + (new_value,) + old_tuple[index + 1:]
