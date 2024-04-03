@@ -24,10 +24,10 @@ class ProblemModifier:
                  original_instance: ProblemInstance):
         self._original_instance = original_instance
 
-        self._jobs = original_instance.jobs[:]
-        self._precedences = original_instance.precedences[:]
-        self._resources = original_instance.resources[:]
-        self._components = original_instance.components[:]
+        self._jobs = [j.copy() for j in original_instance.jobs]
+        self._precedences = [p.copy() for p in original_instance.precedences]
+        self._resources = [r.copy() for r in original_instance.resources]
+        self._components = [c.copy() for c in original_instance.components]
 
     def assign_resource_availabilities(self,
                                        availabilities: dict[int, Iterable[Tuple[int, int]]] = None,
@@ -225,9 +225,9 @@ class ProblemModifier:
         return self
 
     def merge_with(self, other: ProblemInstance) -> Self:
-        other_jobs = other.jobs[:]
-        other_precedences = other.precedences[:]
-        other_components = other.components[:]
+        other_jobs = [j.copy() for j in other.jobs]
+        other_precedences = [p.copy() for p in other.precedences]
+        other_components = [c.copy() for c in other.components]
 
         id_offset = 1 + max(job.id_job for job in self.jobs)
         for job in other_jobs:
@@ -262,7 +262,7 @@ class ProblemModifier:
         builder.add_jobs(self.jobs)
         builder.add_precedences(self.precedences)
         builder.add_components(self.components)
-        builder.add_resources(self._original_instance.resources)
+        builder.add_resources(self._resources)
         builder.add_projects(self._original_instance.projects)
         builder.set(horizon=self._original_instance.horizon,
                     name=name if name is not None else f"{self._original_instance.name}_modified")
