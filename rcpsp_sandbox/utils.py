@@ -65,6 +65,12 @@ def compute_component_jobs(problem_instance: "ProblemInstance") -> dict["Job", C
     return component_jobs_by_root_job
 
 
+def flatten(iterables: Iterable[Iterable]):
+    import functools
+    import operator
+    return functools.reduce(operator.iconcat, iterables, [])
+
+
 COLORS = [
     '#a6cee3',
     '#1f78b4',

@@ -15,7 +15,8 @@ from utils import interval_overlap_function
 # INSTANCE_LOC = "./psplib"
 # INSTANCE_LOC = "../../Data/j30/j3040_10.sm"
 # INSTANCE_LOC = "../../Data/j30/j301_1.sm"
-INSTANCE_LOC = "../../Data/j30/j306_1.sm"
+# INSTANCE_LOC = "../../Data/j30/j306_1.sm"
+INSTANCE_LOC = "../../Data/extended/pause_test.sm"
 
 # SPLIT_COMPONENTS = True
 SPLIT_RESOURCE_CONSUMPTION = False
@@ -35,20 +36,25 @@ def main():
             mtr.evaluate_solution(sol, functools.partial(mtr.cumulative_delay, earliest_completion_times=compute_earliest_completion_times(inst)), evaluation_name="CUMULATIVE_DELAY"),
         ])
 
-    instance = iio.parse_psplib(INSTANCE_LOC)
+    instance = iio.parse_psplib(INSTANCE_LOC, is_extended=True)
+    # instance = modify_instance(instance) \
+    #            .split_job_components(split="gradual", gradual_level=2) \
+    #            .assign_job_due_dates(choice="gradual", gradual_base=-10, gradual_interval=(-10, 0)) \
+    #            .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
+    #            .generate_modified_instance()
     draw_instance_graph(instance)
-    instance = modify_instance(instance) \
-               .split_job_components(split="gradual", gradual_level=2) \
-               .assign_job_due_dates(choice="gradual", gradual_base=-10, gradual_interval=(-10, 0)) \
-               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
-               .generate_modified_instance()
-    draw_instance_graph(instance)
+    draw_components_graph(instance)
     model = get_model(instance)
     solution = Solver().solve(instance, model)
 
-    evaluate(instance, solution)
-    solution.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
-    solution.plot(split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
+    plot_solution(instance, solution, resource_functions=mtr.relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
+                  highlight_jobs=mtr.left_closure(2, instance, solution))
+
+    exit()
+
+    # evaluate(instance, solution)
+    # solution.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
+    # solution.plot(split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
 
     instance_alt = modify_availability(instance, {
         instance.resources[2]: [(6, 10, 27)]
@@ -76,90 +82,115 @@ def get_model(inst,
     return mdl.get_model()
 
 
-def modify_availability(inst, changes):
+def modify_availability(inst, changes, migrations=None):
+    if migrations:
+        for r_from, migs in migrations.items():
+            if r_from not in changes:
+                changes[r_from] = []
+            for r_to, s, e, c in migs:
+                if r_to not in changes:
+                    changes[r_to] = []
+                changes[r_from].append((s, e, -c))
+                changes[r_to].append((s, e, c))
     return modify_instance(inst).change_resource_availability(changes).generate_modified_instance()
+
 
 
 if __name__ == "__main__":
     random.seed(42)
 
-    # solver = Solver()
-    # # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j60", "j602_6.sm"))
-    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
-    # instance = modify_instance(instance) \
-    #            .split_job_components(split="gradual", gradual_level=2) \
-    #            .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
-    #            .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
-    #            .generate_modified_instance()
-    # # draw_instance_graph(instance)
-    # # draw_components_graph(instance)
-    #
-    # model = get_model(instance)
-    # solution = solver.solve(instance, model)
-    # fs, ints = mtr.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=122)
-    # print(*ints.values(), sep='\n')
-    # plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(122, instance, solution))
-    #
-    # instance_alt = modify_availability(instance, {
-    #     # instance.resources[0]: [(30, 34, 10)],
-    #     # instance.resources[0]: [(46, 50, 30)],
-    #     # instance.resources[3]: [(142, 147, 10)],
-    #     # instance.resources[0]: [(62, 66, 6)],
-    #     instance.resources[0]: [(116, 124, 7), (124, 126, 9)],
-    #     instance.resources[3]: [(94, 102, 10)],
-    # })
-    # model_alt = get_model(instance_alt, solution_difference=(solution, mtr.left_closure(122, instance, solution)))
-    # solution_alt = solver.solve(instance_alt, model_alt)
-    # fs, ints = mtr.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, return_intervals=True, component=122)
-    # print(*ints.values(), sep='\n')
-    # cls = mtr.left_closure(122, instance_alt, solution_alt)
-    # print(cls)
-    # plot_solution(instance_alt, solution_alt, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=cls)
-    #
-    # print_difference(solution, instance, solution_alt, instance_alt)
+    # main()
 
 
 
-
+    def print_migrations(migrations):
+        for r in sorted(migrations, key=lambda r: r.key):
+            print(r.key)
+            for m_r, m_s, m_e, m_c in migrations[r]:
+                print('\t', m_r.key, m_s, m_e, m_c)
 
     def print_ints(ints):
         for r in ints:
             print(r.key, ints[r])
 
+
+
+
+
     solver = Solver()
-    # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm"))
+    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_2.sm"))
+    instance = modify_instance(instance) \
+               .split_job_components(split="gradual", gradual_level=2) \
+               .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
+               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
+               .generate_modified_instance()
+    # draw_instance_graph(instance)
+    draw_components_graph(instance)
+
+    model = get_model(instance)
+    solution = solver.solve(instance, model)
+    fs, ints = mtr.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=122)
+    plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(122, instance, solution))
+
+    migs, missing = mtr.compute_capacity_migrations(instance, solution, ints)
+    print_migrations(migs)
+
+    instance_alt = modify_availability(instance, missing, migs)
+
+    model_alt = get_model(instance_alt)
+    solution_alt = solver.solve(instance_alt, model_alt)
+    fs, ints = mtr.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, return_intervals=True, component=122)
+    plot_solution(instance_alt, solution_alt, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(122, instance_alt, solution_alt))
+
+    migs, missing = mtr.compute_capacity_migrations(instance_alt, solution_alt, ints)
+    print_migrations(migs)
+
+    print_difference(solution, instance, solution_alt, instance_alt)
+
+
+
+    #
+    # solver = Solver()
+    # # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
     # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm"))
-    instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_2.sm"))
-    # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j90", "j901_1.sm"))
-    # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j30", "j301_1.sm"))
-    root_job = 118
-    instance_ = modify_instance(instance_) \
-        .split_job_components(split="gradual", gradual_level=2) \
-        .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
-        .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance_.resources}) \
-        .generate_modified_instance()
-    draw_components_graph(instance_)
+    # # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_2.sm"))
+    # # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j90", "j901_1.sm"))
+    # # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j30", "j301_1.sm"))
+    # root_job = 32
+    # instance_ = modify_instance(instance_) \
+    #     .split_job_components(split="gradual", gradual_level=2) \
+    #     .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
+    #     .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance_.resources}) \
+    #     .generate_modified_instance()
+    # draw_components_graph(instance_)
+    #
+    # model_ = get_model(instance_)
+    # solution_ = solver.solve(instance_, model_)
+    # fs, ints = mtr.relaxed_interval_consumptions(instance_, solution_, granularity=1, return_intervals=True, component=root_job)
+    # print_ints(ints)
+    # plot_solution(instance_, solution_, plot_resource_capacity=True, split_resource_consumption=True)
+    # plot_solution(instance_, solution_, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(root_job, instance_, solution_))
+    #
+    # instance = instance_.copy()
+    # solution = solution_
+    # for _ in range(8):
+    #     instance = modify_availability(instance, ints)
+    #     model = get_model(instance)
+    #     solution = solver.solve(instance, model)
+    #     fs, ints = mtr.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=root_job)
+    #     print_ints(ints)
+    #     plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(root_job, instance, solution))
+    #
+    # print_difference(solution_, instance_, solution, instance)
+    # for r in instance.resources:
+    #     print(r.key, r.availability.exception_intervals)
+    # iio.serialize_psplib(instance, "instance", is_extended=True)
 
-    model_ = get_model(instance_)
-    solution_ = solver.solve(instance_, model_)
-    fs, ints = mtr.relaxed_interval_consumptions(instance_, solution_, granularity=1, return_intervals=True, component=root_job)
-    print_ints(ints)
-    plot_solution(instance_, solution_, plot_resource_capacity=True, split_resource_consumption=True)
-    plot_solution(instance_, solution_, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(root_job, instance_, solution_))
 
-    instance = instance_.copy()
-    solution = solution_
-    for _ in range(8):
-        instance = modify_availability(instance, ints)
-        model = get_model(instance)
-        solution = solver.solve(instance, model)
-        fs, ints = mtr.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=root_job)
-        print_ints(ints)
-        plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=mtr.left_closure(root_job, instance, solution))
 
-    print_difference(solution_, instance_, solution, instance)
-    for r in instance.resources:
-        print(r.key, r.availability.exception_intervals)
+
+
 
 
     # main()

@@ -6,14 +6,13 @@ from typing import Callable, Iterable, Literal
 
 from intervaltree import IntervalTree
 import networkx as nx
-import numpy as np
 import tabulate
 from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.algorithms import build_instance_graph
 from instances.problem_instance import Resource, ProblemInstance, Job, ResourceConsumption
 from solver.solution import Solution
-from utils import print_error, interval_overlap_function
+from utils import print_error, interval_overlap_function, flatten
 
 T_MetricResult = float
 T_Evaluation = dict[Resource, T_MetricResult]
@@ -125,23 +124,6 @@ def cumulative_delay(solution: Solution, instance: ProblemInstance, resource: Re
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def capacity_surplus(solution: Solution, instance: ProblemInstance
-                     ) -> dict[Resource, list[tuple[int, int, int]]]:
-    surpluses = dict()
-    for resource in instance.resources:
-        capacity_f = compute_resource_availability(resource, instance.horizon)
-        consumption_f = __compute_resource_consumption(instance, solution, resource)
-        consumption_f = [(s, e, -c) for s, e, c in consumption_f]
-        surplus_f = interval_overlap_function(capacity_f + consumption_f)
-        surpluses[resource] = surplus_f
-    return surpluses
-
-
-def capacity_transfer_matrix(solution: Solution, instance: ProblemInstance) -> np.array:
-    # capacity_surpluses =
-    pass
-
 
 def time_relaxed_suffixes(instance: ProblemInstance, solution: Solution,
                           granularity: int = 1,
@@ -301,6 +283,92 @@ def compute_resource_shift_ends(instance: ProblemInstance) -> dict[Resource, lis
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
+                               ) -> dict[Resource, list[tuple[int, int, int]]]:
+    surpluses = dict()
+    for resource in instance.resources:
+        capacity_f = compute_resource_availability(resource, instance.horizon)
+        consumption_f = __compute_resource_consumption(instance, solution, resource)
+        consumption_f = [(s, e, -c) for s, e, c in consumption_f]
+        surplus_f = interval_overlap_function(capacity_f + consumption_f, first_x=0, last_x=instance.horizon)
+        surpluses[resource] = surplus_f
+    return surpluses
+
+
+def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
+                                capacity_requirements: dict[Resource, Iterable[tuple[int, int, int]]],
+                                ) -> tuple[dict[Resource, list[tuple[Resource, int, int, int]]], dict[Resource, list[tuple[int, int, int]]]]:
+    # assuming uniform migrations over the intervals
+
+    def find_migrations(s, e, c, r_to):
+        possible_migrations = dict()
+        for r, surplus in remaining_surpluses.items():
+            if r.key == r_to.key:
+                continue
+            surplus_capacities = (s_c for s_s, s_e, s_c in surplus if (s <= s_s < e) or (s < s_e <= e))
+            possible_migration = min(surplus_capacities, default=0)
+            if possible_migration > 0:
+                possible_migrations[r] = possible_migration
+
+        migs = dict()
+        remaining_c = c
+        for r, capacity in sorted(possible_migrations.items(), key=lambda r_c: r_c[1], reverse=True):
+            migration = min(capacity, remaining_c)
+            migs[r] = migration
+            remaining_c -= migration
+
+            if remaining_c == 0:
+                break
+
+        return migs
+
+    missing_capacities, remaining_surpluses = compute_missing_capacities(instance, solution, capacity_requirements, return_reduced_surpluses=True)
+    resource_migrations: dict[Resource, list[tuple[Resource, int, int, int]]] = defaultdict(list)
+    resource_missing_capacities: dict[Resource, list[tuple[int, int, int]]] = defaultdict(list)
+    for resource, missing_caps in missing_capacities.items():
+        for start, end, missing_capacity in missing_caps:
+            migrations = find_migrations(start, end, missing_capacity, resource)
+            for r, c in migrations.items():
+                resource_migrations[r].append((resource, start, end, c))
+
+            migrated_capacity = sum(migrations.values())
+            if migrated_capacity < missing_capacity:
+                # Capacity addition might need to occur
+                resource_missing_capacities[resource].append((start, end, missing_capacity - migrated_capacity))
+
+    return resource_migrations, resource_missing_capacities
+
+
+def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
+                               capacity_requirements: dict[Resource, Iterable[tuple[int, int, int]]],
+                               return_reduced_surpluses: bool = False,
+                               ) -> dict[Resource, list[tuple[int, int, int]]] | tuple[dict[Resource, list[tuple[int, int, int]]], dict[Resource, list[tuple[int, int, int]]]]:
+    def find_overlapping_capacities(r, s, e):
+        return [s_c for s_s, s_e, s_c in capacity_surpluses[r]
+                if (s <= s_s < e) or (s < s_e <= e)]
+
+    def update_surplus(r, requirement):
+        # this is very ineffective, but works
+        capacity_surpluses[resource] = interval_overlap_function(capacity_surpluses[resource] + [requirement], first_x=0, last_x=instance.horizon)
+
+    capacity_surpluses = compute_capacity_surpluses(solution, instance)
+    missing_capacities = defaultdict(list)
+    for resource, requirements in capacity_requirements.items():
+        for start, end, capacity in sorted(requirements):
+            overlapping_capacities = find_overlapping_capacities(resource, start, end)
+            if capacity <= min(overlapping_capacities):
+                # this is good, the required capacity is there
+                update_surplus(resource, (start, end, capacity))
+            else:
+                # this is bad, we don't have the required capacity
+                missing_capacity = (capacity - min(overlapping_capacities))
+                missing_capacities[resource].append((start, end, missing_capacity))
+
+    return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def compute_resource_availability(resource: Resource, horizon: int) -> list[tuple[int, int, int]]:
     """
     Builds a step function representing the availability of a resource over time.
@@ -325,7 +393,7 @@ def __compute_resource_consumption(instance, solution, resource):
     for job, consumption in __jobs_consuming_resource(instance, resource, yield_consumption=True):
         int_solution = solution.job_interval_solutions[job.id_job]
         consumptions.append((int_solution.start, int_solution.end, consumption))
-    consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=math.ceil(instance.horizon / 24))
+    consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=instance.horizon)
     return consumption_f
 
 
