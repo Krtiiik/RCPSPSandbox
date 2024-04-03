@@ -356,12 +356,13 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
     for resource, requirements in capacity_requirements.items():
         for start, end, capacity in sorted(requirements):
             overlapping_capacities = find_overlapping_capacities(resource, start, end)
-            if capacity <= min(overlapping_capacities):
+            available_capacity = min(overlapping_capacities, default=0)
+            if capacity <= available_capacity:
                 # this is good, the required capacity is there
                 update_surplus(resource, (start, end, capacity))
             else:
                 # this is bad, we don't have the required capacity
-                missing_capacity = (capacity - min(overlapping_capacities))
+                missing_capacity = (capacity - available_capacity)
                 missing_capacities[resource].append((start, end, missing_capacity))
 
     return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
