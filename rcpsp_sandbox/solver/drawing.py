@@ -38,7 +38,7 @@ def plot_solution(problem_instance: ProblemInstance,
                                            for i_comp, comp_id_root_job in enumerate(sorted(component_jobs.keys(), key=lambda j: j.id_job))
                                            for job in component_jobs[comp_id_root_job]}
 
-    cm = ColorMap(len(problem_instance.components))
+    cm = ColorMap()
     highlight_jobs = set(highlight_jobs) if highlight_jobs else set(j.id_job for j in problem_instance.jobs)
 
     def get_color(x):

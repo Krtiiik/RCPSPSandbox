@@ -83,7 +83,7 @@ def draw_components_graph(instance: ProblemInstance,
     f.subplots_adjust(hspace=0)
     f.set_figheight(SCALE*sum(ns)/3)
 
-    cm = ColorMap(len(instance.components))
+    cm = ColorMap()
 
     horizon = max(earliest_completion_times[job] + job.duration for job in instance.jobs)
     for i_comp, component in enumerate(sorted(instance.components, key=lambda c: c.id_root_job)):

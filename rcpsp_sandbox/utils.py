@@ -112,8 +112,7 @@ COLORS = [
 
 
 class ColorMap:
-    def __init__(self, color_count):
-        self.range = color_count
+    def __init__(self):
         self.colors = COLORS
 
     def __getitem__(self, item):
