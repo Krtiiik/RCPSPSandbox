@@ -11,6 +11,7 @@ def print_error(*args, **kwargs):
 def interval_step_function(intervals: Iterable[tuple[int, int, int]],
                            base_value: int = 0,
                            first_x: int = None,
+                           merge_same: bool = True,
                            ) -> list[tuple[int, int]]:
     value_diffs = defaultdict(int)
     for start, end, value in intervals:
@@ -21,7 +22,7 @@ def interval_step_function(intervals: Iterable[tuple[int, int, int]],
     current = base_value
     steps: list[tuple[int, int]] = [(first_x, current)]
     for x in xs:
-        if value_diffs[x] == 0:
+        if merge_same and value_diffs[x] == 0:
             continue
         current += value_diffs[x]
         steps.append((x, current))
@@ -33,8 +34,9 @@ def interval_overlap_function(intervals: Iterable[tuple[int, int, int]],
                               base_value: int = 0,
                               first_x: int = None,
                               last_x: int = None,
+                              merge_same: bool = True,
                               ) -> list[tuple[int, int, int]]:
-    steps = interval_step_function(intervals, base_value, first_x)
+    steps = interval_step_function(intervals, base_value, first_x, merge_same=merge_same)
 
     intervals: list[tuple[int, int, int]] = []
     for (x, v), (x1, v1) in zip(steps, steps[1:]):
