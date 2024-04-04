@@ -95,6 +95,14 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
     return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
 
 
+def compute_resource_periodical_availability(resource: Resource, horizon: int) -> T_StepFunction:
+    days_count = math.ceil(horizon / 24)
+    intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
+                 for i_day in range(days_count)
+                 for start, end, capacity in resource.availability.periodical_intervals]
+    return interval_overlap_function(intervals, first_x=0, last_x=days_count * 24)
+
+
 def compute_resource_availability(resource: Resource, horizon: int) -> T_StepFunction:
     """
     Builds a step function representing the availability of a resource over time.
@@ -107,10 +115,8 @@ def compute_resource_availability(resource: Resource, horizon: int) -> T_StepFun
         CpoStepFunction: A step function representing the availability of the resource.
     """
     days_count = math.ceil(horizon / 24)
-    intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
-                 for i_day in range(days_count)
-                 for start, end, capacity in resource.availability.periodical_intervals]
-    return interval_overlap_function(intervals + resource.availability.exception_intervals,
+    periodical_availability = compute_resource_periodical_availability(resource, horizon)
+    return interval_overlap_function(periodical_availability + resource.availability.exception_intervals,
                                      first_x=0, last_x=days_count * 24)
 
 
