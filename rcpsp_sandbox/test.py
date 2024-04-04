@@ -6,7 +6,8 @@ import bottlenecks.metrics as mtr
 import instances.io as iio
 import bottlenecks.evaluations
 import bottlenecks.improvements
-import rcpsp_sandbox.bottlenecks.utils
+import bottlenecks.drawing
+import bottlenecks.utils
 from instances.algorithms import compute_earliest_completion_times
 from instances.drawing import draw_instance_graph, draw_components_graph
 from solver.drawing import print_difference, plot_solution
@@ -52,8 +53,6 @@ def main():
 
     plot_solution(instance, solution, resource_functions=bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
                   highlight_jobs=bottlenecks.improvements.left_closure(2, instance, solution))
-
-    exit()
 
     # evaluate(instance, solution)
     # solution.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
@@ -121,47 +120,46 @@ if __name__ == "__main__":
 
 
     solver = Solver()
-    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm"))
-    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_2.sm"))
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm")); root_job = 122
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_2.sm")); root_job = 122
+    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j30", "j301_1.sm")); root_job = 32
     instance = modify_instance(instance) \
                .split_job_components(split="gradual", gradual_level=2) \
                .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
                .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
                .generate_modified_instance()
     # draw_instance_graph(instance)
-    draw_components_graph(instance)
+    # draw_components_graph(instance)
+
 
     model = get_model(instance)
     solution = solver.solve(instance, model)
-    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=122)
-    plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(122, instance, solution))
+    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=root_job)
+    # plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(root_job, instance, solution))
 
-    migs, missing = rcpsp_sandbox.bottlenecks.utils.compute_capacity_migrations(instance, solution, ints)
+    migs, missing = bottlenecks.utils.compute_capacity_migrations(instance, solution, ints)
     print_migrations(migs)
 
     instance_alt = modify_availability(instance, missing, migs)
 
     model_alt = get_model(instance_alt)
     solution_alt = solver.solve(instance_alt, model_alt)
-    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, return_intervals=True, component=122)
-    plot_solution(instance_alt, solution_alt, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(122, instance_alt, solution_alt))
+    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, return_intervals=True, component=root_job)
+    plot_solution(instance_alt, solution_alt, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(root_job, instance_alt, solution_alt))
 
-    migs, missing = rcpsp_sandbox.bottlenecks.utils.compute_capacity_migrations(instance_alt, solution_alt, ints)
+    migs, missing = bottlenecks.utils.compute_capacity_migrations(instance_alt, solution_alt, ints)
     print_migrations(migs)
 
     print_difference(solution, instance, solution_alt, instance_alt)
 
-    for r in instance.resources:
-        print(r.key)
-        print(r.availability.periodical_intervals)
-        print(r.availability.exception_intervals)
+    bottlenecks.drawing.plot_solution(solution_alt)
+    bottlenecks.drawing.plot_solution(solution_alt, split_consumption=True)
+    bottlenecks.drawing.plot_solution(solution_alt, highlight=bottlenecks.improvements.left_closure(root_job, instance_alt, solution_alt))
+    bottlenecks.drawing.plot_solution(solution_alt, highlight=bottlenecks.improvements.left_closure(root_job, instance_alt, solution_alt), split_consumption=True)
 
-    for r in instance_alt.resources:
-        print(r.key)
-        print(r.availability.periodical_intervals)
-        print(r.availability.exception_intervals)
 
-    #
+
+
     # solver = Solver()
     # # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1202_6.sm"))
     # instance_ = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm"))

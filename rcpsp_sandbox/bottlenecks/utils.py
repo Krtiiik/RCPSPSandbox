@@ -115,9 +115,9 @@ def compute_resource_availability(resource: Resource, horizon: int) -> T_StepFun
 
 
 def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource,
-                                 selected: Iterable[int] = None
+                                 selected: Iterable[int] = None,
                                  ) -> T_StepFunction:
-    selected = set(selected if selected else (j.id_job for j in instance.jobs))
+    selected = set(selected if selected is not None else (j.id_job for j in instance.jobs))
     consumptions = []
     for job, consumption in jobs_consuming_resource(instance, resource, yield_consumption=True):
         if job.id_job not in selected:
