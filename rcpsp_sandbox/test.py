@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     model = get_model(instance)
     solution = solver.solve(instance, model)
-    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, return_intervals=True, component=root_job)
+    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, component=root_job)
     # plot_solution(instance, solution, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(root_job, instance, solution))
 
     migs, missing = bottlenecks.utils.compute_capacity_migrations(instance, solution, ints)
@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     model_alt = get_model(instance_alt)
     solution_alt = solver.solve(instance_alt, model_alt)
-    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, return_intervals=True, component=root_job)
+    fs, ints = bottlenecks.improvements.relaxed_interval_consumptions(instance_alt, solution_alt, granularity=1, component=root_job)
     plot_solution(instance_alt, solution_alt, plot_resource_capacity=True, resource_functions=fs, highlight_jobs=bottlenecks.improvements.left_closure(root_job, instance_alt, solution_alt))
 
     migs, missing = bottlenecks.utils.compute_capacity_migrations(instance_alt, solution_alt, ints)

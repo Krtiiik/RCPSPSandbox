@@ -12,6 +12,9 @@ CapacityChange = namedtuple("CapacityChange", ("start", "end", "capacity"))
 CapacityMigration = namedtuple("CapacityMigration", ("ResourceKey", "start", "end", "capacity"))
 
 
+ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
+
+
 class Evaluation:
     _base_instance: ProblemInstance
     _modified_instance: ProblemInstance
@@ -138,5 +141,5 @@ class Evaluation:
 
 class EvaluationAlgorithm(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def evaluate(self, instance) -> Evaluation:
+    def evaluate(self, problem: ProblemSetup, settings) -> Evaluation:
         """Evaluates the given instance."""
