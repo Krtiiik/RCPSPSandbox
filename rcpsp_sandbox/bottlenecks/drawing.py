@@ -13,7 +13,7 @@ from matplotlib.ticker import MaxNLocator
 
 import utils
 from bottlenecks.utils import compute_resource_consumption, compute_resource_availability
-from instances.problem_instance import ProblemInstance, Component
+from instances.problem_instance import ProblemInstance
 from utils import compute_component_jobs, interval_overlap_function
 from solver.solution import Solution
 
@@ -92,7 +92,7 @@ def plot_solution(solution: Solution,
     instance = solution.instance
 
     horizon = 24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24)
-    params = PlotParameters(0, horizon, ColorMap(instance, highlight), list(range(6, horizon, 8)))
+    params = PlotParameters(0, horizon, ColorMap(instance, highlight), [0]+list(range(6, horizon, 8)))
 
     f: plt.Figure
     axarr: list[plt.Axes]

@@ -20,8 +20,9 @@ class Solver:
             return self.__solve_model(model, problem_instance)
         elif problem_instance is not None:
             model = build_model(problem_instance) \
-                .optimize_model(opt="Tardiness all") \
-                .get_model()
+                    .with_precedences().with_resource_constraints() \
+                    .optimize_model() \
+                    .get_model()
             return self.__solve_model(model, problem_instance)
         else:
             raise TypeError("No problem instance nor model was specified to solve")
