@@ -7,8 +7,11 @@ from solver.solution import Solution
 from utils import interval_overlap_function
 
 
+T_StepFunction = list[tuple[int, int, int]]
+
+
 def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
-                               ) -> dict[Resource, list[tuple[int, int, int]]]:
+                               ) -> dict[Resource, T_StepFunction]:
     surpluses = dict()
     for resource in instance.resources:
         capacity_f = compute_resource_availability(resource, instance.horizon)
@@ -21,7 +24,7 @@ def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
 
 def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
                                 capacity_requirements: dict[Resource, Iterable[tuple[int, int, int]]],
-                                ) -> tuple[dict[Resource, list[tuple[Resource, int, int, int]]], dict[Resource, list[tuple[int, int, int]]]]:
+                                ) -> tuple[dict[Resource, list[tuple[Resource, int, int, int]]], dict[Resource, T_StepFunction]]:
     # assuming uniform migrations over the intervals
 
     def find_migrations(s, e, c, r_to):
@@ -48,7 +51,7 @@ def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
 
     missing_capacities, remaining_surpluses = compute_missing_capacities(instance, solution, capacity_requirements, return_reduced_surpluses=True)
     resource_migrations: dict[Resource, list[tuple[Resource, int, int, int]]] = defaultdict(list)
-    resource_missing_capacities: dict[Resource, list[tuple[int, int, int]]] = defaultdict(list)
+    resource_missing_capacities: dict[Resource, T_StepFunction] = defaultdict(list)
     for resource, missing_caps in missing_capacities.items():
         for start, end, missing_capacity in missing_caps:
             migrations = find_migrations(start, end, missing_capacity, resource)
@@ -66,7 +69,7 @@ def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
 def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
                                capacity_requirements: dict[Resource, Iterable[tuple[int, int, int]]],
                                return_reduced_surpluses: bool = False,
-                               ) -> dict[Resource, list[tuple[int, int, int]]] | tuple[dict[Resource, list[tuple[int, int, int]]], dict[Resource, list[tuple[int, int, int]]]]:
+                               ) -> dict[Resource, T_StepFunction] | tuple[dict[Resource, T_StepFunction], dict[Resource, T_StepFunction]]:
     def find_overlapping_capacities(r, s, e):
         return [s_c for s_s, s_e, s_c in capacity_surpluses[r]
                 if (s <= s_s < e) or (s < s_e <= e)]
@@ -92,7 +95,7 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
     return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
 
 
-def compute_resource_availability(resource: Resource, horizon: int) -> list[tuple[int, int, int]]:
+def compute_resource_availability(resource: Resource, horizon: int) -> T_StepFunction:
     """
     Builds a step function representing the availability of a resource over time.
 
@@ -111,9 +114,14 @@ def compute_resource_availability(resource: Resource, horizon: int) -> list[tupl
                                      first_x=0, last_x=days_count * 24)
 
 
-def compute_resource_consumption(instance, solution, resource):
+def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource,
+                                 selected: Iterable[int] = None
+                                 ) -> T_StepFunction:
+    selected = set(selected if selected else (j.id_job for j in instance.jobs))
     consumptions = []
     for job, consumption in jobs_consuming_resource(instance, resource, yield_consumption=True):
+        if job.id_job not in selected:
+            continue
         int_solution = solution.job_interval_solutions[job.id_job]
         consumptions.append((int_solution.start, int_solution.end, consumption))
     consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=instance.horizon)

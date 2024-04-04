@@ -1,7 +1,7 @@
 import itertools
 import sys
 from collections import defaultdict
-from typing import Iterable, Collection, TypeVar
+from typing import Iterable, Collection, TypeVar, Any
 
 
 def print_error(*args, **kwargs):
