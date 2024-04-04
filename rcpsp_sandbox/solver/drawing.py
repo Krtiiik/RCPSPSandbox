@@ -10,7 +10,7 @@ import tabulate
 
 from utils import print_error, compute_component_jobs, ColorMap
 from instances.problem_instance import ProblemInstance, Job, Resource
-from solver.solution import Solution, solution_tardiness_value
+from solver.solution import Solution, compute_job_tardiness
 from solver.utils import build_resource_availability
 
 
@@ -140,7 +140,7 @@ def print_difference(original: Solution, original_instance: ProblemInstance,
                      selected_jobs: Iterable[Job] = None) -> None:
     diff_total, diffs = original.difference_to(alternative, selected_jobs)
     print("Difference:", diff_total)
-    print(solution_tardiness_value(original, selected_jobs), solution_tardiness_value(alternative, selected_jobs))
+    print(compute_job_tardiness(original, selected_jobs), compute_job_tardiness(alternative, selected_jobs))
 
     selected = set(j.id_job for j in (selected_jobs if selected_jobs is not None else original_instance.jobs))  # Assuming both instances have the same jobs (wouldn't make much sense otherwise anyway)
     original_jobs = (j for j in original_instance.jobs if j.id_job in selected)

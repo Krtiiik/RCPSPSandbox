@@ -246,13 +246,13 @@ class ProblemModifier:
         return self
 
     def change_resource_availability(self,
-                                     changes: dict[Resource, Iterable[Tuple[int, int, int]]],
+                                     changes: dict[str, Iterable[Tuple[int, int, int]]],
                                      ) -> Self:
         for resource in self._resources:
-            if resource not in changes:
+            if resource.key not in changes:
                 continue
             resource.availability.exception_intervals += [AvailabilityInterval(start, end, capacity)
-                                                          for start, end, capacity in changes[resource]]
+                                                          for start, end, capacity in changes[resource.key]]
             resource.availability.exception_intervals.sort(key=lambda i: i.start)
 
         return self

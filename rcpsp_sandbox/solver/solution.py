@@ -11,7 +11,8 @@ class Solution:
     _instance: ProblemInstance
 
     _cached_job_interval_solutions: dict[int, CpoIntervalVarSolution] = None
-    _cached_tardiness: int = None
+    _cached_tardiness: dict[int, int] = None
+    _cached_weighted_tardiness: dict[int, int] = None
 
     def __init__(self, solve_result: CpoSolveResult, instance: ProblemInstance):
         if solve_result is None or not solve_result.is_solution():
@@ -38,13 +39,6 @@ class Solution:
         return self._cached_job_interval_solutions
 
     @property
-    def tardiness(self) -> int:
-        if self._cached_tardiness is None:
-            self._cached_tardiness = solution_tardiness_value(self)
-
-        return self._cached_tardiness
-
-    @property
     def solve_result(self) -> CpoSolveResult:
         return self._solve_result
 
@@ -52,6 +46,17 @@ class Solution:
     def instance(self) -> ProblemInstance:
         return self._instance
 
+    def tardiness(self, job_id=None) -> int | dict[int, int]:
+        if self._cached_tardiness is None:
+            self._cached_tardiness = compute_job_tardiness(self)
+
+        return self._cached_tardiness if job_id is None else self._cached_tardiness[job_id]
+
+    def weighted_tardiness(self, job_id=None) -> int | dict[int, int]:
+        if self._cached_weighted_tardiness is None:
+            self._cached_weighted_tardiness = compute_job_weighted_tardiness(self)
+
+        return self._cached_weighted_tardiness if job_id is None else self._cached_weighted_tardiness[job_id]
 
 def solution_difference(a: Solution,
                         b: Solution,
@@ -79,30 +84,34 @@ def solution_difference(a: Solution,
     return difference, differences
 
 
-def solution_tardiness_value(solution: Solution,
-                             selected_jobs: Iterable[Job] = None) -> int:
-    """
-    Computes the tardiness value of a solution. The tardiness value is the sum of the squares of the tardiness of each
-    job in the solution.
-
-    :param solution: The solution to compute the tardiness value for.
-    :param selected_jobs: The jobs to compute the tardiness value for. If None, all jobs are used.
-
-    :return: The tardiness value of the solution.
-    """
+def compute_job_tardiness(solution: Solution,
+                          selected_jobs: Iterable[Job] = None,
+                          ) -> dict[int, int]:
     interval_solutions = solution.job_interval_solutions
     job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
                else interval_solutions.keys())
-    component_jobs = compute_component_jobs(solution.instance)
-
-    components_by_id_root_job = {c.id_root_job: c for c in solution.instance.components}
-    job_component_id_root_job = {j: root_job.id_job
-                                 for root_job, jobs in component_jobs.items()
-                                 for j in jobs}
     jobs_by_id = {j.id_job: j for j in solution.instance.jobs}
 
-    value = sum(max(0, (interval_solutions[job_id].get_end() - jobs_by_id[job_id].due_date) ** 2
-                       * components_by_id_root_job[job_component_id_root_job[jobs_by_id[job_id]]].weight)
-                for job_id in job_ids)
+    job_tardiness = dict()
+    for job_id in job_ids:
+        due_date = jobs_by_id[job_id].due_date
+        completion_time = interval_solutions[job_id].get_end()
+        job_tardiness[job_id] = max(0, completion_time - due_date)
 
-    return value
+    return job_tardiness
+
+def compute_job_weighted_tardiness(solution: Solution,
+                                   job_tardiness: dict[int, int] = None,
+                                   selected_jobs: Iterable[Job] = None,
+                                   ) -> dict[int, int]:
+    job_ids = (j.id_job for j in (selected_jobs if selected_jobs is not None else solution.instance.jobs))
+    if job_tardiness is None:
+        job_tardiness = compute_job_tardiness(solution, selected_jobs)
+
+    components_by_id_root_job = {c.id_root_job: c for c in solution.instance.components}
+    job_tardiness_weight = {j.id_job: components_by_id_root_job[root_job.id_job].weight
+                            for root_job, jobs in compute_component_jobs(solution.instance).items()
+                            for j in jobs}
+
+    job_weighted_tardiness = {j_id: job_tardiness_weight[j_id] * job_tardiness[j_id] for j_id in job_ids}
+    return job_weighted_tardiness
