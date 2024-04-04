@@ -265,7 +265,7 @@ class ProblemModifier:
         builder.add_resources(self._resources)
         builder.add_projects(self._original_instance.projects)
         builder.set(horizon=self._original_instance.horizon,
-                    name=name if name is not None else f"{self._original_instance.name}_modified")
+                    name=name if name is not None else f"{self._original_instance.name}_mod")
         return builder.build_instance()
 
     @property
