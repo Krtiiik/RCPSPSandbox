@@ -374,6 +374,7 @@ class ProblemInstance:
 
     _projects_by_id: dict[int, Project] = {}
     _resources_by_id: dict[int, Resource] = {}
+    _resources_by_key: dict[str, Resource] = {}
     _jobs_by_id: dict[int, Job] = {}
     _precedences_by_id_child: dict[int, Iterable[Precedence]] = {}
     _precedences_by_id_parent: dict[int, Iterable[Precedence]] = {}
@@ -440,6 +441,12 @@ class ProblemInstance:
         if len(self._resources_by_id) != len(self._resources):
             self._resources_by_id = {r.id_resource: r for r in self._resources}
         return self._resources_by_id
+
+    @property
+    def resources_by_key(self) -> dict[str, Resource]:
+        if len(self._resources_by_key) != len(self._resources):
+            self._resources_by_key = {r.key: r for r in self._resources}
+        return self._resources_by_key
 
     @property
     def jobs(self) -> list[Job]:
