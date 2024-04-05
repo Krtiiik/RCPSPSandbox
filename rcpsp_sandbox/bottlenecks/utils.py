@@ -2,10 +2,10 @@ import math
 from collections import defaultdict
 from typing import Iterable
 
-from instances.problem_instance import ProblemInstance, Resource, Job
+from instances.problem_instance import ProblemInstance, Resource, Job, compute_resource_availability, CapacityMigration, \
+    CapacityChange
 from solver.solution import Solution
 from utils import interval_overlap_function
-
 
 T_StepFunction = list[tuple[int, int, int]]
 
@@ -14,7 +14,7 @@ def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
                                ) -> dict[str, T_StepFunction]:
     surpluses = dict()
     for resource in instance.resources:
-        capacity_f = compute_resource_availability(resource, instance.horizon)
+        capacity_f = compute_resource_availability(resource, instance, instance.horizon)
         consumption_f = compute_resource_consumption(instance, solution, resource)
         consumption_f = [(s, e, -c) for s, e, c in consumption_f]
         surplus_f = interval_overlap_function(capacity_f + consumption_f, first_x=0, last_x=instance.horizon)
@@ -23,8 +23,8 @@ def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
 
 
 def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
-                                capacity_requirements: dict[str, Iterable[tuple[int, int, int]]],
-                                ) -> tuple[dict[str, list[tuple[str, int, int, int]]], dict[str, T_StepFunction]]:
+                                capacity_requirements: dict[str, Iterable[CapacityChange]],
+                                ) -> tuple[dict[str, list[CapacityMigration]], dict[str, T_StepFunction]]:
     # assuming uniform migrations over the intervals
 
     def find_migrations(s, e, c, r_to):
@@ -50,18 +50,18 @@ def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
         return migs
 
     missing_capacities, remaining_surpluses = compute_missing_capacities(instance, solution, capacity_requirements, return_reduced_surpluses=True)
-    resource_migrations: dict[str, list[tuple[str, int, int, int]]] = defaultdict(list)
+    resource_migrations: dict[str, list[CapacityMigration]] = defaultdict(list)
     resource_missing_capacities: dict[str, T_StepFunction] = defaultdict(list)
     for resource, missing_caps in missing_capacities.items():
         for start, end, missing_capacity in missing_caps:
             migrations = find_migrations(start, end, missing_capacity, resource)
             for r, c in migrations.items():
-                resource_migrations[r].append((resource, start, end, c))
+                resource_migrations[r].append(CapacityMigration(resource, start, end, c))
 
             migrated_capacity = sum(migrations.values())
             if migrated_capacity < missing_capacity:
                 # Capacity addition might need to occur
-                resource_missing_capacities[resource].append((start, end, missing_capacity - migrated_capacity))
+                resource_missing_capacities[resource].append(CapacityChange(start, end, missing_capacity - migrated_capacity))
 
     return resource_migrations, resource_missing_capacities
 
@@ -95,31 +95,6 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
     return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
 
 
-def compute_resource_periodical_availability(resource: Resource, horizon: int) -> T_StepFunction:
-    days_count = math.ceil(horizon / 24)
-    intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
-                 for i_day in range(days_count)
-                 for start, end, capacity in resource.availability.periodical_intervals]
-    return interval_overlap_function(intervals, first_x=0, last_x=days_count * 24)
-
-
-def compute_resource_availability(resource: Resource, horizon: int) -> T_StepFunction:
-    """
-    Builds a step function representing the availability of a resource over time.
-
-    Args:
-        resource (Resource): The resource to build the availability function for.
-        horizon (int): The total number of hours in the planning horizon.
-
-    Returns:
-        CpoStepFunction: A step function representing the availability of the resource.
-    """
-    days_count = math.ceil(horizon / 24)
-    periodical_availability = compute_resource_periodical_availability(resource, horizon)
-    return interval_overlap_function(periodical_availability + resource.availability.exception_intervals,
-                                     first_x=0, last_x=days_count * 24)
-
-
 def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource,
                                  selected: Iterable[int] = None,
                                  ) -> T_StepFunction:
@@ -144,7 +119,7 @@ def jobs_consuming_resource(instance: ProblemInstance, resource: Resource, yield
 def compute_resource_shift_starts(instance: ProblemInstance) -> dict[Resource, Iterable[int]]:
     shift_starts = defaultdict(list)
     for resource in instance.resources:
-        resource_availability = compute_resource_availability(resource, instance.horizon)
+        resource_availability = compute_resource_availability(resource, instance, instance.horizon)
         last_c = 0
         for s, e, c in resource_availability:
             if c > 0 and last_c == 0:
@@ -157,7 +132,7 @@ def compute_resource_shift_starts(instance: ProblemInstance) -> dict[Resource, I
 def compute_resource_shift_ends(instance: ProblemInstance) -> dict[Resource, list[int]]:
     shift_ends = defaultdict(list)
     for resource in instance.resources:
-        resource_availability = compute_resource_availability(resource, instance.horizon)
+        resource_availability = compute_resource_availability(resource, instance, instance.horizon)
         last_c = 0
         last_e = 0
         for s, e, c in resource_availability:

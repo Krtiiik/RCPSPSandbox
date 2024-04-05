@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 import utils
-from bottlenecks.utils import compute_resource_consumption, compute_resource_availability
-from instances.problem_instance import ProblemInstance
-from utils import compute_component_jobs, interval_overlap_function
+from bottlenecks.utils import compute_resource_consumption
+from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability
+from utils import interval_overlap_function
 from solver.solution import Solution
 
 
@@ -209,7 +209,7 @@ def __resources_panels(solution: Solution,
     for i_resource, resource in enumerate(instance.resources):
         axes = axarr[i_resource]
 
-        availability = compute_resource_availability(resource, params.horizon)
+        availability = compute_resource_availability(resource, instance, params.horizon)
 
         __plot_dividers(params.dividers, axes, params)
         __plot_step_function(availability, axes, params, color=params.colormap.resource_capacity(resource.key), fill=True)

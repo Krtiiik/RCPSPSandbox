@@ -1,8 +1,11 @@
+import itertools
+import math
 from collections import defaultdict, namedtuple
 from enum import StrEnum
 from typing import Optional, Collection, Self, Iterable
 
 from instances.utils import list_of
+from utils import index_groups, T_StepFunction, interval_overlap_function
 
 
 # ~~~~~~~ ResourceType ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15,19 +18,24 @@ class ResourceType(StrEnum):
 
 # ~~~~~~~ ResourceAvailability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-AvailabilityInterval = namedtuple("AvailabilityInterval", ["start", 'end', "capacity"])
+AvailabilityInterval = namedtuple("AvailabilityInterval", ("start", 'end', "capacity"))
+CapacityChange = namedtuple("CapacityChange", ("start", "end", "capacity"))
+CapacityMigration = namedtuple("CapacityMigration", ("resource_to", "start", "end", "capacity"))
 
 
 class ResourceAvailability:
     _periodical_intervals: list[AvailabilityInterval]
-    _exception_intervals: list[AvailabilityInterval]
+    _additions: list[CapacityChange]
+    _migrations: list[CapacityMigration]
 
     def __init__(self,
                  periodical_intervals: Iterable[AvailabilityInterval],
-                 exception_intervals: Iterable[AvailabilityInterval] = None,
+                 additions: Iterable[CapacityChange] = None,
+                 migrations: Iterable[CapacityMigration] = None,
                  ):
         self._periodical_intervals = list_of(periodical_intervals)
-        self._exception_intervals = list_of(exception_intervals) if exception_intervals is not None else []
+        self._additions = list_of(additions) if additions is not None else []
+        self._migrations = list_of(migrations) if migrations is not None else []
 
     @property
     def periodical_intervals(self) -> list[AvailabilityInterval]:
@@ -38,16 +46,26 @@ class ResourceAvailability:
         self._periodical_intervals = list_of(value)
 
     @property
-    def exception_intervals(self):
-        return self._exception_intervals
+    def additions(self) -> list[CapacityChange]:
+        return self._additions
 
-    @exception_intervals.setter
-    def exception_intervals(self, value: Iterable[AvailabilityInterval]):
-        self._exception_intervals = list_of(value)
+    @additions.setter
+    def additions(self, value: Iterable[CapacityChange]):
+        self._additions = list_of(value)
+
+    @property
+    def migrations(self) -> list[CapacityMigration]:
+        return self._migrations
+
+    @migrations.setter
+    def migrations(self, value: Iterable[CapacityMigration]):
+        self._migrations = list_of(value)
 
     def copy(self) -> "ResourceAvailability":
         return ResourceAvailability(periodical_intervals=self.periodical_intervals[:],
-                                    exception_intervals=self.exception_intervals[:])
+                                    additions=self._additions[:],
+                                    migrations=self._migrations[:],
+                                    )
 
 
 # ~~~~~~~ Resource ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -513,3 +531,63 @@ class ProblemInstance:
     def __str__(self):
         return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
                f"#resources: {len(self.resources)}, #jobs: {len(self.jobs)}, #precedences: {len(self.precedences)}}}"
+
+
+def compute_component_jobs(problem_instance: ProblemInstance) -> dict[Job, Collection[Job]]:
+    """
+    Given a problem instance, returns a dictionary where each key is a root job of a component and the value is a
+    collection of jobs that belong to that component.
+
+    :param problem_instance: The problem instance to compute the component jobs for.
+    :return: A dictionary where each key is a root job of a component and the value is a collection of jobs that belong
+             to that component.
+    """
+    from instances.algorithms import traverse_instance_graph
+
+    jobs_by_id = {j.id_job: j for j in problem_instance.jobs}
+    jobs_components_grouped =\
+        [[jobs_by_id[i[0]] for i in group]
+         for _k, group in itertools.groupby(traverse_instance_graph(problem_instance, search="components topological generations",
+                                                                    yield_state=True),
+                                            key=lambda x: x[1])]  # we assume that the order in which jobs are returned is determined by the components, so we do not sort by component id
+    component_jobs_by_root_job = index_groups(jobs_components_grouped,
+                                              [jobs_by_id[c.id_root_job] for c in problem_instance.components])
+    return component_jobs_by_root_job
+
+
+def compute_resource_periodical_availability(resource: Resource, horizon: int) -> T_StepFunction:
+    days_count = math.ceil(horizon / 24)
+    intervals = [(i_day * 24 + start, i_day * 24 + end, capacity)
+                 for i_day in range(days_count)
+                 for start, end, capacity in resource.availability.periodical_intervals]
+    return intervals
+
+
+def compute_resource_modified_availability(resource: Resource, instance: ProblemInstance, horizon: int) -> T_StepFunction:
+    days_count = math.ceil(horizon / 24)
+    additions = resource.availability.additions  # additions
+    out_migrations = [(s, e, -c) for _r_to, s, e, c in resource.availability.migrations]  # out-migrations
+    in_migrations = []
+    for resource_from in instance.resources:
+        if resource_from.key == resource.key:
+            continue
+        in_migrations += [(s, e, c) for _r_to, s, e, c in resource.availability.migrations]
+    return interval_overlap_function(additions + in_migrations + out_migrations, first_x=0, last_x=days_count*24)
+
+
+def compute_resource_availability(resource: Resource, instance: ProblemInstance, horizon: int) -> T_StepFunction:
+    """
+    Builds a step function representing the availability of a resource over time.
+
+    Args:
+        resource (Resource): The resource to build the availability function for.
+        instance (ProblemInstance): The instance of whose resources to use for building the availability.
+        horizon (int): The total number of hours in the planning horizon.
+
+    Returns:
+        CpoStepFunction: A step function representing the availability of the resource.
+    """
+    days_count = math.ceil(horizon / 24)
+    periodical = compute_resource_periodical_availability(resource, horizon)
+    modified = compute_resource_modified_availability(resource, instance, horizon)
+    return interval_overlap_function(periodical + modified, first_x=0, last_x=days_count*24)

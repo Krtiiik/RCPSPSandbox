@@ -8,7 +8,8 @@ from instances.instance_builder import InstanceBuilder
 from instances.algorithms import traverse_instance_graph, build_instance_graph, topological_sort, \
     paths_traversal, subtree_traversal
 from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, AvailabilityInterval, Component, \
-    ResourceAvailability
+    ResourceAvailability, CapacityChange, CapacityMigration
+from instances.utils import list_of
 from utils import print_error
 
 
@@ -246,14 +247,16 @@ class ProblemModifier:
         return self
 
     def change_resource_availability(self,
-                                     changes: dict[str, Iterable[Tuple[int, int, int]]],
+                                     additions: dict[str, Iterable[CapacityChange]],
+                                     migrations: dict[str, Iterable[CapacityMigration]],
                                      ) -> Self:
         for resource in self._resources:
-            if resource.key not in changes:
-                continue
-            resource.availability.exception_intervals += [AvailabilityInterval(start, end, capacity)
-                                                          for start, end, capacity in changes[resource.key]]
-            resource.availability.exception_intervals.sort(key=lambda i: i.start)
+            if resource.key in additions:
+                resource.availability.additions += list_of(additions[resource.key])
+                resource.availability.additions.sort(key=lambda a: (a.start, a.end))
+            if resource.key in migrations:
+                resource.availability.migrations += list_of(migrations[resource.key])
+                resource.availability.migrations.sort(key=lambda m: (m.start, m.end))
 
         return self
 

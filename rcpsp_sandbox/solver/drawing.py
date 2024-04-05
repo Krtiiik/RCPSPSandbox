@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tabulate
 
-from utils import print_error, compute_component_jobs, ColorMap
-from instances.problem_instance import ProblemInstance, Job, Resource
+from utils import print_error, ColorMap
+from instances.problem_instance import ProblemInstance, Job, Resource, compute_component_jobs, \
+    compute_resource_availability
 from solver.solution import Solution, compute_job_tardiness
-from solver.utils import build_resource_availability
 
 
 def plot_solution(problem_instance: ProblemInstance,
@@ -25,7 +25,6 @@ def plot_solution(problem_instance: ProblemInstance,
                   ):
     """
     See http://ibmdecisionoptimization.github.io/docplex-doc/cp/visu.rcpsp.py.html
-    TODO values of step functions not reaching zero over the full horizon do not start at zero
     """
     if not visu.is_visu_enabled():
         print_error("docplex visu is not enabled, aborting plot...")
@@ -120,7 +119,7 @@ def plot_solution(problem_instance: ProblemInstance,
             visu.panel(resource.key)
 
             if plot_resource_capacity:
-                segments = build_resource_availability(resource, problem_instance.horizon)
+                segments = compute_resource_availability(resource, problem_instance.horizon)
                 visu.function(segments=segments, style='area', color='grey')
 
             plot_resource_consumption(resource)

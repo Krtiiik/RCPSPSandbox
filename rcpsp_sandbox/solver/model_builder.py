@@ -9,9 +9,9 @@ from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoIntervalVarSolution
 
-from instances.problem_instance import ProblemInstance, Resource, Job, Component
+from instances.problem_instance import ProblemInstance, Resource, Job, Component, compute_resource_availability
 from solver.solution import Solution
-from solver.utils import get_model_job_intervals, build_resource_availability
+from solver.utils import get_model_job_intervals
 
 
 class ModelBuilder:
@@ -48,7 +48,7 @@ class ModelBuilder:
 
     def with_resource_constraints(self) -> Self:
         resource_capacity_constraints = [
-            self.__build_resource_capacity_constraint(resource, self._job_intervals, self.instance.horizon)
+            self.__build_resource_capacity_constraint(resource, self.instance, self._job_intervals, self.instance.horizon)
             for resource in self.instance.resources]
 
         self.model.add(resource_capacity_constraints)
@@ -159,6 +159,7 @@ class ModelBuilder:
 
     def __build_resource_capacity_constraint(self,
                                              resource: Resource,
+                                             instance: ProblemInstance,
                                              job_intervals: dict[int, interval_var],
                                              horizon: int,
                                              ) -> CpoExpr:
@@ -179,7 +180,7 @@ class ModelBuilder:
             CpoExpr: The constraint expression.
         """
         jobs_consuming_resource = [job for job in self.instance.jobs if job.resource_consumption[resource] > 0]
-        capacity_intervals = build_resource_availability(resource, horizon)
+        capacity_intervals = compute_resource_availability(resource, instance, horizon)
         max_capacity = max(resource.capacity, max(i[2] for i in capacity_intervals))
         consumption_pulses = [modeler.pulse(job_intervals[job.id_job], job.resource_consumption[resource])
                               for job in jobs_consuming_resource]

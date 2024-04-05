@@ -4,7 +4,7 @@ from typing import IO, Iterable, Any
 from collections import defaultdict
 
 from instances.problem_instance import ProblemInstance, Project, Job, Precedence, Resource, ResourceConsumption, \
-    ResourceType, Component, AvailabilityInterval, ResourceAvailability
+    ResourceType, Component, AvailabilityInterval, ResourceAvailability, CapacityChange, CapacityMigration
 from instances.instance_builder import InstanceBuilder
 from instances.utils import try_open_read, chunk, str_or_default
 from utils import modify_tuple
@@ -304,10 +304,11 @@ def __parse_psplib_internal(file: IO,
     else:  # RESOURCE AVAILABILITIES
         skip_lines(3)  # table header and dashes and "PERIODICAL"
         periodical_intervals_by_resource_key = defaultdict(list)
-        exceptional_intervals_by_resource_key = defaultdict(list)
+        addition_intervals_by_resource_key = defaultdict(list)
+        migration_intervals_by_resource_key = defaultdict(list)
         current_line = read_line()
         resource_key = ""
-        while (not current_line.startswith('EXCEPTIONAL')):
+        while not current_line.startswith('ADDITIONS'):
             if not current_line.startswith(' '):  # New resource
                 resource_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
             else:
@@ -318,26 +319,36 @@ def __parse_psplib_internal(file: IO,
 
             current_line = read_line()
         current_line = read_line()
-        while (not current_line.startswith('*')) and (current_line != ""):
+        while not current_line.startswith('MIGRATIONS'):
             if not current_line.startswith(' '):  # New resource
                 resource_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
             else:
                 start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2), 2)
             start, end = try_parse_value(start_str), try_parse_value(end_str)
             capacity = try_parse_value(capacity_str.strip()) if capacity_str != "" else None
-            exceptional_intervals_by_resource_key[resource_key].append(AvailabilityInterval(start, end, capacity))
+            addition_intervals_by_resource_key[resource_key].append(CapacityChange(start, end, capacity))
+
+            current_line = read_line()
+        current_line = read_line()
+        while (not current_line.startswith('*')) and (current_line != ""):
+            if not current_line.startswith(' '):  # New resource
+                resource_migration_key, start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2, 3), 3)
+            else:
+                start_str, end_str, capacity_str = process_split_line(current_line, (0, 1, 2), 2)
+            resource_from_key, resource_to_key = resource_migration_key.split('->')
+            start, end = try_parse_value(start_str), try_parse_value(end_str)
+            capacity = try_parse_value(capacity_str.strip()) if capacity_str != "" else None
+            migration_intervals_by_resource_key[resource_from_key].append(CapacityMigration(resource_to_key, start, end, capacity))
 
             current_line = read_line()
 
         for resource in resources:
             resource.availability = ResourceAvailability(periodical_intervals_by_resource_key[resource.key],
-                                                         exceptional_intervals_by_resource_key[resource.key])
+                                                         addition_intervals_by_resource_key[resource.key],
+                                                         migration_intervals_by_resource_key[resource.key])
             for i, availability_interval in enumerate(resource.availability.periodical_intervals):
                 if availability_interval.capacity is None:
                     resource.availability.periodical_intervals[i] = modify_tuple(availability_interval, 2, resource.capacity)
-            for i, availability_interval in enumerate(resource.availability.exception_intervals):
-                if availability_interval.capacity is None:
-                    resource.availability.exception_intervals[i] = modify_tuple(availability_interval, 2, resource.capacity)
 
     return build()
 
@@ -485,22 +496,32 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
                        availability.start,
                        availability.end,
                        str_or_default(availability.capacity))
-    header_line("EXCEPTIONAL")
+    header_line("ADDITIONS")
     for resource in instance.resources:
-        if not resource.availability.exception_intervals:
+        if not resource.availability.additions:
             continue
-        first_availability: AvailabilityInterval = resource.availability.exception_intervals[0]
+        first_availability: CapacityChange = resource.availability.additions[0]
         table_line(lengths,
                    resource.key,
                    first_availability.start,
                    first_availability.end,
                    str_or_default(first_availability.capacity))
-        for availability in resource.availability.exception_intervals[1:]:
+        for availability in resource.availability.additions[1:]:
             table_line(lengths,
                        "",
                        availability.start,
                        availability.end,
                        str_or_default(availability.capacity))
+    header_line("MIGRATIONS")
+    for resource in instance.resources:
+        if not resource.availability.migrations:
+            continue
+        for migration in resource.availability.migrations:
+            table_line(lengths,
+                       f'{resource.key}->{migration.resource_to}',
+                       migration.start,
+                       migration.end,
+                       str_or_default(migration.capacity))
 
     return output
 
@@ -608,8 +629,10 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
 
         check_key_in("Periodical", r["Availability"], "Instance object > Resource > Availability")
         check_type_of(r["Availability"]["Periodical"], list, "Instance object > Resource > Availability > Periodical")
-        check_key_in("Exceptional", r["Availability"], "Instance object > Resource > Availability")
-        check_type_of(r["Availability"]["Exceptional"], list, "Instance object > Resource > Availability > Exceptional")
+        check_key_in("Additions", r["Availability"], "Instance object > Resource > Availability")
+        check_type_of(r["Availability"]["Additions"], list, "Instance object > Resource > Availability > Additions")
+        check_key_in("Migrations", r["Availability"], "Instance object > Resource > Availability")
+        check_type_of(r["Availability"]["Migrations"], list, "Instance object > Resource > Availability > Migrations")
 
         for periodical in r["Availability"]["Periodical"]:
             check_key_in("Start", periodical, "Instance object > Resources > Availability > Periodical")
@@ -621,15 +644,28 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
             if "Capacity" in periodical:
                 check_type_of(periodical["Capacity"], int, "Instance object > Resources > Availability > Periodical > Capacity")
 
-        for exceptional in r["Availability"]["Exceptional"]:
-            check_key_in("Start", exceptional, "Instance object > Resources > Availability > Exceptional")
-            check_type_of(exceptional["Start"], int, "Instance object > Resources > Availability > Exceptional > Start")
+        for addition in r["Availability"]["Additions"]:
+            check_key_in("Start", addition, "Instance object > Resources > Availability > Addition")
+            check_type_of(addition["Start"], int, "Instance object > Resources > Availability > Addition > Start")
 
-            check_key_in("End", exceptional, "Instance object > Resources > Availability > Exceptional")
-            check_type_of(exceptional["End"], int, "Instance object > Resources > Availability > Exceptional > End")
+            check_key_in("End", addition, "Instance object > Resources > Availability > Addition")
+            check_type_of(addition["End"], int, "Instance object > Resources > Availability > Addition > End")
 
-            if "Capacity" in exceptional:
-                check_type_of(exceptional["Capacity"], int, "Instance object > Resources > Availability > Exceptional > Capacity")
+            check_key_in("Capacity", addition, "Instance object > Resources > Availability > Addition")
+            check_type_of(addition["Capacity"], int, "Instance object > Resources > Availability > Addition > Capacity")
+
+        for migration in r["Availability"]["Migrations"]:
+            check_key_in("ResourceTo", migration, "Instance object > Resources > Availability > Migration")
+            check_type_of(migration["ResourceTo"], str, "Instance object > Resources > Availability > Migration > ResourceTo")
+
+            check_key_in("Start", migration, "Instance object > Resources > Availability > Migration")
+            check_type_of(migration["Start"], int, "Instance object > Resources > Availability > Migration > Start")
+
+            check_key_in("End", migration, "Instance object > Resources > Availability > Migration")
+            check_type_of(migration["End"], int, "Instance object > Resources > Availability > Migration > End")
+
+            check_key_in("Capacity", migration, "Instance object > Resources > Availability > Migration")
+            check_type_of(migration["Capacity"], int, "Instance object > Resources > Availability > Migration > Capacity")
 
 
 class ParseError(Exception):
@@ -683,16 +719,22 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
         }
 
         if self._is_extended:
-            def serialize_interval(interval: AvailabilityInterval):
+            def serialize_interval(interval: AvailabilityInterval|CapacityChange):
                 return {
                     "Start": interval.start,
                     "End": interval.end,
                     "Capacity": interval.capacity,
                 }
 
+            def serialize_migration(migration: CapacityMigration):
+                obj = serialize_interval(migration)
+                obj["ResourceTo"] = migration.resource_to
+                return obj
+
             resource_object["Availability"] = {
                 "Periodical": [serialize_interval(interval) for interval in resource.availability.periodical_intervals],
-                "Exception": [serialize_interval(interval) for interval in resource.availability.exception_intervals],
+                "Additions": [serialize_interval(addition) for addition in resource.availability.additions],
+                "Migrations": [serialize_migration(migration) for migration in resource.availability.migrations]
             }
 
         return resource_object

@@ -2,8 +2,7 @@ from typing import Iterable, Tuple
 
 from docplex.cp.solution import CpoSolveResult, CpoIntervalVarSolution
 
-from instances.problem_instance import Job, ProblemInstance
-from utils import compute_component_jobs
+from instances.problem_instance import Job, ProblemInstance, compute_component_jobs
 
 
 class Solution:

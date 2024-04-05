@@ -8,10 +8,10 @@ import networkx as nx
 import matplotlib
 
 from instances.algorithms import build_instance_graph, traverse_instance_graph, compute_earliest_completion_times
-from instances.problem_instance import ProblemInstance, Job
+from instances.problem_instance import ProblemInstance, Job, compute_component_jobs
 from matplotlib.axes import Axes
 
-from utils import print_error, compute_component_jobs, ColorMap
+from utils import print_error, ColorMap
 
 
 def draw_instance_graph(instance: ProblemInstance = None,
