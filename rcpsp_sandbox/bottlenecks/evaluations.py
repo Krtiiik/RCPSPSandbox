@@ -1,10 +1,12 @@
 import abc
+import time
 from collections import namedtuple
 
 from bottlenecks.drawing import plot_solution
 from instances.problem_instance import ProblemInstance
+from solver.model_builder import build_model
 from solver.solution import Solution
-
+from solver.solver import Solver
 
 ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
 
@@ -32,6 +34,30 @@ class Evaluation:
         self._duration = duration
 
     @property
+    def base_instance(self) -> ProblemInstance:
+        return self._base_instance
+
+    @property
+    def base_solution(self) -> Solution:
+        return self._base_solution
+
+    @property
+    def target_job(self) -> int:
+        return self._target_job
+
+    @property
+    def modified_instance(self) -> ProblemInstance:
+        return self._modified_instance
+
+    @property
+    def solution(self) -> Solution:
+        return self._solution
+
+    @property
+    def by(self) -> str:
+        return self._by
+
+    @property
     def duration(self) -> float:
         return self._duration
 
@@ -44,8 +70,8 @@ class Evaluation:
 
     def plot(self, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = [(8, 11), (8, 11)]):
         def get(iterable, i): return None if iterable is None else iterable[i]
-        plot_solution(self._base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), component_legends=legends)
-        plot_solution(self._solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), component_legends=legends)
+        plot_solution(self._base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0))
+        plot_solution(self._solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1))
 
     def print(self):
         print(str(self))
@@ -63,9 +89,36 @@ class Evaluation:
 
 
 class EvaluationAlgorithm(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
+    _solver: Solver
+
+    def __init__(self):
+        self._solver = Solver()
+
     def evaluate(self, problem: ProblemSetup, settings) -> Evaluation:
         """Evaluates the given instance."""
+        time_start = time.perf_counter()
+
+        base_instance, target_job_id = problem
+        model = self._build_standard_model(base_instance)
+        base_solution = self._solver.solve(base_instance, model)
+
+        modified_instance, solution = self.run(base_instance, base_solution, target_job_id, settings)
+
+        duration = time.perf_counter() - time_start
+        return Evaluation(base_instance, base_solution, target_job_id, modified_instance, solution, self.represent(settings), duration)
+
+    def _build_standard_model(self, instance: ProblemInstance):
+        return build_model(instance) \
+               .with_precedences().with_resource_constraints() \
+               .optimize_model() \
+               .get_model()
+
+    @abc.abstractmethod
+    def run(self,
+            base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+            settings,
+            ) -> tuple[ProblemInstance, Solution]:
+        """Runs the algorithm."""
 
     @abc.abstractmethod
     def represent(self, settings) -> str:
