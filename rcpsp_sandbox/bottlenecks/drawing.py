@@ -88,6 +88,7 @@ def plot_solution(solution: Solution,
                   block: bool = True,
                   save_as: str = None,
                   dimensions: tuple[int, int] = (8, 11),
+                  component_legends: dict[int, str] = None,
                   ):
     instance = solution.instance
 
@@ -99,7 +100,7 @@ def plot_solution(solution: Solution,
     resource_count = len(instance.resources)
     f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=[0.5]+resource_count*[0.5/resource_count])
 
-    __intervals_panel(solution, axarr[0], params)
+    __intervals_panel(solution, axarr[0], params, component_legends=component_legends)
     __resources_panels(solution, axarr[1:], params, split_consumption=split_consumption, highlight_consumption=highlight)
 
     f.tight_layout()
@@ -118,6 +119,7 @@ def plot_intervals(solution: Solution,
                    block: bool = False,
                    save_as: str = None,
                    dimensions: tuple[int, int] = (8, 11),
+                   component_legends: dict[int, str] = None,
                    ):
     instance = solution.instance
 
@@ -128,7 +130,7 @@ def plot_intervals(solution: Solution,
     axarr: plt.Axes
     f, axarr = plt.subplots(1)
 
-    __intervals_panel(solution, axarr, params)
+    __intervals_panel(solution, axarr, params, component_legends=component_legends)
 
     f.tight_layout()
     f.subplots_adjust(top=0.95, bottom=0.05, left=0.1, right=0.95)
@@ -172,6 +174,7 @@ def plot_resources(solution: Solution,
 
 def __intervals_panel(solution: Solution,
                       axes: plt.Axes, params: PlotParameters,
+                      component_legends: dict[int, str] = None,
                       ):
     instance = solution.instance
     deadlines = {j.id_job: j.due_date for j in instance.jobs}
@@ -193,8 +196,10 @@ def __intervals_panel(solution: Solution,
     axes.set_xticklabels(map(str, params.dividers))
     axes.autoscale(True, axis='x', tight=True)
 
-    legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job)) for d in deadlines]
-    axes.legend(handles=legend_elements)
+    legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job))
+                       for d in deadlines]
+    labels = [component_legends[d.id_root_job] for d in deadlines] if component_legends is not None else None
+    axes.legend(handles=legend_elements, labels=labels, fancybox=True, shadow=True)
 
 
 def __resources_panels(solution: Solution,
