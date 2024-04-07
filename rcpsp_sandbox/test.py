@@ -97,6 +97,12 @@ def modify_availability(inst, changes, migrations=None):
     return modify_instance(inst).change_resource_availability(changes).generate_modified_instance()
 
 
+def print_dict_of_iterable_tuples(d):
+    for key in sorted(d):
+        print(key)
+        for value in d[key]:
+            print('\t', *value)
+
 
 if __name__ == "__main__":
     random.seed(42)
@@ -104,16 +110,32 @@ if __name__ == "__main__":
     # main()
 
 
+    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm")); root_job = 122
+    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j30", "j301_1.sm")); root_job = 32
+    instance = modify_instance(instance) \
+               .split_job_components(split="gradual", gradual_level=2) \
+               .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
+               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
+               .generate_modified_instance()
 
-    def print_migrations(migrations):
-        for r in sorted(migrations, key=lambda r: r.key):
-            print(r.key)
-            for m_r, m_s, m_e, m_c in migrations[r]:
-                print('\t', m_r.key, m_s, m_e, m_c)
+    evaluator = bottlenecks.improvements.TimeVariableConstraintRelaxingAlgorithm()
+    result = evaluator.evaluate((instance, root_job), bottlenecks.improvements.TimeVariableConstraintRelaxingAlgorithmSettings(2, 1, 1))
+    print(result)
+    result.plot()
 
-    def print_ints(ints):
-        for r in ints:
-            print(r.key, ints[r])
+    for resource in result.modified_instance.resources:
+        print(resource.key)
+        if resource.availability.additions:
+            print("\tA")
+            for a in resource.availability.additions:
+                print("\t", a)
+        if resource.availability.migrations:
+            print("\tM")
+            for m in resource.availability.migrations:
+                print("\t", m)
+
+    exit()
+
 
 
 
