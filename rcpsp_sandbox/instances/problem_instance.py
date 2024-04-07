@@ -571,7 +571,7 @@ def compute_resource_modified_availability(resource: Resource, instance: Problem
     for resource_from in instance.resources:
         if resource_from.key == resource.key:
             continue
-        in_migrations += [(s, e, c) for _r_to, s, e, c in resource.availability.migrations]
+        in_migrations += [(s, e, c) for _r_to, s, e, c in resource_from.availability.migrations if _r_to == resource.key]
     return interval_overlap_function(additions + in_migrations + out_migrations, first_x=0, last_x=days_count*24)
 
 
