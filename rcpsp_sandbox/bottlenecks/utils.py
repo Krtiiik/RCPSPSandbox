@@ -1,3 +1,4 @@
+import itertools
 import math
 from collections import defaultdict
 from typing import Iterable
@@ -142,3 +143,23 @@ def compute_resource_shift_ends(instance: ProblemInstance) -> dict[Resource, lis
             last_e = e
 
     return shift_ends
+
+
+def group_consecutive_intervals(intervals):
+    result = []
+    current_group = []
+
+    for i in range(len(intervals)):
+        if i == 0 or intervals[i][0] == intervals[i - 1][1]:
+            # If it's the first tuple or starts immediately after the previous tuple
+            current_group.append(intervals[i])
+        else:
+            # Start a new group
+            result.append(current_group)
+            current_group = [intervals[i]]
+
+    if current_group:
+        # Add the last group
+        result.append(current_group)
+
+    return result
