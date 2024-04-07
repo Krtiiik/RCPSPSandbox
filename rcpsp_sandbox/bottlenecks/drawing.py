@@ -89,10 +89,11 @@ def plot_solution(solution: Solution,
                   save_as: str = None,
                   dimensions: tuple[int, int] = (8, 11),
                   component_legends: dict[int, str] = None,
+                  horizon: int = None,
                   ):
     instance = solution.instance
 
-    horizon = 24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24)
+    horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
     params = PlotParameters(0, horizon, ColorMap(instance, highlight), [0]+list(range(6, horizon, 8)))
 
     f: plt.Figure
@@ -120,10 +121,11 @@ def plot_intervals(solution: Solution,
                    save_as: str = None,
                    dimensions: tuple[int, int] = (8, 11),
                    component_legends: dict[int, str] = None,
+                   horizon: int = None,
                    ):
     instance = solution.instance
 
-    horizon = 24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24)
+    horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
     params = PlotParameters(0, horizon, ColorMap(instance, highlight), list(range(6, horizon, 8)))
 
     f: plt.Figure
@@ -148,10 +150,11 @@ def plot_resources(solution: Solution,
                    block: bool = False,
                    save_as: str = None,
                    dimensions: tuple[int, int] = (8, 11),
+                   horizon: int = None,
                    ):
     instance = solution.instance
 
-    horizon = 24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24)
+    horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
     params = PlotParameters(0, horizon, ColorMap(instance), list(range(6, horizon, 8)))
 
     f: plt.Figure
