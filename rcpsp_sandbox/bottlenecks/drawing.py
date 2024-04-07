@@ -91,6 +91,8 @@ def plot_solution(solution: Solution,
                   component_legends: dict[int, str] = None,
                   horizon: int = None,
                   ):
+    # TODO predefined interval levels for schedule comparing
+
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
@@ -195,8 +197,7 @@ def __intervals_panel(solution: Solution,
     axes.yaxis.set_ticks([])
     axes.xaxis.tick_top()
     axes.xaxis.set_tick_params(labeltop=True)
-    axes.set_xticks(params.dividers)
-    axes.set_xticklabels(map(str, params.dividers))
+    axes.set_xticks(params.dividers, labels=map(str, params.dividers), rotation=(0 if params.horizon < 100 else 90))
     axes.autoscale(True, axis='x', tight=True)
 
     legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job))
@@ -256,8 +257,7 @@ def __resources_panels(solution: Solution,
         axes.yaxis.set_major_locator(MaxNLocator(nbins=7, steps=[1, 2, 5, 10], integer=True))
         axes.set_ylabel(resource.key)
         axes.yaxis.set_label_coords(-0.05, 0.5)
-        axes.set_xticks(params.dividers)
-        axes.set_xticklabels(map(str, params.dividers))
+        axes.set_xticks(params.dividers, labels=map(str, params.dividers), rotation=(0 if params.horizon < 100 else 90))
         axes.grid(which='both', axis='y', ls=':')
 
 
