@@ -70,8 +70,10 @@ class Evaluation:
 
     def plot(self, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = [(8, 11), (8, 11)]):
         def get(iterable, i): return None if iterable is None else iterable[i]
-        plot_solution(self._base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0))
-        plot_solution(self._solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1))
+        horizon = max(max(int_sol.end for int_sol in self._base_solution.job_interval_solutions.values()),
+                      max(int_sol.end for int_sol in self._solution.job_interval_solutions.values()))
+        plot_solution(self._base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), horizon=horizon)
+        plot_solution(self._solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
 
     def print(self):
         print(str(self))
