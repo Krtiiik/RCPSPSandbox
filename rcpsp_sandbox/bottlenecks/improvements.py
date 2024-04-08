@@ -14,6 +14,7 @@ from instances.algorithms import build_instance_graph
 from instances.problem_instance import ProblemInstance, ResourceConsumption, compute_resource_periodical_availability, \
     CapacityMigration, CapacityChange
 from instances.problem_modifier import modify_instance
+from solver.model_builder import add_hot_start
 from solver.solution import Solution
 from utils import interval_overlap_function, intervals_overlap
 
@@ -46,6 +47,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
             modified_instance = self.__modify_availability(modified_instance, {}, intervals_to_relax)
 
             model = self._build_standard_model(modified_instance)
+            model = add_hot_start(model, solution)
             solution = self._solver.solve(modified_instance, model)
             self.__reduce_capacity_changes(modified_instance, solution)
 

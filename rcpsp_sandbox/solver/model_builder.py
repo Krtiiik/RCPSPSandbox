@@ -4,14 +4,13 @@ from typing import Iterable, Literal, Tuple, Self
 
 from docplex.cp import modeler
 from docplex.cp.catalog import Oper_end_before_start, Oper_less_or_equal
-from docplex.cp.expression import interval_var, CpoExpr, CpoFunctionCall
+from docplex.cp.expression import interval_var, CpoExpr, CpoFunctionCall, CpoIntervalVar
 from docplex.cp.function import CpoStepFunction
 from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoIntervalVarSolution
 
 from instances.problem_instance import ProblemInstance, Resource, Job, Component, compute_resource_availability
 from solver.solution import Solution
-from solver.utils import get_model_job_intervals
 
 
 class ModelBuilder:
@@ -111,18 +110,7 @@ class ModelBuilder:
                       solution: Solution = None,
                       job_interval_solutions: dict[int, tuple[int, int]] = None,
                       ) -> Self:
-        if job_interval_solutions is None:
-            if solution is None:
-                raise ValueError("No hot start values given")
-            job_interval_solutions = {job_id: (interval_solution.start, interval_solution.end)
-                                      for job_id, interval_solution in solution.job_interval_solutions.items()}
-
-        hot_start = self.model.create_empty_solution()
-        for job_id, (start, end) in job_interval_solutions.items():
-            hot_start.add_interval_var_solution(self._job_intervals[job_id], presence=True, start=start, end=end)
-
-        self.model.set_starting_point(hot_start)
-
+        add_hot_start(self.model, solution=solution, job_interval_solutions=job_interval_solutions)
         return self
 
     def minimize_model_solution_difference(self, solution: Solution, excluded: Iterable[Job] = None, alpha: float = 1.) -> Self:
@@ -271,3 +259,29 @@ def edit_model(model: CpoModel, problem_instance: ProblemInstance) -> ModelBuild
     builder._precedence_constraints = [expr for expr, _loc in model.get_all_expressions() if isinstance(expr, CpoFunctionCall) and expr.operation == Oper_end_before_start]
     builder._resource_capacity_constraints = [expr for expr, _loc in model.get_all_expressions() if isinstance(expr, CpoFunctionCall) and expr.operation == Oper_less_or_equal]
     return builder
+
+
+def add_hot_start(model: CpoModel,
+                  solution: Solution = None,
+                  job_interval_solutions: dict[int, tuple[int, int]] = None,
+                  ) -> CpoModel:
+    if job_interval_solutions is None:
+        if solution is None:
+            raise ValueError("No hot start values given")
+        job_interval_solutions = {job_id: (interval_solution.start, interval_solution.end)
+                                  for job_id, interval_solution in solution.job_interval_solutions.items()}
+
+    job_intervals = get_model_job_intervals(model)
+    hot_start = model.create_empty_solution()
+    for job_id, (start, end) in job_interval_solutions.items():
+        hot_start.add_interval_var_solution(job_intervals[job_id], presence=True, start=start, end=end)
+
+    model.set_starting_point(hot_start)
+
+    return model
+
+
+def get_model_job_intervals(model: CpoModel) -> dict[int, interval_var]:
+    return {int(var.get_name()[4:]): var
+            for var in model.get_all_variables()
+            if isinstance(var, CpoIntervalVar) and var.get_name().startswith("Job")}
