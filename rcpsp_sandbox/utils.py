@@ -1,7 +1,9 @@
 import sys
 from collections import defaultdict
-from typing import Iterable, Collection, TypeVar, Any
+from typing import Iterable, Collection, TypeVar, Any, Sequence
 
+
+T = TypeVar('T')
 T_StepFunction = list[tuple[int, int, int]]
 
 
@@ -105,9 +107,6 @@ class ColorMap:
         return self.colors[item % len(self.colors)]
 
 
-T = TypeVar('T')
-
-
 def index_groups(groups: Iterable[Collection[T]], keys: Collection[T]) -> dict[T, Collection[T]]:
     """
     Indexes a collection of groups by a set of keys.
@@ -129,3 +128,32 @@ def index_groups(groups: Iterable[Collection[T]], keys: Collection[T]) -> dict[T
 
 def modify_tuple(old_tuple: tuple, index: int, new_value: Any) -> tuple:
     return old_tuple[0:index] + (new_value,) + old_tuple[index + 1:]
+
+
+def try_open_read(filename: str,
+                  filework,
+                  *args,
+                  **kwargs) -> Any:
+    try:
+        with open(filename, "r") as file:
+            return filework(file, *args, **kwargs)
+    except FileNotFoundError:
+        print_error(f"File not found: {filename}")
+        raise
+    except IOError as error:
+        print_error(error)
+        raise
+
+
+def list_of(items: Iterable[T]) -> list[T]:
+    return items if items is list else list(items)
+
+
+def chunk(sequence: Sequence[T],
+          chunk_size: int) -> Iterable[Iterable[T]]:
+    for i in range(0, len(sequence), chunk_size):
+        yield sequence[i:(i + chunk_size)]
+
+
+def str_or_default(x: Any):
+    return str(x) if x is not None else ""

@@ -57,6 +57,7 @@ class Solution:
 
         return self._cached_weighted_tardiness if job_id is None else self._cached_weighted_tardiness[job_id]
 
+
 def solution_difference(a: Solution,
                         b: Solution,
                         selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:

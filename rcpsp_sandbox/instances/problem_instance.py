@@ -4,8 +4,7 @@ from collections import defaultdict, namedtuple
 from enum import StrEnum
 from typing import Optional, Collection, Self, Iterable
 
-from instances.utils import list_of
-from utils import index_groups, T_StepFunction, interval_overlap_function
+from utils import index_groups, T_StepFunction, interval_overlap_function, list_of
 
 
 # ~~~~~~~ ResourceType ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

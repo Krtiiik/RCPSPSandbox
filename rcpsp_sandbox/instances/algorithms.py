@@ -6,7 +6,7 @@ from typing import Generator, Literal
 import networkx as nx
 
 from instances.problem_instance import ProblemInstance, Job
-from instances.utils import print_error
+from utils import print_error
 
 
 def build_instance_graph(instance, reverse: bool = False) -> nx.DiGraph:

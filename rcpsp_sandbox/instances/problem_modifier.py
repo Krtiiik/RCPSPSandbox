@@ -9,8 +9,7 @@ from instances.algorithms import traverse_instance_graph, build_instance_graph, 
     paths_traversal, subtree_traversal
 from instances.problem_instance import ProblemInstance, Job, Precedence, Resource, AvailabilityInterval, Component, \
     ResourceAvailability, CapacityChange, CapacityMigration
-from instances.utils import list_of
-from utils import print_error
+from utils import print_error, list_of
 
 
 class ProblemModifier:
