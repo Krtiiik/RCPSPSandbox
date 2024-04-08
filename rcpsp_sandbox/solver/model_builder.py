@@ -107,6 +107,24 @@ class ModelBuilder:
 
         return self
 
+    def add_hot_start(self,
+                      solution: Solution = None,
+                      job_interval_solutions: dict[int, tuple[int, int]] = None,
+                      ) -> Self:
+        if job_interval_solutions is None:
+            if solution is None:
+                raise ValueError("No hot start values given")
+            job_interval_solutions = {job_id: (interval_solution.start, interval_solution.end)
+                                      for job_id, interval_solution in solution.job_interval_solutions.items()}
+
+        hot_start = self.model.create_empty_solution()
+        for job_id, (start, end) in job_interval_solutions.items():
+            hot_start.add_interval_var_solution(self._job_intervals[job_id], presence=True, start=start, end=end)
+
+        self.model.set_starting_point(hot_start)
+
+        return self
+
     def minimize_model_solution_difference(self, solution: Solution, excluded: Iterable[Job] = None, alpha: float = 1.) -> Self:
         """
         Minimizes the difference between the start times of the jobs in the given model and solution.
