@@ -2,16 +2,17 @@ import functools
 import itertools
 import math
 from collections import namedtuple
-from itertools import accumulate
 from typing import Iterable
 
 import matplotlib.colors
 import matplotlib.spines
 import matplotlib.patches
 import matplotlib.pyplot as plt
+from adjustText import adjust_text
 from matplotlib.ticker import MaxNLocator
 
 import utils
+from bottlenecks.evaluations import EvaluationKPIs
 from bottlenecks.utils import compute_resource_consumption
 from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability
 from utils import interval_overlap_function
@@ -80,6 +81,47 @@ class ColorMap:
 
     def __job_component_color(self, job_id):
         return self._cm[self._job_component_index[job_id]]
+
+
+def plot_evaluation(evaluation, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
+    def get(iterable, i): return None if iterable is None else iterable[i]
+    horizon = max(max(int_sol.end for int_sol in evaluation.base_solution.job_interval_solutions.values()),
+                  max(int_sol.end for int_sol in evaluation.solution.job_interval_solutions.values()))
+    plot_solution(evaluation.base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), horizon=horizon)
+    plot_solution(evaluation.solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
+
+
+def plot_evaluations(evaluations: list[EvaluationKPIs | list[EvaluationKPIs]],
+                     ):
+    if not isinstance(evaluations[0], list):
+        evaluations = [evaluations]
+
+    plt.grid(which='both', axis='both', ls='--')
+    for evaluation_kpis in evaluations:
+        costs = [evaluation_kpi.cost for evaluation_kpi in evaluation_kpis]
+        improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluation_kpis]
+        plt.scatter(costs, improvements)
+
+    def get_name(_evaluation):
+        _alg, _settings = _evaluation.by.split('--')
+        _alg = ''.join(itertools.filterfalse(str.islower, _alg))
+        return f'{_alg}-{_settings}'
+
+    interesting_evaluation_kpis = [kpi for kpis in evaluations
+                                   for kpi in [
+                                       min(kpis, key=lambda e_kpi: e_kpi.cost),
+                                       max(kpis, key=lambda e_kpi: e_kpi.cost),
+                                       min(kpis, key=lambda e_kpi: e_kpi.improvement),
+                                       max(kpis, key=lambda e_kpi: e_kpi.improvement),
+                                   ]]
+    texts = [plt.text(evaluation_kpi.cost, evaluation_kpi.improvement, get_name(evaluation_kpi.evaluation), ha='center', va='top')
+             for evaluation_kpi in interesting_evaluation_kpis]
+    adjust_text(texts, expand_axes=True, arrowprops=dict(arrowstyle='->', color='gray'))
+
+    plt.xlabel("Cost")
+    plt.ylabel("Improvement")
+
+    plt.show()
 
 
 def plot_solution(solution: Solution,
@@ -299,7 +341,7 @@ def __compute_interval_levels(intervals: Iterable[Interval]) -> tuple[dict[Inter
 
     intervals = sorted(intervals, key=lambda i: (i.start, i.end))
     events = sorted([(itv.start, +1) for itv in intervals] + [(itv.end, -1) for itv in intervals])
-    max_level = max(accumulate(events, lambda cur, event: cur + event[1], initial=0))
+    max_level = max(itertools.accumulate(events, lambda cur, event: cur + event[1], initial=0))
 
     h = [(intervals[0].start, lvl) for lvl in range(0, max_level)]
     heapq.heapify(h)
