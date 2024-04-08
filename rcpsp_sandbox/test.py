@@ -4,6 +4,7 @@ import random
 
 import bottlenecks.metrics as mtr
 import instances.io as iio
+import bottlenecks.io as bio
 from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup
 from bottlenecks.improvements import relaxed_interval_consumptions, left_closure, \
     TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
@@ -106,18 +107,34 @@ def print_dict_of_iterable_tuples(d):
 if __name__ == "__main__":
     random.seed(42)
 
-    # instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
-    instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
+    instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
+    # instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
 
+    # evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
+    #     (TimeVariableConstraintRelaxingAlgorithm(), {
+    #         "max_iterations": [1, 2, 3, 4, 5, 6],
+    #         "relax_granularity": [1, 10, 25, 50],
+    #         "max_improvement_intervals": [1, 2, 3, 4, 5]
+    #      })
+    # ])
     evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
         (TimeVariableConstraintRelaxingAlgorithm(), {
-            "max_iterations": [1, 2, 3, 4, 5, 6],
-            "relax_granularity": [1, 10, 25, 50],
+            "max_iterations": [1],
+            "relax_granularity": [1],
             "max_improvement_intervals": [1, 2, 3, 4, 5]
          })
     ])
 
-    print(len(evaluations[0]))
+    modified_instances = [evaluation.modified_instance for evaluation in evaluations[0]]
+    for inst, evl in zip(modified_instances, evaluations[0]):
+        iio.serialize_json(inst, filename=f'insts\\{evl.by}.json', is_extended=True)
+
+    bio.serialize_evaluations(evaluations[0], 'evals.json')
+
+    new_evaluations = bio.parse_evaluations('evals.json')
+    modified_instances = [iio.parse_json(f'insts\\{evl.by}.json', is_extended=True) for evl in new_evaluations]
+
+    full_evaluations = [new_eval.build_full_evaluation(instance, inst) for inst, new_eval in zip(modified_instances, new_evaluations)]
 
     exit()
 

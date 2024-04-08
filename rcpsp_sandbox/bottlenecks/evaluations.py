@@ -1,9 +1,7 @@
 import abc
-import functools
 import itertools
 import time
 from collections import namedtuple
-from multiprocessing.pool import Pool
 from typing import Iterable, Any
 
 from bottlenecks.drawing import plot_solution
@@ -14,6 +12,8 @@ from solver.solver import Solver
 
 
 ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
+IntervalSolutionLightweight = namedtuple("IntervalSolutionLightweight", ("start", "end"))
+SolutionLightweight = dict[int, IntervalSolutionLightweight]
 
 
 class Evaluation:
@@ -93,6 +93,80 @@ class Evaluation:
             f'Evaluated by          : {self._by}',
             f'Computed in           : {self._duration:.2f} s',
         ])
+
+
+class EvaluationLightweight:
+    _base_instance: str
+    _base_solution: SolutionLightweight
+    _modified_instance: str
+    _target_job: int
+    _solution: SolutionLightweight
+    _by: str
+    _duration: float
+
+    def __init__(self,
+                 base_instance: str, base_solution: SolutionLightweight, target_job: int,
+                 modified_instance: str, solution: SolutionLightweight,
+                 by: str, duration: float,
+                 ):
+        self._base_instance = base_instance
+        self._base_solution = base_solution
+        self._target_job = target_job
+        self._modified_instance = modified_instance
+        self._solution = solution
+        self._by = by
+        self._duration = duration
+
+    @property
+    def base_instance(self) -> str:
+        return self._base_instance
+
+    @property
+    def base_solution(self) -> SolutionLightweight:
+        return self._base_solution
+
+    @property
+    def target_job(self) -> int:
+        return self._target_job
+
+    @property
+    def modified_instance(self) -> str:
+        return self._modified_instance
+
+    @property
+    def solution(self) -> SolutionLightweight:
+        return self._solution
+
+    @property
+    def by(self) -> str:
+        return self._by
+
+    @property
+    def duration(self) -> float:
+        return self._duration
+
+    def build_full_evaluation(self,
+                              base_instance: ProblemInstance,
+                              modified_instance: ProblemInstance
+                              ) -> Evaluation:
+        base_model = build_model(base_instance) \
+            .with_precedences().with_resource_constraints() \
+            .optimize_model() \
+            .add_hot_start(job_interval_solutions=self._base_solution) \
+            .get_model()
+        modified_model = build_model(modified_instance) \
+            .with_precedences().with_resource_constraints() \
+            .optimize_model() \
+            .add_hot_start(job_interval_solutions=self._solution) \
+            .get_model()
+
+        solver = Solver()
+        base_solution = solver.solve(model=base_model)
+        modified_solution = solver.solve(model=modified_model)
+
+        return Evaluation(base_instance=base_instance, base_solution=base_solution, target_job=self._target_job,
+                          modified_instance=modified_instance, solution=modified_solution,
+                          by=self._by, duration=self._duration)
 
 
 class EvaluationAlgorithm(metaclass=abc.ABCMeta):
