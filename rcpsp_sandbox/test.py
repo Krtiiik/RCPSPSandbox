@@ -5,7 +5,8 @@ import random
 import bottlenecks.metrics as mtr
 import instances.io as iio
 import bottlenecks.io as bio
-from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup
+from bottlenecks.drawing import plot_evaluations
+from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup, compute_evaluation_kpis
 from bottlenecks.improvements import relaxed_interval_consumptions, left_closure, \
     TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
 from instances.algorithms import compute_earliest_completion_times
@@ -110,16 +111,14 @@ if __name__ == "__main__":
     instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
     # instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
 
-    # evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
-    #     (TimeVariableConstraintRelaxingAlgorithm(), {
-    #         "max_iterations": [1, 2, 3, 4, 5, 6],
-    #         "relax_granularity": [1, 10, 25, 50],
-    #         "max_improvement_intervals": [1, 2, 3, 4, 5]
-    #      })
-    # ])
     evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
         (TimeVariableConstraintRelaxingAlgorithm(), {
-            "max_iterations": [1],
+            "max_iterations": [1, 2, 3],
+            "relax_granularity": [1],
+            "max_improvement_intervals": [1, 2, 3, 4, 5]
+         }),
+        (TimeVariableConstraintRelaxingAlgorithm(), {
+            "max_iterations": [4, 5, 6],
             "relax_granularity": [1],
             "max_improvement_intervals": [1, 2, 3, 4, 5]
          })
@@ -129,12 +128,10 @@ if __name__ == "__main__":
     for inst, evl in zip(modified_instances, evaluations[0]):
         iio.serialize_json(inst, filename=f'insts\\{evl.by}.json', is_extended=True)
 
-    bio.serialize_evaluations(evaluations[0], 'evals.json')
-
-    new_evaluations = bio.parse_evaluations('evals.json')
-    modified_instances = [iio.parse_json(f'insts\\{evl.by}.json', is_extended=True) for evl in new_evaluations]
-
-    full_evaluations = [new_eval.build_full_evaluation(instance, inst) for inst, new_eval in zip(modified_instances, new_evaluations)]
+    evaluation_kpis = compute_evaluation_kpis(evaluations, 5, 1)
+    plot_evaluations(evaluation_kpis)
+    for evaluation_kpis_iter in evaluation_kpis:
+        bio.serialize_evaluations_kpis(evaluation_kpis_iter, 'eval_kpis.json')
 
     exit()
 

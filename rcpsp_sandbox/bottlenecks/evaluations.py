@@ -4,7 +4,6 @@ import time
 from collections import namedtuple
 from typing import Iterable, Any
 
-from bottlenecks.drawing import plot_solution
 from instances.problem_instance import ProblemInstance
 from solver.model_builder import build_model
 from solver.solution import Solution
@@ -14,6 +13,9 @@ from solver.solver import Solver
 ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
 IntervalSolutionLightweight = namedtuple("IntervalSolutionLightweight", ("start", "end"))
 SolutionLightweight = dict[int, IntervalSolutionLightweight]
+
+EvaluationKPIs = namedtuple("EvaluationKPIs", ("evaluation", "cost", "improvement"))
+EvaluationKPIsLightweight = namedtuple("EvaluationKPIs", ("evaluation", "cost", "improvement"))
 
 
 class Evaluation:
@@ -66,19 +68,37 @@ class Evaluation:
     def duration(self) -> float:
         return self._duration
 
-    def tardiness_improvement(self):
+    def tardiness_improvement(self) -> tuple[int, int]:
         original_tardiness = self._base_solution.tardiness(self._target_job)
         updated_tardiness = self._solution.tardiness(self._target_job)
         original_weighted_tardiness = self._base_solution.weighted_tardiness(self._target_job)
         updated_weighted_tardiness = self._solution.weighted_tardiness(self._target_job)
-        return original_tardiness - updated_tardiness, original_weighted_tardiness - updated_weighted_tardiness
 
-    def plot(self, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
-        def get(iterable, i): return None if iterable is None else iterable[i]
-        horizon = max(max(int_sol.end for int_sol in self._base_solution.job_interval_solutions.values()),
-                      max(int_sol.end for int_sol in self._solution.job_interval_solutions.values()))
-        plot_solution(self._base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), horizon=horizon)
-        plot_solution(self._solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
+        tardiness_change = original_tardiness - updated_tardiness
+        weighted_tardiness_change = original_weighted_tardiness - updated_weighted_tardiness
+        return tardiness_change, weighted_tardiness_change
+
+    def total_capacity_changes(self) -> tuple[int, int]:
+        def get_additions(inst): return ((r.key, *addition)
+                                         for r in inst.resources
+                                         for addition in r.availability.additions)
+
+        def get_migrations(inst): return ((r.key, *migration)
+                                          for r in inst.resources
+                                          for migration in r.availability.migrations)
+
+        base_additions = set(get_additions(self._base_instance))
+        base_migrations = set(get_migrations(self._base_instance))
+        modified_additions = set(get_additions(self._modified_instance))
+        modified_migrations = set(get_migrations(self._modified_instance))
+
+        addition_changes = base_additions ^ modified_additions
+        migration_changes = base_migrations ^ modified_migrations
+
+        addition_changes_sum = sum(addition[3] for addition in addition_changes)
+        migration_changes_sum = sum(migration[4] for migration in migration_changes)
+
+        return addition_changes_sum, migration_changes_sum
 
     def print(self):
         print(str(self))
@@ -161,8 +181,8 @@ class EvaluationLightweight:
             .get_model()
 
         solver = Solver()
-        base_solution = solver.solve(model=base_model)
-        modified_solution = solver.solve(model=modified_model)
+        base_solution = solver.solve(base_instance, model=base_model)
+        modified_solution = solver.solve(modified_instance, model=modified_model)
 
         return Evaluation(base_instance=base_instance, base_solution=base_solution, target_job=self._target_job,
                           modified_instance=modified_instance, solution=modified_solution,
@@ -217,15 +237,36 @@ def evaluate_algorithms(problem: ProblemSetup,
                         ) -> list[list[Evaluation]]:
     algorithms, alg_settings = __construct_settings(algorithms_settings)
 
+    start_time = time.time()
+
     evaluations = []
-    for algorithm, settings in zip(algorithms, alg_settings):
+    for i_alg, (algorithm, settings) in enumerate(zip(algorithms, alg_settings)):
         algorithm_evaluations = []
-        for setting in settings:
+        print(f"\rAlg {i_alg}:                     ", end='')
+        for i_setting, setting in enumerate(settings):
+            print(f"\r[{time.time() - start_time:.2f}] {i_alg}: {i_setting}              ", end='')
             result = algorithm.evaluate(problem, setting)
             algorithm_evaluations.append(result)
         evaluations.append(algorithm_evaluations)
 
     return evaluations
+
+
+def compute_evaluation_kpis(evaluations: list[Evaluation | list[Evaluation]],
+                            addition_price: int, migration_price: int,
+                            ) -> list[EvaluationKPIs | list[EvaluationKPIs]]:
+    def cost(_evaluation):
+        _addition, _migration = _evaluation.total_capacity_changes()
+        return addition_price * _addition + migration_price * _migration
+
+    def improvement(_evaluation):
+        return _evaluation.tardiness_improvement()[1]
+
+    if not isinstance(evaluations[0], list):
+        return [EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation)) for evaluation in evaluations]
+    else:
+        return [[EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation)) for evaluation in evaluation_iter]
+                for evaluation_iter in evaluations]
 
 
 def __construct_settings(algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]]
@@ -249,8 +290,10 @@ def __construct_settings(algorithms_settings: Iterable[EvaluationAlgorithm | tup
                 settings.append([algorithm.settings_type(**{k: v for k, v in zip(setting_params, setting_values)})
                                  for setting_values in itertools.product(*setting_dict.values())])
             else:
-                try: iter(setting_iter_maybe)
-                except TypeError: error()
+                try:
+                    iter(setting_iter_maybe)
+                except TypeError:
+                    error()
 
                 settings.append([])
                 for setting_maybe in setting_iter_maybe:
