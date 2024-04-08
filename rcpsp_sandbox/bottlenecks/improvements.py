@@ -25,14 +25,18 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     def __init__(self):
         super().__init__()
 
+    @property
+    def settings_type(self) -> type:
+        return TimeVariableConstraintRelaxingAlgorithmSettings
+
     def represent(self, settings) -> str:
         settings_str = '-'.join(map(str, settings))
         return f'{type(self).__name__}--{settings_str}'
 
-    def run(self,
-            base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
-            settings,
-            ) -> tuple[ProblemInstance, Solution]:
+    def _run(self,
+             base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+             settings,
+             ) -> tuple[ProblemInstance, Solution]:
         modified_instance = base_instance.copy()
         solution = base_solution
         self.__reduce_capacity_changes(modified_instance, solution)

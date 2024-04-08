@@ -1,12 +1,17 @@
 import abc
+import functools
+import itertools
 import time
 from collections import namedtuple
+from multiprocessing.pool import Pool
+from typing import Iterable, Any
 
 from bottlenecks.drawing import plot_solution
 from instances.problem_instance import ProblemInstance
 from solver.model_builder import build_model
 from solver.solution import Solution
 from solver.solver import Solver
+
 
 ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
 
@@ -68,7 +73,7 @@ class Evaluation:
         updated_weighted_tardiness = self._solution.weighted_tardiness(self._target_job)
         return original_tardiness - updated_tardiness, original_weighted_tardiness - updated_weighted_tardiness
 
-    def plot(self, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = [(8, 11), (8, 11)]):
+    def plot(self, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
         def get(iterable, i): return None if iterable is None else iterable[i]
         horizon = max(max(int_sol.end for int_sol in self._base_solution.job_interval_solutions.values()),
                       max(int_sol.end for int_sol in self._solution.job_interval_solutions.values()))
@@ -96,32 +101,89 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
     def __init__(self):
         self._solver = Solver()
 
+    @property
+    @abc.abstractmethod
+    def settings_type(self) -> type:
+        """Gets the type of the algorithm settings type"""
+
+    @abc.abstractmethod
+    def represent(self, settings) -> str:
+        """Constructs a representation of the algorithm using its settings."""
+
+    @abc.abstractmethod
+    def _run(self,
+             base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+             settings,
+             ) -> tuple[ProblemInstance, Solution]:
+        """Runs the algorithm."""
+
     def evaluate(self, problem: ProblemSetup, settings) -> Evaluation:
         """Evaluates the given instance."""
-        time_start = time.perf_counter()
+        time_start = time.thread_time()
 
         base_instance, target_job_id = problem
         model = self._build_standard_model(base_instance)
         base_solution = self._solver.solve(base_instance, model)
 
-        modified_instance, solution = self.run(base_instance, base_solution, target_job_id, settings)
+        modified_instance, solution = self._run(base_instance, base_solution, target_job_id, settings)
 
-        duration = time.perf_counter() - time_start
+        duration = time.thread_time() - time_start
         return Evaluation(base_instance, base_solution, target_job_id, modified_instance, solution, self.represent(settings), duration)
 
-    def _build_standard_model(self, instance: ProblemInstance):
+    @staticmethod
+    def _build_standard_model(instance: ProblemInstance):
         return build_model(instance) \
                .with_precedences().with_resource_constraints() \
                .optimize_model() \
                .get_model()
 
-    @abc.abstractmethod
-    def run(self,
-            base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
-            settings,
-            ) -> tuple[ProblemInstance, Solution]:
-        """Runs the algorithm."""
 
-    @abc.abstractmethod
-    def represent(self, settings) -> str:
-        """Constructs a representation of the algorithm using its settings."""
+def evaluate_algorithms(problem: ProblemSetup,
+                        algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]],
+                        ) -> list[list[Evaluation]]:
+    algorithms, alg_settings = __construct_settings(algorithms_settings)
+
+    evaluations = []
+    for algorithm, settings in zip(algorithms, alg_settings):
+        algorithm_evaluations = []
+        for setting in settings:
+            result = algorithm.evaluate(problem, setting)
+            algorithm_evaluations.append(result)
+        evaluations.append(algorithm_evaluations)
+
+    return evaluations
+
+
+def __construct_settings(algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]]
+                         ) -> tuple[list[EvaluationAlgorithm], list[Any]]:
+    def error(): raise ValueError("Unexpected algorithm argument")
+
+    algorithms = []
+    settings = []
+    for alg_maybe in algorithms_settings:
+        if isinstance(alg_maybe, Evaluation):
+            algorithms.append(alg_maybe)
+            settings.append(None)
+        elif isinstance(alg_maybe, tuple):
+            assert len(alg_maybe) == 2
+            algorithm, setting_iter_maybe = alg_maybe
+            algorithms.append(algorithm)
+
+            if isinstance(setting_iter_maybe, dict):
+                setting_dict = setting_iter_maybe
+                setting_params = list(setting_dict)
+                settings.append([algorithm.settings_type(**{k: v for k, v in zip(setting_params, setting_values)})
+                                 for setting_values in itertools.product(*setting_dict.values())])
+            else:
+                try: iter(setting_iter_maybe)
+                except TypeError: error()
+
+                settings.append([])
+                for setting_maybe in setting_iter_maybe:
+                    if not isinstance(setting_maybe, algorithm.settings_type):
+                        error()
+                    settings[-1].append(setting_maybe)
+        else:
+            error()
+
+    return algorithms, settings

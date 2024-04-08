@@ -4,10 +4,9 @@ import random
 
 import bottlenecks.metrics as mtr
 import instances.io as iio
-import bottlenecks.evaluations
-import bottlenecks.improvements
-import bottlenecks.drawing
-import bottlenecks.utils
+from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup
+from bottlenecks.improvements import relaxed_interval_consumptions, left_closure, \
+    TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
 from instances.algorithms import compute_earliest_completion_times
 from instances.drawing import draw_instance_graph, draw_components_graph
 from solver.drawing import print_difference, plot_solution
@@ -51,8 +50,8 @@ def main():
     model = get_model(instance)
     solution = Solver().solve(instance, model)
 
-    plot_solution(instance, solution, resource_functions=bottlenecks.improvements.relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
-                  highlight_jobs=bottlenecks.improvements.left_closure(2, instance, solution))
+    plot_solution(instance, solution, resource_functions=relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
+                  highlight_jobs=left_closure(2, instance, solution))
 
     # evaluate(instance, solution)
     # solution.plot(split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
@@ -107,34 +106,24 @@ def print_dict_of_iterable_tuples(d):
 if __name__ == "__main__":
     random.seed(42)
 
-    # main()
+    # instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
+    instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
 
+    evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
+        (TimeVariableConstraintRelaxingAlgorithm(), {
+            "max_iterations": [1, 2, 3, 4, 5, 6],
+            "relax_granularity": [1, 10, 25, 50],
+            "max_improvement_intervals": [1, 2, 3, 4, 5]
+         })
+    ])
 
-    instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j120", "j1201_1.sm")); root_job = 122
-    # instance = iio.parse_psplib(os.path.join("..", "..", "Data", "j30", "j301_1.sm")); root_job = 32
-    instance = modify_instance(instance) \
-               .split_job_components(split="gradual", gradual_level=2) \
-               .assign_job_due_dates(choice="gradual", gradual_base=0, gradual_interval=(-1, 1)) \
-               .assign_resource_availabilities({r.id_resource: [(6, 22)] for r in instance.resources}) \
-               .generate_modified_instance()
-
-    evaluator = bottlenecks.improvements.TimeVariableConstraintRelaxingAlgorithm()
-    result = evaluator.evaluate((instance, root_job), bottlenecks.improvements.TimeVariableConstraintRelaxingAlgorithmSettings(2, 1, 1))
-    print(result)
-    result.plot()
-
-    for resource in result.modified_instance.resources:
-        print(resource.key)
-        if resource.availability.additions:
-            print("\tA")
-            for a in resource.availability.additions:
-                print("\t", a)
-        if resource.availability.migrations:
-            print("\tM")
-            for m in resource.availability.migrations:
-                print("\t", m)
+    print(len(evaluations[0]))
 
     exit()
+
+
+
+
 
 
 
