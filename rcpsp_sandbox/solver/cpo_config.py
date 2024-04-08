@@ -6,8 +6,8 @@ def default():
     pass
 
 
-def efficient():
-    context.verbose = 1
+def efficient(verbose: bool = True):
+    context.verbose = 1 if verbose else 0
     context.model.add_source_location = False
     context.model.length_for_alias = 10
     context.model.name_all_constraints = False

@@ -11,6 +11,9 @@ from solver.drawing import plot_solution, print_difference
 from solver.model_builder import build_model
 from solver.solution import Solution
 
+import solver.cpo_config
+solver.cpo_config.efficient(False)
+
 
 class Solver:
     def solve(self,
