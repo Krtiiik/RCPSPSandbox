@@ -5,13 +5,13 @@ import random
 import bottlenecks.metrics as mtr
 import instances.io as iio
 import bottlenecks.io as bio
-from bottlenecks.drawing import plot_evaluations
+from bottlenecks.drawing import plot_evaluations, plot_solution
 from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup, compute_evaluation_kpis
 from bottlenecks.improvements import relaxed_interval_consumptions, left_closure, \
     TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
 from instances.algorithms import compute_earliest_completion_times
 from instances.drawing import draw_instance_graph, draw_components_graph
-from solver.drawing import print_difference, plot_solution
+from solver.drawing import print_difference
 from solver.model_builder import build_model, edit_model
 from solver.solver import Solver
 from instances.problem_modifier import modify_instance
@@ -52,7 +52,7 @@ def main():
     model = get_model(instance)
     solution = Solver().solve(instance, model)
 
-    plot_solution(instance, solution, resource_functions=relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
+    solver.drawing.plot_solution(instance, solution, resource_functions=relaxed_interval_consumptions(instance, solution, granularity=1, component=2),
                   highlight_jobs=left_closure(2, instance, solution))
 
     # evaluate(instance, solution)
@@ -66,8 +66,8 @@ def main():
     solution_alt = Solver().solve(instance_alt, model_alt)
 
     evaluate(instance_alt, solution_alt)
-    plot_solution(instance_alt, solution_alt, split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
-    plot_solution(instance_alt, solution_alt, split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
+    solver.drawing.plot_solution(instance_alt, solution_alt, split_components=False, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
+    solver.drawing.plot_solution(instance_alt, solution_alt, split_components=True, split_resource_consumption=SPLIT_RESOURCE_CONSUMPTION)
 
     print_difference(solution, instance, solution_alt, instance)
 
@@ -132,6 +132,9 @@ if __name__ == "__main__":
     plot_evaluations(evaluation_kpis)
     for evaluation_kpis_iter in evaluation_kpis:
         bio.serialize_evaluations_kpis(evaluation_kpis_iter, 'eval_kpis.json')
+
+    plot_solution(evaluations[0][6].base_solution)
+    plot_solution(evaluations[0][6].solution)
 
     exit()
 

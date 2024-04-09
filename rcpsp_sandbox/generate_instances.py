@@ -30,11 +30,15 @@ shift_intervals = [
     [( 0,  6), (14, 24)],   # 6 =         | Afternoon | Night
     [( 0, 24)],             # 7 = Morning | Afternoon | Night
 ]
+experiment_instances = {
+    "instance01", "instance02", "instance03", "instance04", "instance05",
+    "instance06", "instance07", "instance08", "instance09", "instance10",
+}
 
 
-def build_01(args: argparse.Namespace) -> ProblemInstance:
+def build_01(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "j301_1.sm"  # TODO
-    inst = iio.parse_psplib(os.path.join(args.data_directory, instance_filename))
+    inst = iio.parse_psplib(os.path.join(location, instance_filename))
     inst = modify_instance(inst).split_job_components("gradual", 2).assign_job_due_dates("gradual", gradual_base=0, gradual_interval=(-1, 1)).generate_modified_instance()
     return inst
 
@@ -43,9 +47,9 @@ def build_01(args: argparse.Namespace) -> ProblemInstance:
 
 
 
-def build_02(args: argparse.Namespace) -> ProblemInstance:
+def build_02(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "j602_6.sm"  # TODO
-    inst = iio.parse_psplib(os.path.join(args.data_directory, instance_filename))
+    inst = iio.parse_psplib(os.path.join(location, instance_filename))
     inst = modify_instance(inst).split_job_components("gradual", 2).assign_job_due_dates("gradual", gradual_base=0, gradual_interval=(-1, 0)).generate_modified_instance()
     return inst
 
@@ -53,42 +57,42 @@ def build_02(args: argparse.Namespace) -> ProblemInstance:
     pass
 
 
-def build_03(args: argparse.Namespace) -> ProblemInstance:
+def build_03(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_04(args: argparse.Namespace) -> ProblemInstance:
+def build_04(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_05(args: argparse.Namespace) -> ProblemInstance:
+def build_05(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_06(args: argparse.Namespace) -> ProblemInstance:
+def build_06(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_07(args: argparse.Namespace) -> ProblemInstance:
+def build_07(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_08(args: argparse.Namespace) -> ProblemInstance:
+def build_08(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_09(args: argparse.Namespace) -> ProblemInstance:
+def build_09(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
 
-def build_10(args: argparse.Namespace) -> ProblemInstance:
+def build_10(data_directory, output_directory) -> ProblemInstance:
     instance_filename = "" # TODO
     pass
 
@@ -108,18 +112,39 @@ def parse_and_process(args: argparse.Namespace,
     return instance
 
 
-def main(args: argparse.Namespace):
-    serializer: Callable[[ProblemInstance, str], None] = (
-        functools.partial(iio.serialize_json if args.output_format == "json" else iio.serialize_psplib,
-                          is_extended=True))
+instance_build_functions = {
+    "instance01": build_01, "instance02": build_02, "instance03": build_03, "instance04": build_04, "instance05": build_05,
+    "instance06": build_06, "instance07": build_07, "instance08": build_08, "instance09": build_09, "instance10": build_10,
+}
 
-    builds: Iterable[Callable[[argparse.Namespace], ProblemInstance]] = [
+
+def build_instance(instance_name: str,
+                   base_instance_directory: str,
+                   output_directory: str,
+                   serialize: bool = True,
+                   ) -> ProblemInstance:
+    if instance_name not in instance_build_functions:
+        raise ValueError(f"Cannot find build method for instance {instance_name}")
+
+    instance = instance_build_functions[instance_name](base_instance_directory, output_directory)
+
+    if serialize:
+        iio.serialize_json(instance, os.path.join(output_directory, instance_name+'.json'), is_extended=True)
+
+    return instance
+
+
+def main(args: argparse.Namespace):
+    serializer = functools.partial(iio.serialize_json if args.output_format == "json" else iio.serialize_psplib,
+                                   is_extended=True)
+
+    builds = [
         build_01, build_02, build_03, build_04, build_05, build_06, build_07, build_08, build_09, build_10,
     ]
 
     for build in builds:
         random.seed(42)
-        instance = build(args)
+        instance = build(args.data_directory, args.output_directory)
         draw_components_graph(instance)
         serializer(instance, os.path.join(args.output_directory, instance.name))
 
