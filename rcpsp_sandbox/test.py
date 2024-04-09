@@ -5,7 +5,7 @@ import random
 import bottlenecks.metrics as mtr
 import instances.io as iio
 import bottlenecks.io as bio
-from bottlenecks.drawing import plot_evaluations, plot_solution
+from bottlenecks.drawing import plot_evaluations, plot_solution, compute_shifting_interval_levels
 from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup, compute_evaluation_kpis
 from bottlenecks.improvements import relaxed_interval_consumptions, left_closure, \
     TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
@@ -108,20 +108,25 @@ def print_dict_of_iterable_tuples(d):
 if __name__ == "__main__":
     random.seed(42)
 
-    instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
-    # instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
+    # instance = iio.parse_json("instance30.json", is_extended=True); root_job = 30
+    instance = iio.parse_json("instance120.json", is_extended=True); root_job = 122
 
     evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
+        # (TimeVariableConstraintRelaxingAlgorithm(), {
+        #     "max_iterations": [1, 2, 3],
+        #     "relax_granularity": [1],
+        #     "max_improvement_intervals": [1, 2, 3, 4, 5]
+        #  }),
+        # (TimeVariableConstraintRelaxingAlgorithm(), {
+        #     "max_iterations": [4, 5, 6],
+        #     "relax_granularity": [1],
+        #     "max_improvement_intervals": [1, 2, 3, 4, 5]
+        #  }),
         (TimeVariableConstraintRelaxingAlgorithm(), {
-            "max_iterations": [1, 2, 3],
+            "max_iterations": [2],
             "relax_granularity": [1],
-            "max_improvement_intervals": [1, 2, 3, 4, 5]
+            "max_improvement_intervals": [2]
          }),
-        (TimeVariableConstraintRelaxingAlgorithm(), {
-            "max_iterations": [4, 5, 6],
-            "relax_granularity": [1],
-            "max_improvement_intervals": [1, 2, 3, 4, 5]
-         })
     ])
 
     modified_instances = [evaluation.modified_instance for evaluation in evaluations[0]]
@@ -133,8 +138,13 @@ if __name__ == "__main__":
     for evaluation_kpis_iter in evaluation_kpis:
         bio.serialize_evaluations_kpis(evaluation_kpis_iter, 'eval_kpis.json')
 
-    plot_solution(evaluations[0][6].base_solution)
-    plot_solution(evaluations[0][6].solution)
+    # base_solution, solution = evaluations[0][6].base_solution, evaluations[0][6].solution
+    base_solution, solution = evaluations[0][0].base_solution, evaluations[0][0].solution
+    base_solution_levels, solution_levels = compute_shifting_interval_levels(base_solution, solution)
+    horizon = max(max(int_sol.end for int_sol in base_solution.job_interval_solutions.values()),
+                  max(int_sol.end for int_sol in solution.job_interval_solutions.values()))
+    plot_solution(base_solution, job_interval_levels=base_solution_levels, horizon=horizon)
+    plot_solution(solution, job_interval_levels=solution_levels, horizon=horizon)
 
     exit()
 

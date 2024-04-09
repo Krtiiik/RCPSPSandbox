@@ -132,6 +132,7 @@ def plot_solution(solution: Solution,
                   dimensions: tuple[int, int] = (8, 11),
                   component_legends: dict[int, str] = None,
                   horizon: int = None,
+                  job_interval_levels: dict[int, int] = None,
                   ):
     # TODO predefined interval levels for schedule comparing
 
@@ -145,7 +146,7 @@ def plot_solution(solution: Solution,
     resource_count = len(instance.resources)
     f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=[0.5]+resource_count*[0.5/resource_count])
 
-    __intervals_panel(solution, axarr[0], params, component_legends=component_legends)
+    __intervals_panel(solution, axarr[0], params, component_legends=component_legends, job_interval_levels=job_interval_levels)
     __resources_panels(solution, axarr[1:], params, split_consumption=split_consumption, highlight_consumption=highlight)
 
     f.tight_layout()
@@ -166,6 +167,7 @@ def plot_intervals(solution: Solution,
                    dimensions: tuple[int, int] = (8, 11),
                    component_legends: dict[int, str] = None,
                    horizon: int = None,
+                   job_interval_levels: dict[int, int] = None,
                    ):
     instance = solution.instance
 
@@ -176,7 +178,7 @@ def plot_intervals(solution: Solution,
     axarr: plt.Axes
     f, axarr = plt.subplots(1)
 
-    __intervals_panel(solution, axarr, params, component_legends=component_legends)
+    __intervals_panel(solution, axarr, params, component_legends=component_legends, job_interval_levels=job_interval_levels)
 
     f.tight_layout()
     f.subplots_adjust(top=0.95, bottom=0.05, left=0.1, right=0.95)
@@ -222,6 +224,7 @@ def plot_resources(solution: Solution,
 def __intervals_panel(solution: Solution,
                       axes: plt.Axes, params: PlotParameters,
                       component_legends: dict[int, str] = None,
+                      job_interval_levels: dict[int, int] = None,
                       ):
     instance = solution.instance
     deadlines = {j.id_job: j.due_date for j in instance.jobs}
@@ -231,7 +234,7 @@ def __intervals_panel(solution: Solution,
     # Plotting
     __plot_dividers(params.dividers, axes, params)
     __plot_deadlines(deadlines, axes, params)
-    __plot_intervals(intervals, axes, params)
+    __plot_intervals(intervals, axes, params, job_interval_levels=job_interval_levels)
 
     # Styling
     axes.set_ylabel("Intervals")
@@ -303,10 +306,15 @@ def __resources_panels(solution: Solution,
         axes.grid(which='both', axis='y', ls=':')
 
 
-def __plot_intervals(intervals: Iterable[Interval], axes: plt.Axes, params: PlotParameters):
+def __plot_intervals(intervals: Iterable[Interval], axes: plt.Axes, params: PlotParameters,
+                     job_interval_levels: dict[int, int] = None,
+                     ):
     interval_width = 16
 
-    interval_levels, max_level = __compute_interval_levels(intervals)
+    if job_interval_levels is None:
+        interval_levels, max_level = __compute_interval_levels(intervals)
+    else:
+        interval_levels, max_level = job_interval_levels, max(job_interval_levels.values())
 
     for key, start, end in intervals:
         level = interval_levels[key]
@@ -336,12 +344,14 @@ def __plot_step_function(function: T_StepFunction, axes: plt.Axes, params: PlotP
         axes.fill_between(xs, 0, vs, step="post", color=params.colormap.fill_shade_of(color))
 
 
-def __compute_interval_levels(intervals: Iterable[Interval]) -> tuple[dict[Interval, int], int]:
+def __compute_interval_levels(intervals: Iterable[Interval],
+                              max_level: int = None,
+                              ) -> tuple[dict[Interval, int], int]:
     import heapq
 
     intervals = sorted(intervals, key=lambda i: (i.start, i.end))
-    events = sorted([(itv.start, +1) for itv in intervals] + [(itv.end, -1) for itv in intervals])
-    max_level = max(itertools.accumulate(events, lambda cur, event: cur + event[1], initial=0))
+    if max_level is None:
+        max_level = __compute_max_interval_overlap(intervals)
 
     h = [(intervals[0].start, lvl) for lvl in range(0, max_level)]
     heapq.heapify(h)
@@ -353,6 +363,55 @@ def __compute_interval_levels(intervals: Iterable[Interval]) -> tuple[dict[Inter
         heapq.heappush(h, (itv.end, lvl))
 
     return {k: max_level - l for k, l in levels.items()}, max_level
+
+
+def __compute_max_interval_overlap(intervals):
+    events = sorted([(itv.start, +1) for itv in intervals] + [(itv.end, -1) for itv in intervals])
+    return max(itertools.accumulate(events, lambda cur, event: cur + event[1], initial=0))
+
+
+def compute_shifting_interval_levels(solution_a: Solution, solution_b: Solution):
+    def build_intervals(_job_ids, _interval_solutions):
+        return list(Interval(_job_id, _interval_solutions[_job_id].start, _interval_solutions[_job_id].end) for _job_id in _job_ids)
+
+    interval_solutions_a = solution_a.job_interval_solutions
+    interval_solutions_b = solution_b.job_interval_solutions
+
+    same = []
+    different = []
+    for job_id in interval_solutions_a.keys():
+        start_a, end_a = interval_solutions_a[job_id].start, interval_solutions_a[job_id].end
+        start_b, end_b = interval_solutions_b[job_id].start, interval_solutions_b[job_id].end
+
+        if (start_a, end_a) == (start_b, end_b):
+            same.append(job_id)
+        else:
+            different.append(job_id)
+
+    same_intervals = build_intervals(same, interval_solutions_a)
+    different_intervals_a = build_intervals(different, interval_solutions_a)
+    different_intervals_b = build_intervals(different, interval_solutions_b)
+
+    max_level = max(__compute_max_interval_overlap(different_intervals_a), __compute_max_interval_overlap(different_intervals_b))
+
+    same_levels, same_max_level = __compute_interval_levels(same_intervals)
+    different_levels_a = {k: v + same_max_level for k, v in __compute_interval_levels(different_intervals_a, max_level=max_level)[0].items()}
+    # different_levels_b = {k: v + same_max_level for k, v in __compute_interval_levels(different_intervals_b, max_level=max_level)[0].items()}
+
+    different_levels_b = dict()
+    level_ends = {l: 0 for l in different_levels_a.values()}
+    for interval in sorted(different_intervals_b, key=lambda itv: (itv.start, itv.end)):
+        job_id, start, end = interval
+        level_a = different_levels_a[job_id]
+        if start < level_ends[level_a]:
+            level = min(level_ends.items(), key=lambda kv: kv[1])[0]
+        else:  # start >= level_ends[end_a]
+            level = level_a
+
+        different_levels_b[job_id] = level
+        level_ends[level] = end
+
+    return same_levels | different_levels_a, same_levels | different_levels_b
 
 
 def __build_intervals(solution: Solution):
