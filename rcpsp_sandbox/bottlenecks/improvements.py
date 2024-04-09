@@ -131,7 +131,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
             return _migrations
 
         # Compute migrations
-        capacity_surpluses = compute_capacity_surpluses(solution, instance)
+        capacity_surpluses = compute_capacity_surpluses(solution, instance, ignore_changes=True)
         consecutive_required_changes = {r_key: group_consecutive_intervals(chngs) if chngs else [] for r_key, chngs in required_changes.items()}
         migrations = defaultdict(list)
         for r_key, change_groups in consecutive_required_changes.items():

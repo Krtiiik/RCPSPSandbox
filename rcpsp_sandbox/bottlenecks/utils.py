@@ -4,18 +4,20 @@ from collections import defaultdict
 from typing import Iterable
 
 from instances.problem_instance import ProblemInstance, Resource, Job, compute_resource_availability, CapacityMigration, \
-    CapacityChange
+    CapacityChange, compute_resource_periodical_availability
 from solver.solution import Solution
 from utils import interval_overlap_function
 
 T_StepFunction = list[tuple[int, int, int]]
 
 
-def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance
+def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance,
+                               ignore_changes: bool = False,
                                ) -> dict[str, T_StepFunction]:
     surpluses = dict()
     for resource in instance.resources:
-        capacity_f = compute_resource_availability(resource, instance, instance.horizon)
+        capacity_f = (compute_resource_availability(resource, instance, instance.horizon) if not ignore_changes
+                      else compute_resource_periodical_availability(resource, instance.horizon))
         consumption_f = compute_resource_consumption(instance, solution, resource)
         consumption_f = [(s, e, -c) for s, e, c in consumption_f]
         surplus_f = interval_overlap_function(capacity_f + consumption_f, first_x=0, last_x=instance.horizon)
