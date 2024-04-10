@@ -139,16 +139,17 @@ def plot_solution(solution: Solution,
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
     params = PlotParameters(0, horizon, ColorMap(instance, highlight), [0]+list(range(6, horizon, 8)))
-    if component_legends is None and orderify_legends:
-        component_legends = {rj: f'$\mathcal{{O}}_{1+i} = {rj}$' for i, rj in enumerate(sorted(c.id_root_job for c in solution.instance.components))}
 
     f: plt.Figure
     axarr: list[plt.Axes]
     resource_count = len(instance.resources)
-    f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=[0.5]+resource_count*[0.5/resource_count])
+    f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=__compute_height_ratios(solution, horizon))
 
-    __intervals_panel(solution, axarr[0], params, component_legends=component_legends, job_interval_levels=job_interval_levels)
-    __resources_panels(solution, axarr[1:], params, split_consumption=split_consumption, highlight_consumption=highlight)
+    __intervals_panel(solution, axarr[0], params,
+                      component_legends=component_legends, orderify_legends=orderify_legends,
+                      job_interval_levels=job_interval_levels)
+    __resources_panels(solution, axarr[1:], params,
+                       split_consumption=split_consumption, highlight_consumption=highlight)
 
     f.tight_layout()
     f.subplots_adjust(hspace=0.1, top=0.95, bottom=0.05, left=0.1, right=0.95)
@@ -161,12 +162,20 @@ def plot_solution(solution: Solution,
         plt.show(block=block)
 
 
+def __compute_height_ratios(solution, horizon):
+    interval_panel_height = [__compute_max_interval_overlap(list(__build_intervals(solution)))]
+    resource_panel_heights = [max(c for s, e, c in compute_resource_availability(r, solution.instance, horizon)) // 5
+                              for r in solution.instance.resources]
+    return interval_panel_height + resource_panel_heights
+
+
 def plot_intervals(solution: Solution,
                    highlight: Iterable[int] = None,
                    block: bool = False,
                    save_as: str = None,
                    dimensions: tuple[int, int] = (8, 11),
                    component_legends: dict[int, str] = None,
+                   orderify_legends: bool = False,
                    horizon: int = None,
                    job_interval_levels: dict[int, int] = None,
                    ):
@@ -179,7 +188,9 @@ def plot_intervals(solution: Solution,
     axarr: plt.Axes
     f, axarr = plt.subplots(1)
 
-    __intervals_panel(solution, axarr, params, component_legends=component_legends, job_interval_levels=job_interval_levels)
+    __intervals_panel(solution, axarr, params,
+                      component_legends=component_legends, orderify_legends=orderify_legends,
+                      job_interval_levels=job_interval_levels)
 
     f.tight_layout()
     f.subplots_adjust(top=0.95, bottom=0.05, left=0.1, right=0.95)
@@ -225,6 +236,7 @@ def plot_resources(solution: Solution,
 def __intervals_panel(solution: Solution,
                       axes: plt.Axes, params: PlotParameters,
                       component_legends: dict[int, str] = None,
+                      orderify_legends: bool = False,
                       job_interval_levels: dict[int, int] = None,
                       ):
     instance = solution.instance
@@ -246,6 +258,8 @@ def __intervals_panel(solution: Solution,
     axes.set_xticks(params.dividers, labels=map(str, params.dividers), rotation=(0 if params.horizon < 100 else 90))
     axes.autoscale(True, axis='x', tight=True)
 
+    if component_legends is None and orderify_legends:
+        component_legends = {rj: f'$\mathcal{{O}}_{1+i} = {rj}$' for i, rj in enumerate(sorted(c.id_root_job for c in solution.instance.components))}
     legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job))
                        for d in deadlines]
     labels = [component_legends[d.id_root_job] for d in deadlines] if component_legends is not None else None
