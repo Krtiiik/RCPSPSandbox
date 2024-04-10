@@ -206,6 +206,7 @@ class ProblemModifier:
                         edges = graph.out_edges(v)
                         selected = random.choice(list(edges))
                         graph.remove_edges_from(set(edges) - {selected})
+                        graph.remove_edges_from(set(graph.in_edges(selected[1])) - {selected})
 
                 # Left side of the graph picks parent edges
                 for gen in topo_gens[gradual_level + 1:]:

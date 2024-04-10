@@ -22,7 +22,7 @@ def plot_instance_graph(instance: ProblemInstance = None,
                         save_as: str or None = None):
     if graph is None:
         if instance is not None:
-            graph = build_instance_graph(instance)
+            graph = build_instance_graph(instance, reverse=True)
         else:
             print_error("No instance nor graph were given to draw")
             return
@@ -107,8 +107,9 @@ def plot_components(instance: ProblemInstance,
 
     if save_as is not None:
         plt.savefig(save_as)
-
-    plt.show()
+        plt.close()
+    else:
+        plt.show()
 
 
 def __compute_node_locations(graph: nx.DiGraph) -> dict[Job, tuple[int, int]]:
@@ -173,8 +174,9 @@ def __draw_graph(graph: nx.DiGraph,
 
     if save_as is not None:
         plt.savefig(save_as, dpi=300)
-
-    plt.show(block=block)
+        plt.close()
+    else:
+        plt.show(block=block)
 
 
 if __name__ == "__main__":
