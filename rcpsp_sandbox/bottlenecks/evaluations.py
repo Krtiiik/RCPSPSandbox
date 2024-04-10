@@ -1,5 +1,6 @@
 import abc
 import itertools
+import math
 import time
 from collections import namedtuple
 from typing import Iterable, Any
@@ -309,17 +310,30 @@ def evaluate_algorithms(problem: ProblemSetup,
                         ) -> list[list[Evaluation]]:
     algorithms, alg_settings = __construct_settings(algorithms_settings)
 
+    def timeit():
+        delta = time.time() - start_time
+        return f'{delta//60:0>2.0f}\'{delta % 60:0>2.0f}"'
+
+    print_n_algs, print_n_algs_digits = len(algorithms), int(math.log10(len(algorithms))) + 1
     start_time = time.time()
+    print(f"Evaluating {print_n_algs} algorithms...")
 
     evaluations = []
     for i_alg, (algorithm, settings) in enumerate(zip(algorithms, alg_settings)):
+        print_n_settings, print_n_settings_digits = len(settings), int(math.log10(len(settings))) + 1
+        print_prefix = f"\t{1+i_alg:>{print_n_algs_digits}d}/{print_n_algs}"
+        print(f"\r{print_prefix}: ({0:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
+
         algorithm_evaluations = []
-        print(f"\rAlg {i_alg}:                     ", end='')
         for i_setting, setting in enumerate(settings):
-            print(f"\r[{time.time() - start_time:.2f}] {i_alg}: {i_setting}              ", end='')
             result = algorithm.evaluate(problem, setting)
             algorithm_evaluations.append(result)
+
+            print(f"\r{print_prefix}: ({1+i_setting:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
+
         evaluations.append(algorithm_evaluations)
+
+    print(f"\rEvaluation completed in {timeit()}")
 
     return evaluations
 

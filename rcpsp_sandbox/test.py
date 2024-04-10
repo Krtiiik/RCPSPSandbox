@@ -16,8 +16,8 @@ def main():
                            os.path.join('..', 'Data', 'evaluations'),
                            os.path.join('..', 'Data', 'evaluations_kpis'),
                            ) as manager:
-        instance = manager.load_base_instance("instance30")
-        evaluations = evaluate_algorithms(ProblemSetup(instance, 32), [
+        instance = manager.load_base_instance("instance120")
+        evaluations = evaluate_algorithms(ProblemSetup(instance, 122), [
             (TimeVariableConstraintRelaxingAlgorithm(), {
                 "max_iterations": [1, 2, 3],
                 "relax_granularity": [1],
