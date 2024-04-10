@@ -29,6 +29,8 @@ class ProblemModifier:
         self._resources = [r.copy() for r in original_instance.resources]
         self._components = [c.copy() for c in original_instance.components]
 
+        self._random = random.Random(42)
+
     def assign_resource_availabilities(self,
                                        availabilities: dict[str, Iterable[Tuple[int, int]]] = None,
                                        ) -> Self:
@@ -71,7 +73,7 @@ class ProblemModifier:
                 target_jobs = (self.jobs if target_jobs is None
                                else (jobs_by_id[id_job] for id_job in target_jobs))
                 for job in target_jobs:
-                    due_date = round(random.uniform(interval[0], interval[1]))
+                    due_date = round(self._random.uniform(interval[0], interval[1]))
                     try_assign(job, due_date)
 
             case "gradual":
@@ -79,7 +81,7 @@ class ProblemModifier:
                     gradual_interval = (0, 0)
                 for node, parent in topological_sort(build_instance_graph(self), yield_state=True):
                     parent_end = jobs_by_id[parent].due_date if parent is not None else gradual_base
-                    jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + round(random.uniform(*gradual_interval))
+                    jobs_by_id[node].due_date = parent_end + jobs_by_id[node].duration + round(self._random.uniform(*gradual_interval))
             case "earliest":
                 def get_duedate(j): return jobs_by_id[j].due_date
                 def get_duration(j): return jobs_by_id[j].duration
@@ -115,7 +117,7 @@ class ProblemModifier:
                 j.completed = True
 
         def choose_random(count):
-            return random.sample(self.jobs, count)
+            return self._random.sample(self.jobs, count)
 
         def choose_gradual(count):
             jobs_to_complete_traverser = traverse_instance_graph(graph=build_instance_graph(self), search="uniform")
@@ -172,7 +174,7 @@ class ProblemModifier:
                 graph = build_instance_graph(self)
                 subtrees = []
                 while graph:
-                    root = random.choice(list(graph.nodes))
+                    root = self._random.choice(list(graph.nodes))
                     subtree = subtree_traversal(graph, root)
                     graph.remove_nodes_from(subtree)
                     subtrees.append(subtree)
@@ -205,7 +207,7 @@ class ProblemModifier:
                 for gen in topo_gens[:gradual_level]:
                     for v in gen:
                         edges = graph.out_edges(v)
-                        selected = random.choice(list(edges))
+                        selected = self._random.choice(list(edges))
                         graph.remove_edges_from(set(edges) - {selected})
                         graph.remove_edges_from(set(graph.in_edges(selected[1])) - {selected})
 
@@ -213,7 +215,7 @@ class ProblemModifier:
                 for gen in topo_gens[gradual_level + 1:]:
                     for v in gen:
                         edges = graph.in_edges(v)
-                        selected = random.choice(list(edges))
+                        selected = self._random.choice(list(edges))
                         graph.remove_edges_from(set(edges) - {selected})
 
                 first_gen = nx.topological_generations(graph).send(None)
