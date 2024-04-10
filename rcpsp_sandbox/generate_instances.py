@@ -1,26 +1,18 @@
-import argparse
-import functools
-import os
-import random
+from collections import namedtuple
 from os import path
-from typing import Iterable, Tuple, Callable
+from typing import Iterable
 
 import instances.io as iio
-from instances.drawing import plot_components
-from instances.problem_instance import ProblemInstance, AvailabilityInterval
-from instances.problem_modifier import modify_instance
+from instances.problem_instance import ProblemInstance
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--data_directory", type=str, required=True, default='.', help="Location of the required PSPLIB instance files")
-parser.add_argument("--output_directory", type=str, help="Output location for the generated instances")
-parser.add_argument("--output_format", type=str, choices=["psplib", "json"], help="Format of the generated instances")
+InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates", "tardiness_weights"))
 
 
 MORNING = 1
 AFTERNOON = 2
 NIGHT = 4
-shift_intervals = [
+SHIFT_INTERVALS = [
     [],                     # 0 =         |           |
     [( 6, 14)],             # 1 = Morning |           |
     [(14, 22)],             # 2 =         | Afternoon |
@@ -30,92 +22,115 @@ shift_intervals = [
     [( 0,  6), (14, 24)],   # 6 =         | Afternoon | Night
     [( 0, 24)],             # 7 = Morning | Afternoon | Night
 ]
-experiment_instances = {
-    "instance01", "instance02", "instance03", "instance04", "instance05",
-    "instance06", "instance07", "instance08", "instance09", "instance10",
+
+
+def build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
+    return {r_key: SHIFT_INTERVALS[shift_flags] for r_key, shift_flags in shifts.items()}
+
+
+experiment_instances: dict[str, InstanceSetup] = {
+    # ------------------------------------------------------------------------------------------------------------------
+    "instance01": InstanceSetup(
+        base_filename="j3011_4.sm",
+        name="instance01",
+        gradual_level=2,
+        shifts=build_shifts({
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON,
+        }),
+        due_dates={
+            23: 46,
+            28: 70,
+            29: 70,
+            30: 46,
+            32: 46,
+        },
+        tardiness_weights={
+            23: 2,
+            28: 1,
+            29: 3,
+            30: 1,
+            32: 1,
+        },
+    ),
+    # ------------------------------------------------------------------------------------------------------------------
+    "instance02": InstanceSetup(
+        base_filename="j3010_2.sm",
+        name="instance02",
+        gradual_level=2,
+        shifts=build_shifts({
+            "R1": MORNING | AFTERNOON | NIGHT,
+            "R2": MORNING | AFTERNOON,
+        }),
+        due_dates={
+            26: 70,
+            27: 46,
+            29: 22,
+            30: 22,
+            32: 46,
+        },
+        tardiness_weights={
+            26: 1,
+            27: 1,
+            29: 1,
+            30: 1,
+            32: 1,
+        },
+    ),
+    # ------------------------------------------------------------------------------------------------------------------
+    "instance03": InstanceSetup(
+        base_filename="j6010_7.sm",
+        name="instance03",
+        gradual_level=1,
+        shifts=build_shifts({
+            "R1": MORNING | AFTERNOON,
+        }),
+        due_dates={
+            59: 94,
+            60: 94,
+            62: 94,
+        },
+        tardiness_weights={
+            59: 1,
+            60: 1,
+            62: 3,
+        },
+    ),
+    # ------------------------------------------------------------------------------------------------------------------
 }
 
 
-def build_01(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "j301_1.sm"  # TODO
-    inst = iio.parse_psplib(os.path.join(location, instance_filename))
-    inst = modify_instance(inst).split_job_components("gradual", 2).assign_job_due_dates("gradual", gradual_base=0, gradual_interval=(-1, 1)).generate_modified_instance()
-    return inst
-
-    shifts = [
-    ]
-
-
-
-def build_02(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "j602_6.sm"  # TODO
-    inst = iio.parse_psplib(os.path.join(location, instance_filename))
-    inst = modify_instance(inst).split_job_components("gradual", 2).assign_job_due_dates("gradual", gradual_base=0, gradual_interval=(-1, 0)).generate_modified_instance()
-    return inst
-
-    instance_filename = "" # TODO
-    pass
-
-
-def build_03(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_04(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_05(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_06(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_07(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_08(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_09(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def build_10(data_directory, output_directory) -> ProblemInstance:
-    instance_filename = "" # TODO
-    pass
-
-
-def parse_and_process(args: argparse.Namespace,
-                      instance_name: str,
+def parse_and_process(data_directory: str, output_directory: str,
+                      instance_filename: str, generated_instance_name: str,
                       split_level: int,
-                      availabilities: dict[int, Iterable[Tuple[int, int]]],
-                      generated_instance_name: str,
+                      shifts: dict[str, Iterable[tuple[int, int]]],
+                      root_job_due_dates: dict[int, int],
+                      root_job_tardiness: dict[int, int],
                       ) -> ProblemInstance:
-    instance = iio.parse_psplib(path.join(args.data_directory, instance_name))
-    instance = modify_instance(instance) \
-               .split_job_components(split="gradual", gradual_level=split_level) \
-               .assign_resource_availabilities(availabilities=availabilities) \
-               .generate_modified_instance(generated_instance_name)  # TODO
+    # Parse
+    instance = iio.parse_psplib(path.join(data_directory, instance_filename))
+
+    # Modify
+    instance_builder = modify_instance(instance)
+
+    # Remove unused resources
+    if len(shifts) < len(instance.resources):
+        instance_builder.remove_resources(set(r.key for r in instance.resources) - set(shifts))
+
+    # Component splitting, availabilities, due dates
+    instance = instance_builder.split_job_components(split="gradual", gradual_level=split_level) \
+               .assign_resource_availabilities(availabilities=shifts) \
+               .assign_job_due_dates('uniform', interval=(0, 0)) \
+               .assign_job_due_dates(due_dates=root_job_due_dates, overwrite=True) \
+               .generate_modified_instance(generated_instance_name)
+
+    # Tardiness weights
+    for component in instance.components:
+        component.weight = root_job_tardiness[component.id_root_job]
 
     return instance
-
-
-instance_build_functions = {
-    "instance01": build_01, "instance02": build_02, "instance03": build_03, "instance04": build_04, "instance05": build_05,
-    "instance06": build_06, "instance07": build_07, "instance08": build_08, "instance09": build_09, "instance10": build_10,
-}
 
 
 def build_instance(instance_name: str,
@@ -123,10 +138,14 @@ def build_instance(instance_name: str,
                    output_directory: str,
                    serialize: bool = True,
                    ) -> ProblemInstance:
-    if instance_name not in instance_build_functions:
-        raise ValueError(f"Cannot find build method for instance {instance_name}")
+    if instance_name not in experiment_instances:
+        raise ValueError(f'Unrecognized experiment instance "{instance_name}"')
 
-    instance = instance_build_functions[instance_name](base_instance_directory, output_directory)
+    instance_setup = experiment_instances[instance_name]
+    instance = parse_and_process(base_instance_directory, output_directory,
+                                 instance_setup.base_filename, instance_name,
+                                 split_level=instance_setup.gradual_level, shifts=instance_setup.shifts,
+                                 root_job_due_dates=instance_setup.due_dates, root_job_tardiness=instance_setup.tardiness_weights)
 
     if serialize:
         iio.serialize_json(instance, os.path.join(output_directory, instance_name+'.json'), is_extended=True)
@@ -134,23 +153,38 @@ def build_instance(instance_name: str,
     return instance
 
 
-def main(args: argparse.Namespace):
-    serializer = functools.partial(iio.serialize_json if args.output_format == "json" else iio.serialize_psplib,
-                                   is_extended=True)
-
-    builds = [
-        build_01, build_02, build_03, build_04, build_05, build_06, build_07, build_08, build_09, build_10,
-    ]
-
-    for build in builds:
-        random.seed(42)
-        instance = build(args.data_directory, args.output_directory)
-        plot_components(instance)
-        serializer(instance, os.path.join(args.output_directory, instance.name))
-
-
 if __name__ == "__main__":
-    # main(parser.parse_args())
 
-    args = argparse.Namespace(data_directory="../data/instances", output_directory="../data/extended_instances", output_format='psplib')
-    main(args)
+    import os
+    from bottlenecks.drawing import plot_solution
+    from instances.drawing import plot_components
+    from solver.solver import Solver
+
+    instance_name = 'instance03'
+    instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
+    plot_components(instance)
+    plot_solution(Solver().solve(instance), split_consumption=True, orderify_legends=True,
+                  # dimensions=(8, 8)
+                  )
+
+    exit()
+
+    from instances.drawing import plot_components
+    from instances.problem_modifier import modify_instance
+    import os
+    inst = 'j60'
+    base_dir = os.path.join('..', '..', 'Data', inst)
+    filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
+    instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
+
+    instances_ = []
+    for instance in instances:
+        random.seed(42)
+        instances_.append(modify_instance(instance)
+                          .split_job_components(split="gradual", gradual_level=1)
+                          .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
+                          .generate_modified_instance(instance.name + '_split'))
+    instances = instances_
+    for instance in instances[:50]:
+        plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
+
