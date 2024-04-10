@@ -99,15 +99,25 @@ class Evaluation:
 
         return addition_changes_sum, migration_changes_sum
 
+    def schedule_difference(self) -> tuple[int, dict[int, int]]:
+        return self._base_solution.difference_to(self._solution)
+
     def print(self):
         tardiness_improvement, weighted_tardiness_improvement = self.tardiness_improvement()
+        additions, migrations = self.total_capacity_changes()
+        solution_difference, _ = self.schedule_difference()
+
         string = '\n\t'.join([
-            f'Evaluation result',
+            f'Evaluation result by  : {self._by}',
+            f'Computed in           : {self._duration:.2f} s',
+            f'----------------------|'
             f'Base instance         : {self._base_instance.name}',
             f'Modified instance     : {self._modified_instance.name}',
+            f'----------------------|'
             f'Tardiness improvement : {weighted_tardiness_improvement} ({tardiness_improvement} h)',
-            f'Evaluated by          : {self._by}',
-            f'Computed in           : {self._duration:.2f} s',
+            f'Capacity changes      : {additions} additions, {migrations} migrations',
+            f'Solution difference   : {solution_difference} h',
+            f'----------------------|'
         ])
         print(string)
 
@@ -198,36 +208,42 @@ class EvaluationKPIs:
     _evaluation: Evaluation
     _cost: int
     _improvement: int
-    # TODO schedule difference
+    _schedule_difference: int
 
-    def __init__(self, evaluation, cost, improvement):
+    def __init__(self, evaluation: Evaluation, cost: int, improvement: int, schedule_difference: int):
         self._evaluation = evaluation
         self._cost = cost
         self._improvement = improvement
+        self._schedule_difference = schedule_difference
 
     @property
-    def evaluation(self):
+    def evaluation(self) -> Evaluation:
         return self._evaluation
 
     @property
-    def cost(self):
+    def cost(self) -> int:
         return self._cost
 
     @property
-    def improvement(self):
+    def improvement(self) -> int:
         return self._improvement
+
+    @property
+    def schedule_difference(self) -> int:
+        return self._schedule_difference
 
 
 class EvaluationKPIsLightweight:
     _evaluation: EvaluationLightweight
     _cost: int
     _improvement: int
-    # TODO schedule difference
+    _schedule_difference: int
 
-    def __init__(self, evaluation, cost, improvement):
+    def __init__(self, evaluation: EvaluationLightweight, cost: int, improvement: int, schedule_difference: int):
         self._evaluation = evaluation
         self._cost = cost
         self._improvement = improvement
+        self._schedule_difference = schedule_difference
 
     @property
     def evaluation(self):
@@ -241,12 +257,16 @@ class EvaluationKPIsLightweight:
     def improvement(self):
         return self._improvement
 
+    @property
+    def schedule_difference(self) -> int:
+        return self._schedule_difference
+
     def build_full_evaluation_kpis(self,
                                    base_instance: ProblemInstance,
                                    modified_instance: ProblemInstance
                                    ) -> EvaluationKPIs:
         return EvaluationKPIs(self._evaluation.build_full_evaluation(base_instance, modified_instance),
-                              self._cost, self._improvement)
+                              self._cost, self._improvement, self._schedule_difference)
 
 
 class EvaluationAlgorithm(metaclass=abc.ABCMeta):
@@ -348,10 +368,15 @@ def compute_evaluation_kpis(evaluations: list[Evaluation | list[Evaluation]],
     def improvement(_evaluation):
         return _evaluation.tardiness_improvement()[1]
 
+    def schedule_difference(_evaluation):
+        return _evaluation.schedule_difference()[0]
+
     if not isinstance(evaluations[0], list):
-        return [EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation)) for evaluation in evaluations]
+        return [EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation), schedule_difference(evaluation))
+                for evaluation in evaluations]
     else:
-        return [[EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation)) for evaluation in evaluation_iter]
+        return [[EvaluationKPIs(evaluation, cost(evaluation), improvement(evaluation), schedule_difference(evaluation))
+                 for evaluation in evaluation_iter]
                 for evaluation_iter in evaluations]
 
 

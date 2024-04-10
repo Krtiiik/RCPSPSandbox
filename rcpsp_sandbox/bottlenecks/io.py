@@ -33,6 +33,7 @@ def serialize_evaluations_kpis(evaluations_kpis: Iterable[EvaluationKPIs],
             "evaluation": __serialize_evaluation(_evaluation_kpis.evaluation),
             "cost": _evaluation_kpis.cost,
             "improvement": _evaluation_kpis.improvement,
+            "schedule_difference": _evaluation_kpis.schedule_difference,
         }
 
     evaluations_kpis_by_alg = defaultdict(list)
@@ -61,6 +62,7 @@ def parse_evaluations_kpis(filename: str) -> dict[str, EvaluationKPIsLightweight
             evaluation=__parse_evaluation(_evaluation_kpis["evaluation"]),
             cost=int(_evaluation_kpis["cost"]),
             improvement=int(_evaluation_kpis["improvement"]),
+            schedule_difference=int(_evaluation_kpis["schedule_difference"]),
         )
 
     evaluations_kpis_obj = try_open_read(filename, json.load)
