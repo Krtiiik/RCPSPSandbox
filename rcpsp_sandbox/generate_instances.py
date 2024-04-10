@@ -6,7 +6,7 @@ from os import path
 from typing import Iterable, Tuple, Callable
 
 import instances.io as iio
-from instances.drawing import draw_components_graph
+from instances.drawing import plot_components
 from instances.problem_instance import ProblemInstance, AvailabilityInterval
 from instances.problem_modifier import modify_instance
 
@@ -145,7 +145,7 @@ def main(args: argparse.Namespace):
     for build in builds:
         random.seed(42)
         instance = build(args.data_directory, args.output_directory)
-        draw_components_graph(instance)
+        plot_components(instance)
         serializer(instance, os.path.join(args.output_directory, instance.name))
 
 

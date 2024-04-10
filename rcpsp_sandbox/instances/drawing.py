@@ -14,7 +14,7 @@ from matplotlib.axes import Axes
 from utils import print_error, ColorMap
 
 
-def draw_instance_graph(instance: ProblemInstance = None,
+def plot_instance_graph(instance: ProblemInstance = None,
                         graph: nx.DiGraph = None,
                         block: bool = False,
                         highlighted_nodes: set[int] or None = None,
@@ -43,8 +43,8 @@ def draw_instance_graph(instance: ProblemInstance = None,
     __draw_graph(graph, node_locations, block, highlighted_nodes=highlighted_nodes, save_as=save_as)
 
 
-def draw_components_graph(instance: ProblemInstance,
-                          save_as: str or None = None):
+def plot_components(instance: ProblemInstance,
+                    save_as: str or None = None):
     jobs_by_id = {j.id_job: j for j in instance.jobs}
     component_jobs = compute_component_jobs(instance)
     earliest_completion_times = compute_earliest_completion_times(instance)
@@ -180,4 +180,4 @@ def __draw_graph(graph: nx.DiGraph,
 if __name__ == "__main__":
     import rcpsp_sandbox.instances.io as ioo
     inst = ioo.parse_psplib("../../../Data/RCPSP/extended/instance_11.rp", is_extended=True)
-    draw_instance_graph(inst)
+    plot_instance_graph(inst)

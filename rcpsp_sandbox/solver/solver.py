@@ -4,7 +4,7 @@ from docplex.cp.model import CpoModel
 from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
 import instances.problem_instance
-from instances.drawing import draw_instance_graph
+from instances.drawing import plot_instance_graph
 from instances.problem_instance import Component, ProblemInstance, Job
 from instances.problem_modifier import modify_instance
 from solver.drawing import plot_solution, print_difference

@@ -25,12 +25,12 @@ class ExperimentManager:
     _evaluations_kpis_cache: dict[str, EvaluationKPIs]
 
     def __init__(self,
-                 base_instance_location: str,
+                 base_instances_location: str,
                  modified_instances_location: str,
                  evaluations_location: str,
                  evaluations_kpis_location: str,
                  ):
-        self._base_instances_location = base_instance_location
+        self._base_instances_location = base_instances_location
         self._modified_instances_location = modified_instances_location
         self._evaluations_location = evaluations_location
         self._evaluations_kpis_location = evaluations_kpis_location

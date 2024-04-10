@@ -2,7 +2,7 @@ import argparse
 import random
 
 from instances.io import parse_psplib, parse_json, serialize_json, serialize_psplib
-from instances.drawing import draw_instance_graph
+from instances.drawing import plot_instance_graph
 from utils import print_error
 from solver.drawing import plot_solution
 from solver.solver import Solver
@@ -27,13 +27,13 @@ def main(args: argparse.Namespace):
         print_error(f"Invalid input format specified: {args.input_format}")
         return
 
-    draw_instance_graph(instance, block=True)
+    plot_instance_graph(instance, block=True)
 
     instance = modify_instance(instance) \
         .split_job_components(split="paths")\
         .generate_modified_instance()
 
-    draw_instance_graph(instance, block=True, highlighted_nodes=[c.id_root_job for c in instance.components])
+    plot_instance_graph(instance, block=True, highlighted_nodes=[c.id_root_job for c in instance.components])
 
     result = Solver().solve(instance)
     plot_solution(instance, result.solution)
