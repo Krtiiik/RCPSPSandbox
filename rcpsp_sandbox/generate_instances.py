@@ -1,9 +1,10 @@
+import os
 from collections import namedtuple
-from os import path
 from typing import Iterable
 
 import instances.io as iio
 from instances.problem_instance import ProblemInstance
+from instances.problem_modifier import modify_instance
 
 
 InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates", "tardiness_weights"))
@@ -110,7 +111,7 @@ def parse_and_process(data_directory: str, output_directory: str,
                       root_job_tardiness: dict[int, int],
                       ) -> ProblemInstance:
     # Parse
-    instance = iio.parse_psplib(path.join(data_directory, instance_filename))
+    instance = iio.parse_psplib(os.path.join(data_directory, instance_filename))
 
     # Modify
     instance_builder = modify_instance(instance)
@@ -156,16 +157,22 @@ def build_instance(instance_name: str,
 if __name__ == "__main__":
 
     import os
+    import functools
     from bottlenecks.drawing import plot_solution
     from instances.drawing import plot_components
     from solver.solver import Solver
+    from bottlenecks.metrics import evaluate_solution, average_uninterrupted_active_consumption, print_evaluation
 
-    instance_name = 'instance03'
+    instance_name = 'instance01'
     instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
     plot_components(instance)
-    plot_solution(Solver().solve(instance), split_consumption=True, orderify_legends=True,
+    solution = Solver().solve(instance)
+    plot_solution(solution, split_consumption=True, orderify_legends=True,
                   # dimensions=(8, 8)
                   )
+    print_evaluation(solution.instance, [
+         evaluate_solution(solution, functools.partial(average_uninterrupted_active_consumption, average_over="consumption ratio"))
+    ])
 
     exit()
 

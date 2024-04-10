@@ -21,7 +21,7 @@ def main():
     random.seed(42)
 
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
-        instance = manager.load_base_instance("instance30")
+        instance = manager.load_base_instance("instance03")
         root_job = 32
 
         evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [

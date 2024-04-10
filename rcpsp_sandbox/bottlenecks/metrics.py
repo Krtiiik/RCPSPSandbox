@@ -1,12 +1,14 @@
+import itertools
+from functools import partial
 from typing import Callable, Iterable, Literal
 
 import tabulate
 from docplex.cp.solution import CpoIntervalVarSolution
 
 from bottlenecks.utils import jobs_consuming_resource
-from instances.problem_instance import Resource, ProblemInstance, Job
+from instances.problem_instance import Resource, ProblemInstance, Job, compute_resource_availability
 from solver.solution import Solution
-from utils import print_error
+from utils import print_error, intervals_overlap, modify_tuple
 
 T_MetricResult = float
 T_Evaluation = dict[Resource, T_MetricResult]
@@ -24,7 +26,7 @@ class MetricEvaluation:
 
 
 def evaluate_solution(solution: Solution,
-                      evaluation_metric: Callable[[Solution, ProblemInstance, Resource], T_MetricResult],
+                      evaluation_metric: Callable[[Solution, ProblemInstance, Resource], T_MetricResult] | partial,
                       instance: ProblemInstance = None,
                       evaluation_name: str = None,
                       ) -> MetricEvaluation:
@@ -89,15 +91,17 @@ def average_uninterrupted_active_consumption(solution: Solution, instance: Probl
 
     def period_consumption(period: T_Period) -> int: return sum(job.resource_consumption.consumption_by_resource[resource] for interval, job in period)
     def period_length(period: T_Period) -> int: return period[-1][0].end - period[0][0].start
+    def period_availability(availability_period): return sum(_c for _s, _e, _c in availability_period)
 
     periods = __compute_active_periods(solution, instance, resource)
+    availability_periods = __compute_availability_periods(periods, instance, resource)
 
     auad = 0
     if average_over == "consumption":
         auad = machine_resource_workload(solution, instance, resource) / len(periods)
     elif average_over == "consumption ratio":
-        auad = avg(period_consumption(period) / (resource.capacity * period_length(period))
-                   for period in periods)
+        auad = avg(period_consumption(period) / (period_availability(availability_period))
+                   for period, availability_period in zip(periods, availability_periods))
     elif average_over == "averaged consumption":
         auad = avg(period_consumption(period) / resource.capacity
                    for period in periods)
@@ -143,6 +147,22 @@ def __compute_active_periods(solution: Solution, instance: ProblemInstance, reso
     periods.append(current_period)
 
     return periods
+
+
+def __compute_availability_periods(periods: list[T_Period], instance: ProblemInstance, resource: Resource) -> list[list[tuple[int, int, int]]]:
+    def period_availability_overlap(_begin, _end):
+        _overlapping_availability = [(_s, _e, _c) for _s, _e, _c in resource_availability  # Given that periods are consuming the resource,
+                                     if intervals_overlap((_s, _e), (_begin, _end))]       # the overlapping availability is non-zero
+        _overlapping_availability.sort()  # should already be, but to make sure...
+        _overlapping_availability[0] = modify_tuple(_overlapping_availability[0], 0, _begin)
+        _overlapping_availability[-1] = modify_tuple(_overlapping_availability[-1], 1, _end)
+        return _overlapping_availability
+
+    resource_availability = compute_resource_availability(resource, instance, instance.horizon)
+
+    availability_periods = [period_availability_overlap(period[0][0].start, period[-1][0].end)
+                            for period in periods]
+    return availability_periods
 
 
 def avg(it: Iterable):
