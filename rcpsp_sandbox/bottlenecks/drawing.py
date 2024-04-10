@@ -324,9 +324,12 @@ def __plot_intervals(intervals: Iterable[Interval], axes: plt.Axes, params: Plot
         axes.text(float(start + end) / 2, level, str(key), horizontalalignment='center', verticalalignment='center')
 
 
-def __plot_deadlines(deadlines: Iterable[Deadline], axes: plt.Axes, params: PlotParameters):
-    for deadline in deadlines:
-        axes.axvline(deadline.time, color=params.colormap.component(deadline.id_root_job), linestyle="--", lw=1)
+def __plot_deadlines(deadlines: list[Deadline], axes: plt.Axes, params: PlotParameters):
+    scale = 0.5
+    n = len(deadlines)
+    for i, deadline in enumerate(deadlines):
+        x = deadline.time + scale*(-n+1+i)/n
+        axes.axvline(x, color=params.colormap.component(deadline.id_root_job), linestyle="--", lw=1)
 
 
 def __plot_dividers(dividers: Iterable[int], axes: plt.Axes, params: PlotParameters):
