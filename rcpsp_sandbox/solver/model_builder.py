@@ -152,7 +152,7 @@ class ModelBuilder:
         """
         Builds a base model for the given problem instance.
         """
-        job_intervals = {job.id_job: interval_var(name=f"Job {job.id_job}", size=job.duration, length=job.duration)
+        job_intervals = {job.id_job: interval_var(name=f"Job {job.id_job}", end=(0, self.instance.horizon) ,size=job.duration, length=job.duration)
                          for job in self.instance.jobs}
 
         model = CpoModel(self.instance.name)
