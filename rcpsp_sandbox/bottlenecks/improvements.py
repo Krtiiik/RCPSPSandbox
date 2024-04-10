@@ -30,9 +30,19 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     def settings_type(self) -> type:
         return TimeVariableConstraintRelaxingAlgorithmSettings
 
+    @property
+    def shortname(self) -> str:
+        return ''.join(filter(str.isupper, type(self).__name__))
+
     def represent(self, settings) -> str:
-        settings_str = '-'.join(map(str, settings))
-        return f'{type(self).__name__}--{settings_str}'
+        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
+        alg_str = type(self).__name__
+        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
+
+    def represent_short(self, settings) -> str:
+        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
+        alg_str = self.shortname
+        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
 
     def _run(self,
              base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
@@ -44,7 +54,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
         for i_iter in range(settings.max_iterations):
             intervals_to_relax = self.__find_intervals_to_relax(settings, modified_instance, solution, target_job_id)
-            modified_instance = self.__modify_availability(modified_instance, {}, intervals_to_relax)
+            modified_instance = self.__modify_availability(modified_instance, {}, intervals_to_relax, settings, i_iter)
 
             model = self._build_standard_model(modified_instance)
             model = add_hot_start(model, solution)
@@ -70,12 +80,14 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
             best_intervals_by_resource[resource_key].append(CapacityChange(start, end, consumption))
         return best_intervals_by_resource
 
-    @staticmethod
-    def __modify_availability(instance: ProblemInstance,
+    def __modify_availability(self,
+                              instance: ProblemInstance,
                               migrations: dict[str, list[CapacityMigration]],
                               additions: dict[str, list[CapacityChange]],
+                              settings: TimeVariableConstraintRelaxingAlgorithmSettings, iteration: int,
                               ):
-        return modify_instance(instance).change_resource_availability(additions, migrations).generate_modified_instance()
+        modified_name = f'{instance.name.split(EvaluationAlgorithm.ID_SEPARATOR)[0]}{EvaluationAlgorithm.ID_SEPARATOR}{self.represent_short(settings)}{EvaluationAlgorithm.ID_SUB_SEPARATOR}{iteration}'
+        return modify_instance(instance).change_resource_availability(additions, migrations).generate_modified_instance(modified_name)
 
     @staticmethod
     def __reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
@@ -162,118 +174,6 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         for resource in instance.resources:
             resource.availability.additions = additions[resource.key]
             resource.availability.migrations = migrations[resource.key]
-
-    # def __postprocess(self, instance: ProblemInstance, solution: Solution):
-    #     self.__compute_reduced_capacity_changes(instance, solution)
-    # 
-    #     horizon = instance.horizon
-    # 
-    #     availability_changes = dict()
-    #     for resource in instance.resources:
-    #         full_availability = compute_resource_availability(resource, instance, horizon)
-    #         periodical_availability = compute_resource_periodical_availability(resource, horizon)
-    #         change_in_availability = interval_overlap_function(full_availability + [(s, e, -c) for s, e, c in periodical_availability],
-    #                                                            first_x=0, last_x=horizon, merge_same=False)
-    #         availability_changes[resource.key] = list(AvailabilityInterval(s, e, c) for s, e, c in change_in_availability if c != 0)
-    # 
-    # @staticmethod
-    # def __compute_base_migrations(instance: ProblemInstance):
-    #     horizon = instance.horizon
-    #     capacity_changes_iter = {r.key: compute_resource_modified_availability(r, instance, horizon) for r in instance.resources}
-    # 
-    #     def find_corresponding_addition(r_from, s, e, c):
-    #         for r_to, chngs in capacity_changes.items():
-    #             if r_to == r_from:
-    #                 continue
-    #             addition = (s, e, -c)
-    #             if addition in chngs:
-    #                 chngs.remove(addition)
-    #                 return CapacityMigration(r_to, s, e, c)
-    # 
-    #         raise ValueError("No corresponding addition found to migrate")
-    # 
-    #     # Split additions on shift edges
-    #     for resource_key in list(capacity_changes_iter):
-    #         full_availability = compute_resource_availability(instance.resources_by_key[resource_key], instance, horizon)
-    #         periodical_availability = compute_resource_periodical_availability(instance.resources_by_key[resource_key], horizon)
-    #         added_availability = interval_overlap_function(full_availability + [(s, e, -c) for s, e, c in periodical_availability],
-    #                                                        first_x=0, last_x=horizon, merge_same=False)
-    #         capacity_changes_iter[resource_key] = list(AvailabilityInterval(s, e, c) for s, e, c in added_availability if c != 0)
-    # 
-    #     capacity_changes = {r_key: set(changes) for r_key, changes in capacity_changes_iter.items()}
-    #     # Find migrations for additions
-    #     migrations = defaultdict(list)
-    #     for resource_from_key, changes in capacity_changes_iter.items():
-    #         for start, end, capacity in changes:
-    #             if capacity > 0:
-    #                 continue
-    #             migration = find_corresponding_addition(resource_from_key, start, end, capacity)
-    #             migrations[resource_from_key].append(migration)
-    #             capacity_changes[resource_from_key].remove((start, end, capacity))
-    # 
-    #     additions = {r.key: sorted(capacity_changes[r.key]) for r in instance.resources}
-    #     return migrations, additions
-    # 
-    # def __compute_reduced_capacity_changes(self, instance: ProblemInstance, solution: Solution):
-    #     horizon = instance.horizon
-    # 
-    #     capacity_migrations, capacity_additions = self.__compute_base_migrations(instance)
-    # 
-    #     availabilities = {r.key: compute_resource_availability(r, instance, horizon) for r in instance.resources}
-    #     consumptions = {r.key: compute_resource_consumption(instance, solution, r) for r in instance.resources}
-    # 
-    #     def find_max_consumption(rk, s, e):
-    #         overlapping_consumptions = [c_c for c_s, c_e, c_c in consumptions[rk] if (s < c_e <= e) or (s <= c_s < e)]
-    #         return max(overlapping_consumptions, default=0)
-    # 
-    #     def find_min_availability(rk, s, e):
-    #         overlapping_availabilities = [a_c for a_s, a_e, a_c in availabilities[rk] if (s < a_e <= e) or (s <= a_s < e)]
-    #         return min(overlapping_availabilities, default=0)
-    # 
-    #     def update_availability(rk, s, e, chng):
-    #         availabilities[rk] = interval_overlap_function(availabilities[rk] + [(s, e, chng)], first_x=0, last_x=horizon)
-    # 
-    #     used_additions = defaultdict(list)
-    #     for resource_key, additions in capacity_additions.items():
-    #         for start, end, capacity in sorted(additions, key=lambda a: a[2]):
-    #             max_consumption = find_max_consumption(resource_key, start, end)
-    #             min_availability = find_min_availability(resource_key, start, end)
-    #             surplus = min_availability - max_consumption
-    # 
-    #             if capacity <= surplus:
-    #                 # the addition is redundant
-    #                 update_availability(resource_key, start, end, -capacity)
-    #             else:
-    #                 used_additions[resource_key].append(CapacityChange(start, end, capacity))
-    # 
-    #     reduced_additions = defaultdict(list)
-    #     for resource_key, additions in used_additions.items():
-    #         for start, end, capacity in sorted(additions):
-    #             max_consumption = find_max_consumption(resource_key, start, end)
-    #             min_availability = find_min_availability(resource_key, start, end)
-    #             surplus = min_availability - max_consumption
-    #             update_availability(resource_key, start, end, -surplus)
-    #             reduced_additions[resource_key].append(CapacityChange(start, end, capacity - surplus))
-    # 
-    #     all_migrations = sorted([(r_from, r_to, s, e, c)
-    #                              for r_from in capacity_migrations
-    #                              for r_to, s, e, c in capacity_migrations[r_from]],
-    #                             key=lambda m: m[4])
-    #     reduced_migrations = defaultdict(list)
-    #     for resource_from_key, resource_to_key, start, end, capacity in all_migrations:
-    #         max_consumption = find_max_consumption(resource_to_key, start, end)
-    #         min_availability = find_min_availability(resource_to_key, start, end)
-    #         surplus = min_availability - max_consumption
-    #         if capacity <= surplus:
-    #             # the migration is redundant
-    #             update_availability(resource_to_key, start, end, -capacity)
-    #             update_availability(resource_from_key, start, end, capacity)
-    #         else:
-    #             update_availability(resource_to_key, start, end, -surplus)
-    #             update_availability(resource_from_key, start, end, surplus)
-    #             reduced_migrations[resource_from_key].append(CapacityMigration(resource_to_key, start, end, capacity - surplus))
-    # 
-    #     return reduced_migrations, reduced_additions
 
 
 def time_relaxed_suffixes(instance: ProblemInstance, solution: Solution,

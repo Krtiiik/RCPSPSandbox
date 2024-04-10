@@ -8,14 +8,12 @@ from instances.problem_instance import ProblemInstance
 from solver.model_builder import build_model
 from solver.solution import Solution
 from solver.solver import Solver
+from collections import namedtuple
 
 
 ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
 IntervalSolutionLightweight = namedtuple("IntervalSolutionLightweight", ("start", "end"))
 SolutionLightweight = dict[int, IntervalSolutionLightweight]
-
-EvaluationKPIs = namedtuple("EvaluationKPIs", ("evaluation", "cost", "improvement"))
-EvaluationKPIsLightweight = namedtuple("EvaluationKPIs", ("evaluation", "cost", "improvement"))
 
 
 class Evaluation:
@@ -101,11 +99,8 @@ class Evaluation:
         return addition_changes_sum, migration_changes_sum
 
     def print(self):
-        print(str(self))
-
-    def __str__(self):
         tardiness_improvement, weighted_tardiness_improvement = self.tardiness_improvement()
-        return '\n\t'.join([
+        string = '\n\t'.join([
             f'Evaluation result',
             f'Base instance         : {self._base_instance.name}',
             f'Modified instance     : {self._modified_instance.name}',
@@ -113,6 +108,15 @@ class Evaluation:
             f'Evaluated by          : {self._by}',
             f'Computed in           : {self._duration:.2f} s',
         ])
+        print(string)
+
+    @property
+    def alg_string(self):
+        return evaluation_alg_string(self.by)
+
+    @property
+    def settings_string(self):
+        return evaluation_settings_string(self.by)
 
 
 class EvaluationLightweight:
@@ -189,7 +193,66 @@ class EvaluationLightweight:
                           by=self._by, duration=self._duration)
 
 
+class EvaluationKPIs:
+    _evaluation: Evaluation
+    _cost: int
+    _improvement: int
+    # TODO schedule difference
+
+    def __init__(self, evaluation, cost, improvement):
+        self._evaluation = evaluation
+        self._cost = cost
+        self._improvement = improvement
+
+    @property
+    def evaluation(self):
+        return self._evaluation
+
+    @property
+    def cost(self):
+        return self._cost
+
+    @property
+    def improvement(self):
+        return self._improvement
+
+
+class EvaluationKPIsLightweight:
+    _evaluation: EvaluationLightweight
+    _cost: int
+    _improvement: int
+    # TODO schedule difference
+
+    def __init__(self, evaluation, cost, improvement):
+        self._evaluation = evaluation
+        self._cost = cost
+        self._improvement = improvement
+
+    @property
+    def evaluation(self):
+        return self._evaluation
+
+    @property
+    def cost(self):
+        return self._cost
+
+    @property
+    def improvement(self):
+        return self._improvement
+
+    def build_full_evaluation_kpis(self,
+                                   base_instance: ProblemInstance,
+                                   modified_instance: ProblemInstance
+                                   ) -> EvaluationKPIs:
+        return EvaluationKPIs(self._evaluation.build_full_evaluation(base_instance, modified_instance),
+                              self._cost, self._improvement)
+
+
 class EvaluationAlgorithm(metaclass=abc.ABCMeta):
+    ID_SEPARATOR = '--'
+    ID_SETTINGS_SEPARATOR = '-'
+    ID_SUB_SEPARATOR = '#'
+
     _solver: Solver
 
     def __init__(self):
@@ -200,8 +263,17 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
     def settings_type(self) -> type:
         """Gets the type of the algorithm settings type"""
 
+    @property
+    @abc.abstractmethod
+    def shortname(self) -> str:
+        """Gets a short name of the algorithm."""
+
     @abc.abstractmethod
     def represent(self, settings) -> str:
+        """Constructs a representation of the algorithm using its settings."""
+
+    @abc.abstractmethod
+    def represent_short(self, settings) -> str:
         """Constructs a representation of the algorithm using its settings."""
 
     @abc.abstractmethod
@@ -304,3 +376,11 @@ def __construct_settings(algorithms_settings: Iterable[EvaluationAlgorithm | tup
             error()
 
     return algorithms, settings
+
+
+def evaluation_alg_string(by_str: str):
+    return by_str.split(EvaluationAlgorithm.ID_SEPARATOR)[0]
+
+
+def evaluation_settings_string(by_str: str):
+    return by_str.split(EvaluationAlgorithm.ID_SEPARATOR)[1]
