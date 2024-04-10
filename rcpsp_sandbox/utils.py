@@ -52,7 +52,7 @@ def interval_overlap_function(intervals: Iterable[tuple[int, int, int]],
 
 
 def intervals_overlap(i1, i2):
-    return i2[0] < i1[1] <= i2[1] or i2[0] <= i1[0] < i2[1]
+    return i1[0] < i2[1] and i2[0] < i1[1]
 
 
 def flatten(iterables: Iterable[Iterable]):
