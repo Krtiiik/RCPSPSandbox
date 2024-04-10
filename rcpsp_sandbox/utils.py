@@ -1,3 +1,4 @@
+import itertools
 import sys
 from collections import defaultdict
 from typing import Iterable, Collection, TypeVar, Any, Sequence
@@ -55,9 +56,7 @@ def intervals_overlap(i1, i2):
 
 
 def flatten(iterables: Iterable[Iterable]):
-    import functools
-    import operator
-    return functools.reduce(operator.iconcat, iterables, [])
+    return itertools.chain.from_iterable(iterables)
 
 
 COLORS = [
