@@ -131,11 +131,10 @@ def plot_solution(solution: Solution,
                   save_as: str = None,
                   dimensions: tuple[int, int] = (8, 11),
                   component_legends: dict[int, str] = None,
+                  orderify_legends: bool = False,
                   horizon: int = None,
                   job_interval_levels: dict[int, int] = None,
                   ):
-    # TODO predefined interval levels for schedule comparing
-
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
@@ -146,6 +145,8 @@ def plot_solution(solution: Solution,
     resource_count = len(instance.resources)
     f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=[0.5]+resource_count*[0.5/resource_count])
 
+    if component_legends is None and orderify_legends:
+        component_legends = {rj: f'$\mathcal{{O}}_{1+i}$' for i, rj in enumerate(sorted(c.id_root_job for c in solution.instance.components))}
     __intervals_panel(solution, axarr[0], params, component_legends=component_legends, job_interval_levels=job_interval_levels)
     __resources_panels(solution, axarr[1:], params, split_consumption=split_consumption, highlight_consumption=highlight)
 
