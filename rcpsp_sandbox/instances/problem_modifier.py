@@ -182,7 +182,7 @@ class ProblemModifier:
                 instance_graph = build_instance_graph(self)
                 instance_graph: nx.DiGraph = nx.union_all(instance_graph.subgraph(subtree) for subtree in subtrees)
 
-                components = [Component(subtree[0], 1)
+                components = [Component(subtree[0].id_job, 1)
                               for subtree in subtrees]
                 precedences = [Precedence(u, v)
                                for u, v in instance_graph.edges]
@@ -270,10 +270,20 @@ class ProblemModifier:
         remaining_resources_count = len(self._resources)
 
         for job in self._jobs:
-            removed_consumption = sum(c for r, c in job.resource_consumption.consumption_by_resource.items() if r.key in resources_to_remove)
-            job.resource_consumption = {r: job.resource_consumption[r] + (removed_consumption // remaining_resources_count)
-                                        for r in job.resource_consumption.consumption_by_resource
-                                        if r.key not in resources_to_remove}
+            removed_consumption = sum(
+                c for r, c in job.resource_consumption.consumption_by_resource.items() if r.key in resources_to_remove)
+            remaining_consumption = sum(
+                c for r, c in job.resource_consumption.consumption_by_resource.items() if r.key not in resources_to_remove)
+
+            consumption_by_resource = dict()
+            for r in job.resource_consumption.consumption_by_resource:
+                if r.key not in resources_to_remove:
+                    if remaining_consumption == 0:
+                        consumption_by_resource[r] = (removed_consumption // len(resources_to_remove))
+                    else:
+                        consumption_by_resource[r] = job.resource_consumption[r]
+
+            job.resource_consumption.consumption_by_resource = consumption_by_resource
 
         return self
 
