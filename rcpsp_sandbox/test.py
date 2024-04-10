@@ -1,10 +1,8 @@
 import os.path
 import random
 
-from bottlenecks.drawing import plot_solution, compute_shifting_interval_levels
 from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup, compute_evaluation_kpis
 from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm
-from instances.drawing import plot_components
 from manager import ExperimentManager
 from utils import flatten
 
@@ -24,7 +22,9 @@ def main():
 
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
         instance = manager.load_base_instance("instance30")
-        evaluations = evaluate_algorithms(ProblemSetup(instance, 32), [
+        root_job = 32
+
+        evaluations = evaluate_algorithms(ProblemSetup(instance, root_job), [
             (TimeVariableConstraintRelaxingAlgorithm(), {
                 "max_iterations": [1, 2, 3],
                 "relax_granularity": [1],

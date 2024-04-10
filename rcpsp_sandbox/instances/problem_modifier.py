@@ -30,26 +30,27 @@ class ProblemModifier:
         self._components = [c.copy() for c in original_instance.components]
 
     def assign_resource_availabilities(self,
-                                       availabilities: dict[int, Iterable[Tuple[int, int]]] = None,
+                                       availabilities: dict[str, Iterable[Tuple[int, int]]] = None,
                                        ) -> Self:
         if availabilities is None:
-            availabilities = {resource.id_resource: [(0, 24)] for resource in self.resources}
+            availabilities = {resource.key: [(0, 24)] for resource in self.resources}
 
         for resource in self.resources:
             periodical_intervals = [AvailabilityInterval(start, end, resource.capacity)
-                                    for start, end in availabilities[resource.id_resource]]
+                                    for start, end in availabilities[resource.key]]
             resource.availability = ResourceAvailability(periodical_intervals)
 
         return self
 
     def assign_job_due_dates(self,
-                             choice: str = Literal["uniform", "gradual", "earliest"],
+                             choice: Literal["uniform", "gradual", "earliest"] = "earliest",
                              interval: tuple[int, int] = None,
                              target_jobs: list[int] = None,
                              gradual_base: int = None,
                              gradual_interval: tuple[int, int] = None,
                              due_dates: dict[int, int] = None,
-                             overwrite: bool = False,) -> Self:
+                             overwrite: bool = False,
+                             ) -> Self:
         def try_assign(j, dd):
             if j.due_date is None or overwrite:
                 j.due_date = dd

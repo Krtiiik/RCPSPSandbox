@@ -21,7 +21,7 @@ class ExperimentManager:
     _modified_instances_cache: dict[str, ProblemInstance]
     _evaluations_light_cache: dict[str, dict[str, EvaluationLightweight]]
     _evaluations_cache: dict[str, Evaluation]
-    _evaluations_kpis_light_cache: dict[str, dict[str, EvaluationKPIsLightweight]]
+    _evaluations_kpis_light_cache: [str, dict[str, EvaluationKPIsLightweight]]
     _evaluations_kpis_cache: dict[str, EvaluationKPIs]
 
     def __init__(self,
@@ -87,65 +87,73 @@ class ExperimentManager:
 
     # ~~ Evaluations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def load_evaluation(self, evaluation_id: str) -> Evaluation:
-        if evaluation_id in self._evaluations_cache:
-            return self._evaluations_cache[evaluation_id]
-
+    def load_evaluation(self, instance_name: str, evaluation_id: str) -> Evaluation:
         alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
-        if alg not in self._evaluations_light_cache:  # Load alg light evaluations into cache
-            self._evaluations_light_cache[alg] = bio.parse_evaluations(os.path.join(self._evaluations_location, alg+'.json'))
+        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_id}'
+        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
 
-        if settings not in self._evaluations_light_cache:  # The requested evaluation has not yet been computed or saved
+        if inst_alg_sett in self._evaluations_cache:
+            return self._evaluations_cache[inst_alg_sett]
+
+        if inst_alg not in self._evaluations_light_cache:  # Load ints-alg light evaluations into cache
+            self._evaluations_light_cache[inst_alg] = bio.parse_evaluations(os.path.join(self._evaluations_location, inst_alg+'.json'))
+
+        if settings not in self._evaluations_light_cache[inst_alg]:  # The requested evaluation has not yet been computed or saved
             raise ValueError("Requested evaluation could not be found.")
 
-        evaluation_light = self._evaluations_light_cache[alg][settings]
+        evaluation_light = self._evaluations_light_cache[inst_alg][settings]
         evaluation = evaluation_light.build_full_evaluation(self.load_base_instance(evaluation_light.base_instance),
                                                             self.load_modified_instance(evaluation_light.modified_instance))
-        self._evaluations_cache[evaluation_id] = evaluation
+        self._evaluations_cache[inst_alg_sett] = evaluation
         return evaluation
 
-    def load_evaluations(self, evaluation_ids: Iterable[str]) -> dict[str, dict[str, Evaluation]]:
+    def load_evaluations(self, instance_name: str, evaluation_ids: Iterable[str]) -> dict[str, dict[str, Evaluation]]:
         evaluations = defaultdict(dict)
         for evaluation_id in evaluation_ids:
             alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
-            evaluations[alg][settings] = self.load_evaluation(evaluation_id)
+            evaluations[alg][settings] = self.load_evaluation(instance_name, evaluation_id)
 
         return evaluations
 
-    def load_evaluation_kpis(self, evaluation_kpis_id: str) -> EvaluationKPIs:
-        if evaluation_kpis_id in self._evaluations_kpis_cache:
-            return self._evaluations_kpis_cache[evaluation_kpis_id]
-
+    def load_evaluation_kpis(self, instance_name: str, evaluation_kpis_id: str) -> EvaluationKPIs:
         alg, settings = evaluation_alg_string(evaluation_kpis_id), evaluation_settings_string(evaluation_kpis_id)
-        if alg not in self._evaluations_kpis_light_cache:
-            self._evaluations_kpis_light_cache[alg] = bio.parse_evaluations_kpis(os.path.join(self._evaluations_kpis_location, alg+'.json'))
+        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis_id}'
+        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
 
-        if settings not in self._evaluations_kpis_light_cache[alg]:
+        if inst_alg_sett in self._evaluations_kpis_cache:
+            return self._evaluations_kpis_cache[inst_alg_sett]
+
+        if inst_alg not in self._evaluations_kpis_light_cache:
+            self._evaluations_kpis_light_cache[inst_alg] = bio.parse_evaluations_kpis(os.path.join(self._evaluations_kpis_location, inst_alg+'.json'))
+
+        if settings not in self._evaluations_kpis_light_cache[inst_alg]:
             raise ValueError("Requested evaluation could not be found.")
 
-        evaluation_kpis_light = self._evaluations_kpis_light_cache[alg][settings]
+        evaluation_kpis_light = self._evaluations_kpis_light_cache[inst_alg][settings]
         evaluation_kpis = evaluation_kpis_light.build_full_evaluation_kpis(self.load_base_instance(evaluation_kpis_light.evaluation.base_instance),
                                                                            self.load_modified_instance(evaluation_kpis_light.evaluation.modified_instance))
-        self._evaluations_kpis_cache[evaluation_kpis_id] = evaluation_kpis
+        self._evaluations_kpis_cache[inst_alg_sett] = evaluation_kpis
         return evaluation_kpis
 
-    def load_evaluations_kpis(self, evaluations_kpis_ids: Iterable[str]) -> Iterable[EvaluationKPIs]:
+    def load_evaluations_kpis(self, instance_name: str,  evaluations_kpis_ids: Iterable[str]) -> Iterable[EvaluationKPIs]:
         evaluations_kpis = defaultdict(dict)
         for evaluation_kpis_id in evaluations_kpis_ids:
             alg, settings = evaluation_alg_string(evaluation_kpis_id), evaluation_settings_string(evaluation_kpis_id)
-            evaluations_kpis[alg][settings] = self.load_evaluation_kpis(evaluation_kpis_id)
+            evaluations_kpis[alg][settings] = self.load_evaluation_kpis(instance_name, evaluation_kpis_id)
 
         return evaluations_kpis
 
     def save_evaluation(self, evaluation: Evaluation):
-        self._evaluations_cache[evaluation.by] = evaluation
+        inst_alg_sett = f'{evaluation.base_instance.name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation.by}'
+        self._evaluations_cache[inst_alg_sett] = evaluation
 
     def save_evaluations(self, evaluations: Iterable[Evaluation]):
         for evaluation in evaluations:
             self.save_evaluation(evaluation)
 
     def save_evaluation_kpis(self, evaluation_kpis: EvaluationKPIs):
-        self._evaluations_kpis_cache[evaluation_kpis.evaluation.by] = evaluation_kpis
+        inst_alg_sett = f'{evaluation_kpis.evaluation.base_instance.name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis.evaluation.by}'
+        self._evaluations_kpis_cache[inst_alg_sett] = evaluation_kpis
 
     def save_evaluations_kpis(self, evaluations_kpis: Iterable[EvaluationKPIs]):
         for evaluation_kpis in evaluations_kpis:
