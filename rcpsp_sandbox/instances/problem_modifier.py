@@ -263,6 +263,20 @@ class ProblemModifier:
 
         return self
 
+    def remove_resources(self, resources_to_remove: Iterable[str]) -> Self:
+        resources_to_remove = set(resources_to_remove)
+
+        self._resources = [resource for resource in self._resources if resource.key not in resources_to_remove]
+        remaining_resources_count = len(self._resources)
+
+        for job in self._jobs:
+            removed_consumption = sum(c for r, c in job.resource_consumption.consumption_by_resource.items() if r.key in resources_to_remove)
+            job.resource_consumption = {r: job.resource_consumption[r] + (removed_consumption // remaining_resources_count)
+                                        for r in job.resource_consumption.consumption_by_resource
+                                        if r.key not in resources_to_remove}
+
+        return self
+
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:
         builder = InstanceBuilder()
         builder.add_jobs(self.jobs)
