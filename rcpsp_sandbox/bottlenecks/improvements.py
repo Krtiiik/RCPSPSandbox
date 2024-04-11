@@ -48,7 +48,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         reduce_capacity_changes(modified_instance, solution)
 
         for i_iter in range(settings.max_iterations):
-            intervals_to_relax = self.__find_intervals_to_relax(settings, modified_instance, solution, target_job_id)
+            intervals_to_relax = self.__find_intervals_to_relax(settings, modified_instance, solution)
             modified_instance = modify_instance_availability(modified_instance, {}, intervals_to_relax, modified_instance_name())
 
             model = self._build_standard_model(modified_instance)
@@ -61,9 +61,8 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     @staticmethod
     def __find_intervals_to_relax(settings: TimeVariableConstraintRelaxingAlgorithmSettings,
                                   instance: ProblemInstance, solution: Solution,
-                                  target_job_id: int,
                                   ) -> dict[str, list[CapacityChange]]:
-        _, improvement_intervals = relaxed_interval_consumptions(instance, solution, granularity=settings.relax_granularity, component=target_job_id)
+        _, improvement_intervals = relaxed_interval_consumptions(instance, solution, granularity=settings.relax_granularity, component=instance.target_job)
         ints = [(resource_key, start, end, consumption, improvement)
                 for resource_key, improvements in improvement_intervals.items()
                 for start, end, consumption, improvement in improvements]

@@ -317,7 +317,7 @@ def evaluate_algorithms(instance: ProblemInstance,
 
     print_n_algs, print_n_algs_digits = len(algorithms), int(math.log10(len(algorithms))) + 1
     start_time = time.time()
-    print(f"Evaluating {print_n_algs} algorithms...")
+    print(f"Evaluating {print_n_algs} algorithms on instance \"{instance.name}\"...")
 
     evaluations = []
     for i_alg, (algorithm, settings) in enumerate(zip(algorithms, alg_settings)):

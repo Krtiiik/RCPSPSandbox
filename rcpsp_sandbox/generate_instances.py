@@ -9,7 +9,7 @@ from instances.problem_modifier import modify_instance
 
 
 InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates",
-                                             "tardiness_weights", "root_job", "scaledown_durations"))
+                                             "tardiness_weights", "target_job", "scaledown_durations"))
 
 
 MORNING = 1
@@ -37,16 +37,16 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j3011_4.sm",
         name="instance01",
         gradual_level=2,
-        shifts=build_shifts({
+        shifts={
             "R1": MORNING | AFTERNOON,
             "R2": MORNING | AFTERNOON,
             "R3": MORNING | AFTERNOON,
             "R4": MORNING | AFTERNOON,
-        }),
+        },
         due_dates={
             23: 46,
-            28: 70,
-            29: 70,
+            28: 46,
+            29: 46,
             30: 46,
             32: 46,
         },
@@ -57,7 +57,7 @@ experiment_instances: dict[str, InstanceSetup] = {
             30: 1,
             32: 1,
         },
-        root_job=26,  # TODO
+        target_job=29,
         scaledown_durations=False,
     ),
     # ------------------------------------------------------------------------------------------------------------------
@@ -65,16 +65,16 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j3010_2.sm",
         name="instance02",
         gradual_level=2,
-        shifts=build_shifts({
+        shifts={
             "R1": MORNING | AFTERNOON | NIGHT,
             "R2": MORNING | AFTERNOON,
-        }),
+        },
         due_dates={
-            26: 70,
-            27: 46,
+            26: 22,
+            27: 22,
             29: 22,
             30: 22,
-            32: 46,
+            32: 22,
         },
         tardiness_weights={
             26: 1,
@@ -83,7 +83,7 @@ experiment_instances: dict[str, InstanceSetup] = {
             30: 1,
             32: 1,
         },
-        root_job=1,  # TODO
+        target_job=26,
         scaledown_durations=False,
     ),
     # ------------------------------------------------------------------------------------------------------------------
@@ -91,20 +91,20 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6010_7.sm",
         name="instance03",
         gradual_level=1,
-        shifts=build_shifts({
+        shifts={
             "R1": MORNING | AFTERNOON,
-        }),
+        },
         due_dates={
-            59: 94,
-            60: 94,
-            62: 94,
+            59: 70,
+            60: 70,
+            62: 70,
         },
         tardiness_weights={
             59: 1,
             60: 1,
             62: 3,
         },
-        root_job=1,  # TODO
+        target_job=62,
         scaledown_durations=False,
     ),
     # ------------------------------------------------------------------------------------------------------------------
@@ -112,23 +112,23 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6011_10.sm",
         name="instance04",
         gradual_level=1,
-        shifts=build_shifts({
+        shifts={
             "R1": MORNING | AFTERNOON,
             "R2": MORNING | AFTERNOON,
             "R3":           AFTERNOON | NIGHT,
             "R4": MORNING | AFTERNOON | NIGHT,
-        }),
+        },
         due_dates={
-            59: 94,
-            60: 94,
-            62: 94,
+            59: 70,
+            60: 70,
+            62: 70,
         },
         tardiness_weights={
             59: 1,
             60: 1,
             62: 3,
         },
-        root_job=1,  # TODO
+        target_job=62,  # TODO
         scaledown_durations=True,
     ),
     # ------------------------------------------------------------------------------------------------------------------
@@ -136,15 +136,12 @@ experiment_instances: dict[str, InstanceSetup] = {
 
 
 def parse_and_process(data_directory: str, output_directory: str,
-                      instance_filename: str, generated_instance_name: str,
-                      split_level: int,
-                      shifts: dict[str, Iterable[tuple[int, int]]],
-                      root_job_due_dates: dict[int, int],
-                      root_job_tardiness: dict[int, int],
-                      scaledown_job_durations: bool = False,
+                      setup: InstanceSetup,
                       ) -> ProblemInstance:
+    shifts = build_shifts(setup.shifts)
+
     # Parse
-    instance = iio.parse_psplib(os.path.join(data_directory, instance_filename))
+    instance = iio.parse_psplib(os.path.join(data_directory, setup.base_filename))
 
     # Modify
     instance_builder = modify_instance(instance)
@@ -154,20 +151,22 @@ def parse_and_process(data_directory: str, output_directory: str,
         instance_builder.remove_resources(set(r.key for r in instance.resources) - set(shifts))
 
     # Component splitting, availabilities, due dates
-    instance = instance_builder.split_job_components(split="gradual", gradual_level=split_level) \
+    instance = instance_builder.split_job_components(split="gradual", gradual_level=setup.gradual_level) \
                .assign_resource_availabilities(availabilities=shifts) \
                .assign_job_due_dates('uniform', interval=(0, 0)) \
-               .assign_job_due_dates(due_dates=root_job_due_dates, overwrite=True) \
-               .generate_modified_instance(generated_instance_name)
+               .assign_job_due_dates(due_dates=setup.due_dates, overwrite=True) \
+               .with_target_job(setup.target_job) \
+               .generate_modified_instance(setup.name)
 
-    if scaledown_job_durations:
+    # Scaling down long job durations
+    if setup.scaledown_durations:
         longest_overlap = compute_longest_shift_overlap(instance)
         assert longest_overlap != 0, "There is no shift overlap"
         instance_builder.scaledown_job_durations(longest_overlap)
 
     # Tardiness weights
     for component in instance.components:
-        component.weight = root_job_tardiness[component.id_root_job]
+        component.weight = setup.tardiness_weights[component.id_root_job]
 
     return instance
 
@@ -181,12 +180,7 @@ def build_instance(instance_name: str,
         raise ValueError(f'Unrecognized experiment instance "{instance_name}"')
 
     instance_setup = experiment_instances[instance_name]
-    instance = parse_and_process(base_instance_directory, output_directory,
-                                 instance_setup.base_filename, instance_name,
-                                 split_level=instance_setup.gradual_level, shifts=instance_setup.shifts,
-                                 root_job_due_dates=instance_setup.due_dates, root_job_tardiness=instance_setup.tardiness_weights,
-                                 scaledown_job_durations=instance_setup.scaledown_durations,
-                                 )
+    instance = parse_and_process(base_instance_directory, output_directory, instance_setup)
 
     if serialize:
         iio.serialize_json(instance, os.path.join(output_directory, instance_name+'.json'), is_extended=True)
