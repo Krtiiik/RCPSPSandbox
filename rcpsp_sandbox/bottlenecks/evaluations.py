@@ -12,7 +12,6 @@ from solver.solver import Solver
 from collections import namedtuple
 
 
-ProblemSetup = namedtuple("ProblemSetup", ("instance", "target_job"))
 IntervalSolutionLightweight = namedtuple("IntervalSolutionLightweight", ("start", "end"))
 SolutionLightweight = dict[int, IntervalSolutionLightweight]
 
@@ -21,19 +20,17 @@ class Evaluation:
     _base_instance: ProblemInstance
     _base_solution: Solution
     _modified_instance: ProblemInstance
-    _target_job: int
     _solution: Solution
     _by: str
     _duration: float
 
     def __init__(self,
-                 base_instance: ProblemInstance, base_solution: Solution, target_job: int,
+                 base_instance: ProblemInstance, base_solution: Solution,
                  modified_instance: ProblemInstance, solution: Solution,
                  by: str, duration: float,
                  ):
         self._base_instance = base_instance
         self._base_solution = base_solution
-        self._target_job = target_job
         self._modified_instance = modified_instance
         self._solution = solution
         self._by = by
@@ -46,10 +43,6 @@ class Evaluation:
     @property
     def base_solution(self) -> Solution:
         return self._base_solution
-
-    @property
-    def target_job(self) -> int:
-        return self._target_job
 
     @property
     def modified_instance(self) -> ProblemInstance:
@@ -68,10 +61,11 @@ class Evaluation:
         return self._duration
 
     def tardiness_improvement(self) -> tuple[int, int]:
-        original_tardiness = self._base_solution.tardiness(self._target_job)
-        updated_tardiness = self._solution.tardiness(self._target_job)
-        original_weighted_tardiness = self._base_solution.weighted_tardiness(self._target_job)
-        updated_weighted_tardiness = self._solution.weighted_tardiness(self._target_job)
+        target_job = self._base_instance.target_job
+        original_tardiness = self._base_solution.tardiness(target_job)
+        updated_tardiness = self._solution.tardiness(target_job)
+        original_weighted_tardiness = self._base_solution.weighted_tardiness(target_job)
+        updated_weighted_tardiness = self._solution.weighted_tardiness(target_job)
 
         tardiness_change = original_tardiness - updated_tardiness
         weighted_tardiness_change = original_weighted_tardiness - updated_weighted_tardiness
@@ -134,19 +128,17 @@ class EvaluationLightweight:
     _base_instance: str
     _base_solution: SolutionLightweight
     _modified_instance: str
-    _target_job: int
     _solution: SolutionLightweight
     _by: str
     _duration: float
 
     def __init__(self,
-                 base_instance: str, base_solution: SolutionLightweight, target_job: int,
+                 base_instance: str, base_solution: SolutionLightweight,
                  modified_instance: str, solution: SolutionLightweight,
                  by: str, duration: float,
                  ):
         self._base_instance = base_instance
         self._base_solution = base_solution
-        self._target_job = target_job
         self._modified_instance = modified_instance
         self._solution = solution
         self._by = by
@@ -159,10 +151,6 @@ class EvaluationLightweight:
     @property
     def base_solution(self) -> SolutionLightweight:
         return self._base_solution
-
-    @property
-    def target_job(self) -> int:
-        return self._target_job
 
     @property
     def modified_instance(self) -> str:
@@ -187,7 +175,7 @@ class EvaluationLightweight:
         base_solution = ExplicitSolution(base_instance, self._base_solution)
         modified_solution = ExplicitSolution(modified_instance, self._solution)
 
-        return Evaluation(base_instance=base_instance, base_solution=base_solution, target_job=self._target_job,
+        return Evaluation(base_instance=base_instance, base_solution=base_solution,
                           modified_instance=modified_instance, solution=modified_solution,
                           by=self._by, duration=self._duration)
 
@@ -274,7 +262,7 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _run(self,
-             base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+             base_instance: ProblemInstance, base_solution: Solution,
              settings,
              ) -> tuple[ProblemInstance, Solution]:
         """Runs the algorithm."""
@@ -296,18 +284,18 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
         alg_str = self.shortname
         return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
 
-    def evaluate(self, problem: ProblemSetup, settings) -> Evaluation:
+    def evaluate(self, base_instance: ProblemInstance, settings) -> Evaluation:
         """Evaluates the given instance."""
         time_start = time.thread_time()
 
-        base_instance, target_job_id = problem
+        target_job_id = base_instance.target_job
         model = self._build_standard_model(base_instance)
         base_solution = self._solver.solve(base_instance, model)
 
-        modified_instance, solution = self._run(base_instance, base_solution, target_job_id, settings)
+        modified_instance, solution = self._run(base_instance, base_solution, settings)
 
         duration = time.thread_time() - time_start
-        return Evaluation(base_instance, base_solution, target_job_id, modified_instance, solution, self.represent(settings), duration)
+        return Evaluation(base_instance, base_solution, modified_instance, solution, self.represent(settings), duration)
 
     @staticmethod
     def _build_standard_model(instance: ProblemInstance):
@@ -317,7 +305,7 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
                .get_model()
 
 
-def evaluate_algorithms(problem: ProblemSetup,
+def evaluate_algorithms(instance: ProblemInstance,
                         algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]],
                         cache_manager=None,
                         ) -> list[list[Evaluation]]:
@@ -340,10 +328,10 @@ def evaluate_algorithms(problem: ProblemSetup,
         algorithm_evaluations = []
         for i_setting, setting in enumerate(settings):
             evaluation_id = algorithm.represent(setting)
-            if cache_manager and cache_manager.is_evaluation_cached(problem.instance.name, evaluation_id):
-                result = cache_manager.load_evaluation(problem.instance.name, evaluation_id)
+            if cache_manager and cache_manager.is_evaluation_cached(instance.name, evaluation_id):
+                result = cache_manager.load_evaluation(instance.name, evaluation_id)
             else:
-                result = algorithm.evaluate(problem, setting)
+                result = algorithm.evaluate(instance, setting)
 
             algorithm_evaluations.append(result)
 

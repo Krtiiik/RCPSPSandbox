@@ -93,7 +93,6 @@ def __serialize_evaluation(evaluation):
     return {
         "base_instance": evaluation.base_instance.name,
         "base_solution": serialize_solution(evaluation.base_solution),
-        "target_job": evaluation.target_job,
         "modified_instance": evaluation.modified_instance.name,
         "solution": serialize_solution(evaluation.solution),
         "by": evaluation.by,
@@ -109,7 +108,6 @@ def __parse_evaluation(evaluation):
     return EvaluationLightweight(
         base_instance=evaluation["base_instance"],
         base_solution=parse_solution(evaluation["base_solution"]),
-        target_job=int(evaluation["target_job"]),
         modified_instance=evaluation["modified_instance"],
         solution=parse_solution(evaluation["solution"]),
         by=evaluation["by"],

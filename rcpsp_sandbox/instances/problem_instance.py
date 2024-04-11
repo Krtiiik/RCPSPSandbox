@@ -382,6 +382,7 @@ class ProblemInstance:
     _name: Optional[str]
 
     _horizon: int
+    _target_job: int
 
     _projects: list[Project] = []
     _resources: list[Resource] = []
@@ -399,6 +400,7 @@ class ProblemInstance:
 
     def __init__(self,
                  horizon: int,
+                 target_job: int,
                  projects: Collection[Project],
                  resources: Collection[Resource],
                  jobs: Collection[Job],
@@ -408,6 +410,7 @@ class ProblemInstance:
         self._name = name
 
         self._horizon = horizon
+        self._target_job = target_job
 
         self._projects = list_of(projects)
         self._resources = list_of(resources)
@@ -430,6 +433,14 @@ class ProblemInstance:
     @horizon.setter
     def horizon(self, value: int):
         self._horizon = value
+
+    @property
+    def target_job(self) -> int:
+        return self._target_job
+
+    @target_job.setter
+    def target_job(self, value: int):
+        self._target_job = value
 
     @property
     def projects(self) -> list[Project]:
@@ -520,6 +531,7 @@ class ProblemInstance:
 
     def copy(self) -> Self:
         return ProblemInstance(horizon=self.horizon,
+                               target_job=self._target_job,
                                projects=[p.copy() for p in self.projects],
                                resources=[r.copy() for r in self.resources],
                                jobs=[j.copy() for j in self.jobs],
@@ -528,8 +540,7 @@ class ProblemInstance:
                                name=self.name)
 
     def __str__(self):
-        return f"ProblemInstance{{name: {self._name}, #projects: {len(self.projects)}, " \
-               f"#resources: {len(self.resources)}, #jobs: {len(self.jobs)}, #precedences: {len(self.precedences)}}}"
+        return f"ProblemInstance{{name: {self._name}, target_job: {self._target_job}}}"
 
 
 def compute_component_jobs(problem_instance: ProblemInstance) -> dict[Job, Collection[Job]]:

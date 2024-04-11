@@ -36,7 +36,9 @@ def parse_json(filename: str,
 
     # instance properties
     instance_builder.set(name=name_as if name_as is not None else instance_object["Name"],
-                         horizon=instance_object["Horizon"])
+                         target_job=instance_object["TargetJob"],
+                         horizon=instance_object["Horizon"]
+                         )
 
     # resources
     resources = [Resource(r["Id"], ResourceType(r["Type"]), r["Capacity"]) for r in instance_object["Resources"]]
@@ -179,6 +181,7 @@ def __parse_psplib_internal(file: IO,
 
         if is_extended:
             builder.add_components(components)
+            builder.set(target_job=target_job)
 
         builder.set(name=(name_as if (name_as is not None) else os.path.basename(file.name)),
                     horizon=horizon)
@@ -194,6 +197,8 @@ def __parse_psplib_internal(file: IO,
     project_count = parse_colon_key_value_line("projects")
     job_count = parse_colon_key_value_line("jobs (incl. supersource/sink )")
     horizon = parse_colon_key_value_line("horizon")
+    if is_extended:
+        target_job = parse_colon_key_value_line("target job")
     skip_lines(1)  # RESOURCES list header
     _renewable_resource_count = parse_key_value_line((1, 3), "renewable")
     _nonrenewable_resource_count = parse_key_value_line((1, 3), "nonrenewable")
@@ -400,6 +405,8 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
     key_value_line("projects", len(instance.projects))
     key_value_line("jobs (incl. supersource/sink )", len(instance.jobs))
     key_value_line("horizon", instance.horizon)
+    if is_extended:
+        key_value_line("target job", instance.target_job)
     line("RESOURCES")
     list_item_line("renewable", sum(1 for r in instance.resources if r.type == ResourceType.RENEWABLE), 'R')
     list_item_line("nonrenewable", sum(1 for r in instance.resources if r.type == ResourceType.NONRENEWABLE), 'N')
@@ -545,6 +552,9 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
 
     check_key_in("Horizon", obj, "Instance object")
     check_type_of(obj["Horizon"], int, "Instance object > Horizon")
+
+    check_key_in("TargetJob", obj, "Instance object")
+    check_type_of(obj["TargetJob"], int, "Instance object > TargetJob")
 
     check_key_in("Resources", obj, "Instance object")
     check_type_of(obj["Resources"], list, "Instance object > Resources")
@@ -699,6 +709,7 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
             instance_object = {
                 "Name": obj.name,
                 "Horizon": obj.horizon,
+                "TargetJob": obj.target_job,
                 "Resources": [self.__serialize_resource(resource) for resource in obj.resources],
                 "Projects": [ProblemInstanceJSONSerializer.__serialize_project(project) for project in obj.projects],
                 "Jobs": [self.__serialize_job(job, precedences_by_child[job.id_job]) for job in obj.jobs],

@@ -36,7 +36,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         return TimeVariableConstraintRelaxingAlgorithmSettings
 
     def _run(self,
-             base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+             base_instance: ProblemInstance, base_solution: Solution,
              settings,
              ) -> tuple[ProblemInstance, Solution]:
         def modified_instance_name(): return (f'{modified_instance.name.split(EvaluationAlgorithm.ID_SEPARATOR)[0]}'
@@ -386,7 +386,7 @@ class MetricsRelaxingAlgorithm(EvaluationAlgorithm):
         return MetricsRelaxingAlgorithmSettings
 
     def _run(self,
-             base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
+             base_instance: ProblemInstance, base_solution: Solution,
              settings: MetricsRelaxingAlgorithmSettings,
              ) -> tuple[ProblemInstance, Solution]:
         def modified_instance_name(): return (f'{modified_instance.name.split(EvaluationAlgorithm.ID_SEPARATOR)[0]}'

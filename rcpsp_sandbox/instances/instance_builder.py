@@ -9,6 +9,7 @@ class InstanceBuilder:
     _name: Optional[str]
 
     _horizon: int
+    _target_job: int
 
     _projects: set[Project]
     _resources: set[Resource]
@@ -18,6 +19,7 @@ class InstanceBuilder:
 
     def __init__(self):
         self._horizon = 0
+        self._target_job = 0
 
         self._projects = set()
         self._resources = set()
@@ -88,11 +90,15 @@ class InstanceBuilder:
             elif key == "horizon":
                 assert isinstance(value, int), f"integer value for {key} expected"
                 self._horizon = value
+            elif key == "target_job":
+                assert isinstance(value, int), f"integer value for {key} expected"
+                self._target_job = value
             else:
                 raise InstanceBuilderError(f"Unexpected instance property {{{key}: {value}}}")
 
     def build_instance(self) -> ProblemInstance:
         return ProblemInstance(self._horizon,
+                               self._target_job,
                                sorted(self._projects, key=lambda p: p.id_project),
                                sorted(self._resources, key=lambda r: r.key),
                                sorted(self._jobs, key=lambda j: j.id_job),

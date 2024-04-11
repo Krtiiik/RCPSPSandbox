@@ -30,6 +30,8 @@ class ProblemModifier:
         self._resources = [r.copy() for r in original_instance.resources]
         self._components = [c.copy() for c in original_instance.components]
 
+        self.target_job = original_instance.target_job
+
         self._random = random.Random(42)
 
     def assign_resource_availabilities(self,
@@ -229,7 +231,7 @@ class ProblemModifier:
                 print_error(f"Unrecognized split option: {split}")
         return self
 
-    def merge_with(self, other: ProblemInstance) -> Self:
+    def merge_with(self, other: ProblemInstance, target_job: int) -> Self:
         other_jobs = [j.copy() for j in other.jobs]
         other_precedences = [p.copy() for p in other.precedences]
         other_components = [c.copy() for c in other.components]
@@ -247,6 +249,8 @@ class ProblemModifier:
         self.precedences.extend(other_precedences)
         # Resources are assumed to be the same
         self.components.extend(other_components)
+
+        self.target_job = target_job
 
         return self
 
@@ -307,7 +311,9 @@ class ProblemModifier:
         builder.add_resources(self._resources)
         builder.add_projects(self._original_instance.projects)
         builder.set(horizon=self._original_instance.horizon,
-                    name=name if name is not None else f"{self._original_instance.name}_mod")
+                    target_job=self.target_job,
+                    name=name if name is not None else f"{self._original_instance.name}_mod"
+                    )
         return builder.build_instance()
 
     @property
