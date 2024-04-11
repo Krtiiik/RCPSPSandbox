@@ -299,7 +299,7 @@ class ProblemModifier:
 
         scale = max_duration / max_job_duration
         for job in self._jobs:
-            job.duration = min(max_duration, math.floor(scale * job.duration))
+            job.duration = 0 if job.duration == 0 else max(1, min(max_duration, math.floor(scale * job.duration)))
 
         return self
 
