@@ -3,11 +3,13 @@ from collections import namedtuple
 from typing import Iterable
 
 import instances.io as iio
+from bottlenecks.utils import compute_longest_shift_overlap
 from instances.problem_instance import ProblemInstance
 from instances.problem_modifier import modify_instance
 
 
-InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates", "tardiness_weights"))
+InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates",
+                                             "tardiness_weights", "root_job", "scaledown_durations"))
 
 
 MORNING = 1
@@ -55,6 +57,8 @@ experiment_instances: dict[str, InstanceSetup] = {
             30: 1,
             32: 1,
         },
+        root_job=26,  # TODO
+        scaledown_durations=False,
     ),
     # ------------------------------------------------------------------------------------------------------------------
     "instance02": InstanceSetup(
@@ -79,6 +83,8 @@ experiment_instances: dict[str, InstanceSetup] = {
             30: 1,
             32: 1,
         },
+        root_job=1,  # TODO
+        scaledown_durations=False,
     ),
     # ------------------------------------------------------------------------------------------------------------------
     "instance03": InstanceSetup(
@@ -98,6 +104,32 @@ experiment_instances: dict[str, InstanceSetup] = {
             60: 1,
             62: 3,
         },
+        root_job=1,  # TODO
+        scaledown_durations=False,
+    ),
+    # ------------------------------------------------------------------------------------------------------------------
+    "instance04": InstanceSetup(
+        base_filename="j6011_10.sm",
+        name="instance04",
+        gradual_level=1,
+        shifts=build_shifts({
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3":           AFTERNOON | NIGHT,
+            "R4": MORNING | AFTERNOON | NIGHT,
+        }),
+        due_dates={
+            59: 94,
+            60: 94,
+            62: 94,
+        },
+        tardiness_weights={
+            59: 1,
+            60: 1,
+            62: 3,
+        },
+        root_job=1,  # TODO
+        scaledown_durations=True,
     ),
     # ------------------------------------------------------------------------------------------------------------------
 }
@@ -109,6 +141,7 @@ def parse_and_process(data_directory: str, output_directory: str,
                       shifts: dict[str, Iterable[tuple[int, int]]],
                       root_job_due_dates: dict[int, int],
                       root_job_tardiness: dict[int, int],
+                      scaledown_job_durations: bool = False,
                       ) -> ProblemInstance:
     # Parse
     instance = iio.parse_psplib(os.path.join(data_directory, instance_filename))
@@ -126,6 +159,11 @@ def parse_and_process(data_directory: str, output_directory: str,
                .assign_job_due_dates('uniform', interval=(0, 0)) \
                .assign_job_due_dates(due_dates=root_job_due_dates, overwrite=True) \
                .generate_modified_instance(generated_instance_name)
+
+    if scaledown_job_durations:
+        longest_overlap = compute_longest_shift_overlap(instance)
+        assert longest_overlap != 0, "There is no shift overlap"
+        instance_builder.scaledown_job_durations(longest_overlap)
 
     # Tardiness weights
     for component in instance.components:
@@ -146,7 +184,9 @@ def build_instance(instance_name: str,
     instance = parse_and_process(base_instance_directory, output_directory,
                                  instance_setup.base_filename, instance_name,
                                  split_level=instance_setup.gradual_level, shifts=instance_setup.shifts,
-                                 root_job_due_dates=instance_setup.due_dates, root_job_tardiness=instance_setup.tardiness_weights)
+                                 root_job_due_dates=instance_setup.due_dates, root_job_tardiness=instance_setup.tardiness_weights,
+                                 scaledown_job_durations=instance_setup.scaledown_durations,
+                                 )
 
     if serialize:
         iio.serialize_json(instance, os.path.join(output_directory, instance_name+'.json'), is_extended=True)
@@ -163,8 +203,9 @@ if __name__ == "__main__":
     from solver.solver import Solver
     from bottlenecks.metrics import evaluate_solution, average_uninterrupted_active_consumption, print_evaluation
 
-    instance_name = 'instance01'
+    instance_name = 'instance04'
     instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
+    instance.horizon = 2000
     plot_components(instance)
     solution = Solver().solve(instance)
     plot_solution(solution, split_consumption=True, orderify_legends=True,

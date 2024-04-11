@@ -1,12 +1,11 @@
 import itertools
-import math
 from collections import defaultdict
 from typing import Iterable
 
 from instances.problem_instance import ProblemInstance, Resource, Job, compute_resource_availability, CapacityMigration, \
     CapacityChange, compute_resource_periodical_availability
 from solver.solution import Solution
-from utils import interval_overlap_function
+from utils import interval_overlap_function, flatten
 
 T_StepFunction = list[tuple[int, int, int]]
 
@@ -166,3 +165,14 @@ def group_consecutive_intervals(intervals):
         result.append(current_group)
 
     return result
+
+
+def compute_longest_shift_overlap(instance: ProblemInstance):
+    availabilities = [(s, e, min(1, c))
+                      for r in instance.resources
+                      for s, e, c in compute_resource_periodical_availability(r, instance.horizon)]
+    combined_availability = interval_overlap_function(availabilities, first_x=0, last_x=instance.horizon)
+    n_resources = len(instance.resources)
+    longest_overlap = max((av[1] - av[0] for av in combined_availability if av[2] == n_resources), default=0)
+    return longest_overlap
+
