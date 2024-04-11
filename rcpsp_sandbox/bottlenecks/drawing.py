@@ -165,7 +165,7 @@ def plot_solution(solution: Solution,
 
 
 def __compute_height_ratios(solution, horizon):
-    interval_panel_height = [__compute_max_interval_overlap(list(__build_intervals(solution)))]
+    interval_panel_height = [math.ceil(1.5*__compute_max_interval_overlap(list(__build_intervals(solution))))]
     resource_panel_heights = [max(c for s, e, c in compute_resource_availability(r, solution.instance, horizon)) // 5
                               for r in solution.instance.resources]
     return interval_panel_height + resource_panel_heights
