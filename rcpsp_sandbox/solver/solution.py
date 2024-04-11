@@ -1,26 +1,23 @@
-from typing import Iterable, Tuple
+from collections import namedtuple
+from typing import Iterable, Tuple, Self
 
 from docplex.cp.solution import CpoSolveResult, CpoIntervalVarSolution
 
 from instances.problem_instance import Job, ProblemInstance, compute_component_jobs
 
 
+IntervalSolution = namedtuple("IntervalSolution", ("start", "end"))
+
+
 class Solution:
-    _solve_result: CpoSolveResult
-    _instance: ProblemInstance
+    def __init__(self, instance: ProblemInstance, job_interval_solutions: dict[int, IntervalSolution]):
+        self._instance: ProblemInstance = instance
+        self._interval_solutions: dict[int, IntervalSolution] = job_interval_solutions
 
-    _cached_job_interval_solutions: dict[int, CpoIntervalVarSolution] = None
-    _cached_tardiness: dict[int, int] = None
-    _cached_weighted_tardiness: dict[int, int] = None
+        self._cached_tardiness: dict[int, int] | None = None
+        self._cached_weighted_tardiness: dict[int, int] | None = None
 
-    def __init__(self, solve_result: CpoSolveResult, instance: ProblemInstance):
-        if solve_result is None or not solve_result.is_solution():
-            raise ValueError("Cannot wrap a non-solution result")
-
-        self._solve_result = solve_result
-        self._instance = instance
-
-    def difference_to(self, other: 'Solution', selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:
+    def difference_to(self, other: Self, selected_jobs: Iterable[Job] = None) -> Tuple[int, dict[int, int]]:
         return solution_difference(self, other, selected_jobs)
 
     def plot(self, *args, **kwargs):
@@ -28,18 +25,8 @@ class Solution:
         plot_solution(self.instance, self, *args, **kwargs)
 
     @property
-    def job_interval_solutions(self) -> dict[int, CpoIntervalVarSolution]:
-        if self._cached_job_interval_solutions is None:
-            self._cached_job_interval_solutions = \
-                {int(var_solution.get_name()[4:]): var_solution
-                 for var_solution in self._solve_result.get_all_var_solutions()
-                 if isinstance(var_solution, CpoIntervalVarSolution) and var_solution.expr.get_name().startswith("Job")}
-
-        return self._cached_job_interval_solutions
-
-    @property
-    def solve_result(self) -> CpoSolveResult:
-        return self._solve_result
+    def job_interval_solutions(self) -> dict[int, IntervalSolution]:
+        return self._interval_solutions
 
     @property
     def instance(self) -> ProblemInstance:
@@ -56,6 +43,30 @@ class Solution:
             self._cached_weighted_tardiness = compute_job_weighted_tardiness(self)
 
         return self._cached_weighted_tardiness if job_id is None else self._cached_weighted_tardiness[job_id]
+
+
+class ModelSolution(Solution):
+    def __init__(self, instance: ProblemInstance, solve_result: CpoSolveResult):
+        if solve_result is None or not solve_result.is_solution():
+            raise ValueError("Cannot wrap a non-solution result")
+
+        super().__init__(
+            instance,
+            {int(var_solution.get_name()[4:]): var_solution
+             for var_solution in solve_result.get_all_var_solutions()
+             if isinstance(var_solution, CpoIntervalVarSolution) and var_solution.expr.get_name().startswith("Job")
+             })
+
+        self._solve_result = solve_result
+
+    @property
+    def solve_result(self) -> CpoSolveResult:
+        return self._solve_result
+
+
+class ExplicitSolution(Solution):
+    def __init__(self, instance: ProblemInstance, job_interval_solutions: dict[int, IntervalSolution]):
+        super().__init__(instance, job_interval_solutions)
 
 
 def solution_difference(a: Solution,
@@ -78,7 +89,7 @@ def solution_difference(a: Solution,
 
     job_ids = ((j.id_job for j in selected_jobs) if selected_jobs is not None
                else a_interval_solutions.keys())
-    differences = {job_id: a_interval_solutions[job_id].get_end() - b_interval_solutions[job_id].get_end()
+    differences = {job_id: a_interval_solutions[job_id].end - b_interval_solutions[job_id].end
                    for job_id in job_ids}
     difference = sum(abs(diff) for diff in differences.values())
     return difference, differences
@@ -95,7 +106,7 @@ def compute_job_tardiness(solution: Solution,
     job_tardiness = dict()
     for job_id in job_ids:
         due_date = jobs_by_id[job_id].due_date
-        completion_time = interval_solutions[job_id].get_end()
+        completion_time = interval_solutions[job_id].end
         job_tardiness[job_id] = max(0, completion_time - due_date)
 
     return job_tardiness

@@ -1,15 +1,8 @@
-import random
-
 from docplex.cp.model import CpoModel
-from docplex.cp.solution import CpoModelSolution, CpoIntervalVarSolution
 
-import instances.problem_instance
-from instances.drawing import plot_instance_graph
-from instances.problem_instance import Component, ProblemInstance, Job
-from instances.problem_modifier import modify_instance
-from solver.drawing import plot_solution, print_difference
+from instances.problem_instance import ProblemInstance
 from solver.model_builder import build_model
-from solver.solution import Solution
+from solver.solution import Solution, ModelSolution
 
 import solver.cpo_config
 solver.cpo_config.efficient(False)
@@ -32,4 +25,4 @@ class Solver:
 
     @staticmethod
     def __solve_model(model: CpoModel, instance: ProblemInstance) -> Solution:
-        return Solution(model.solve(), instance)
+        return ModelSolution(instance, model.solve())

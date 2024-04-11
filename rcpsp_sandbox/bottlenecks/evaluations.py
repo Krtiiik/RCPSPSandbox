@@ -7,7 +7,7 @@ from typing import Iterable, Any
 
 from instances.problem_instance import ProblemInstance
 from solver.model_builder import build_model
-from solver.solution import Solution
+from solver.solution import Solution, ExplicitSolution
 from solver.solver import Solver
 from collections import namedtuple
 
@@ -184,20 +184,8 @@ class EvaluationLightweight:
                               base_instance: ProblemInstance,
                               modified_instance: ProblemInstance
                               ) -> Evaluation:
-        base_model = build_model(base_instance) \
-            .with_precedences().with_resource_constraints() \
-            .optimize_model() \
-            .add_hot_start(job_interval_solutions=self._base_solution) \
-            .get_model()
-        modified_model = build_model(modified_instance) \
-            .with_precedences().with_resource_constraints() \
-            .optimize_model() \
-            .add_hot_start(job_interval_solutions=self._solution) \
-            .get_model()
-
-        solver = Solver()
-        base_solution = solver.solve(base_instance, model=base_model)
-        modified_solution = solver.solve(modified_instance, model=modified_model)
+        base_solution = ExplicitSolution(base_instance, self._base_solution)
+        modified_solution = ExplicitSolution(modified_instance, self._solution)
 
         return Evaluation(base_instance=base_instance, base_solution=base_solution, target_job=self._target_job,
                           modified_instance=modified_instance, solution=modified_solution,
