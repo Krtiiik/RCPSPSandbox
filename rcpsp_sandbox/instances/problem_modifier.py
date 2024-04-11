@@ -303,6 +303,10 @@ class ProblemModifier:
 
         return self
 
+    def with_target_job(self, target_job: int) -> Self:
+        self.target_job = target_job
+        return self
+
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:
         builder = InstanceBuilder()
         builder.add_jobs(self.jobs)
