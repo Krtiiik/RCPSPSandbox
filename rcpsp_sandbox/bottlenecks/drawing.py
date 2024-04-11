@@ -91,13 +91,13 @@ def plot_evaluation(evaluation, block: bool = True, save_as: list[str] = None, d
     plot_solution(evaluation.solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
 
 
-def plot_evaluations(evaluations: list[EvaluationKPIs | list[EvaluationKPIs]],
+def plot_evaluations(evaluations_kpis: list[EvaluationKPIs | list[EvaluationKPIs]],
                      ):
-    if not isinstance(evaluations[0], list):
-        evaluations = [evaluations]
+    if not isinstance(evaluations_kpis[0], list):
+        evaluations_kpis = [evaluations_kpis]
 
     plt.grid(which='both', axis='both', ls='--')
-    for evaluation_kpis in evaluations:
+    for evaluation_kpis in evaluations_kpis:
         costs = [evaluation_kpi.cost for evaluation_kpi in evaluation_kpis]
         improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluation_kpis]
         plt.scatter(costs, improvements)
@@ -107,7 +107,7 @@ def plot_evaluations(evaluations: list[EvaluationKPIs | list[EvaluationKPIs]],
         _alg = ''.join(itertools.filterfalse(str.islower, _alg))
         return f'{_alg}-{_settings}'
 
-    interesting_evaluation_kpis = [kpi for kpis in evaluations
+    interesting_evaluation_kpis = [kpi for kpis in evaluations_kpis
                                    for kpi in [
                                        min(kpis, key=lambda e_kpi: e_kpi.cost),
                                        max(kpis, key=lambda e_kpi: e_kpi.cost),
@@ -120,6 +120,8 @@ def plot_evaluations(evaluations: list[EvaluationKPIs | list[EvaluationKPIs]],
 
     plt.xlabel("Cost")
     plt.ylabel("Improvement")
+    plt.title(evaluations_kpis[0][0].evaluation.base_instance.name)
+    plt.legend(labels=[evaluations_kpis_iter[0].evaluation.alg_string for evaluations_kpis_iter in evaluations_kpis])
 
     plt.show()
 
