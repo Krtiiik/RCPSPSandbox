@@ -1,4 +1,5 @@
 import itertools
+import math
 import random
 from typing import Self, Literal, Iterable, Tuple
 
@@ -284,6 +285,17 @@ class ProblemModifier:
                         consumption_by_resource[r] = job.resource_consumption[r]
 
             job.resource_consumption.consumption_by_resource = consumption_by_resource
+
+        return self
+
+    def scaledown_job_durations(self, max_duration: int) -> Self:
+        max_job_duration = max(j.duration for j in self._jobs)
+        if max_job_duration <= max_duration:
+            return self
+
+        scale = max_duration / max_job_duration
+        for job in self._jobs:
+            job.duration = min(max_duration, math.floor(scale * job.duration))
 
         return self
 
