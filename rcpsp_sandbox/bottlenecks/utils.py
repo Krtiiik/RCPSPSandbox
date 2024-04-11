@@ -21,6 +21,7 @@ def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance,
         consumption_f = compute_resource_consumption(instance, solution, resource)
         consumption_f = [(s, e, -c) for s, e, c in consumption_f]
         surplus_f = interval_overlap_function(capacity_f + consumption_f, first_x=0, last_x=instance.horizon)
+        surplus_f = [(s, e, max(0, c)) for s, e, c in surplus_f]
         surpluses[resource.key] = surplus_f
     return surpluses
 
