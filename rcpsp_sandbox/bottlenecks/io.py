@@ -5,7 +5,7 @@ from typing import Iterable
 
 from bottlenecks.evaluations import Evaluation, EvaluationLightweight, EvaluationKPIs, EvaluationKPIsLightweight, \
     EvaluationAlgorithm
-from solver.solution import Solution
+from solver.solution import Solution, IntervalSolution
 from utils import try_open_read
 
 
@@ -85,11 +85,10 @@ def parse_evaluations_kpis(filename: str) -> dict[str, EvaluationKPIsLightweight
 
 def __serialize_evaluation(evaluation):
     def serialize_solution(_solution: Solution):
-        return [{
-            "job_id": _job_id,
+        return {_job_id: {
             "start": _interval_solution.start,
             "end": _interval_solution.end,
-        } for _job_id, _interval_solution in _solution.job_interval_solutions.items()]
+        } for _job_id, _interval_solution in _solution.job_interval_solutions.items()}
 
     return {
         "base_instance": evaluation.base_instance.name,
@@ -104,7 +103,8 @@ def __serialize_evaluation(evaluation):
 
 def __parse_evaluation(evaluation):
     def parse_solution(_solution):
-        return {int(_int_sol["job_id"]): (int(_int_sol["start"]), int(_int_sol["end"])) for _int_sol in _solution}
+        return {int(_job_id): IntervalSolution(int(_int_solution["start"]), int(_int_solution["end"]))
+                for _job_id, _int_solution in _solution.items()}
 
     return EvaluationLightweight(
         base_instance=evaluation["base_instance"],

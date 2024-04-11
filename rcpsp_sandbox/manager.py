@@ -95,9 +95,7 @@ class ExperimentManager:
         if inst_alg_sett in self._evaluations_cache:
             return self._evaluations_cache[inst_alg_sett]
 
-        if inst_alg not in self._evaluations_light_cache:  # Load ints-alg light evaluations into cache
-            self._evaluations_light_cache[inst_alg] = bio.parse_evaluations(os.path.join(self._evaluations_location, inst_alg+'.json'))
-
+        self.__update_evaluations_light_cache(inst_alg)
         if settings not in self._evaluations_light_cache[inst_alg]:  # The requested evaluation has not yet been computed or saved
             raise ValueError("Requested evaluation could not be found.")
 
@@ -123,9 +121,7 @@ class ExperimentManager:
         if inst_alg_sett in self._evaluations_kpis_cache:
             return self._evaluations_kpis_cache[inst_alg_sett]
 
-        if inst_alg not in self._evaluations_kpis_light_cache:
-            self._evaluations_kpis_light_cache[inst_alg] = bio.parse_evaluations_kpis(os.path.join(self._evaluations_kpis_location, inst_alg+'.json'))
-
+        self.__update_evaluations_kpis_light_cache(inst_alg)
         if settings not in self._evaluations_kpis_light_cache[inst_alg]:
             raise ValueError("Requested evaluation could not be found.")
 
@@ -158,6 +154,40 @@ class ExperimentManager:
     def save_evaluations_kpis(self, evaluations_kpis: Iterable[EvaluationKPIs]):
         for evaluation_kpis in evaluations_kpis:
             self.save_evaluation_kpis(evaluation_kpis)
+
+    def is_evaluation_cached(self, instance_name: str, evaluation_id: str) -> bool:
+        alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
+        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_id}'
+        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
+
+        self.__update_evaluations_light_cache(inst_alg)
+
+        return (inst_alg_sett in self._evaluations_cache
+                or (inst_alg in self._evaluations_light_cache
+                    and settings in self._evaluations_light_cache[inst_alg]))
+
+    def is_evaluation_kpis_cached(self, instance_name: str, evaluation_kpis_id: str) -> bool:
+        alg, settings = evaluation_alg_string(evaluation_kpis_id), evaluation_settings_string(evaluation_kpis_id)
+        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis_id}'
+        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
+
+        self.__update_evaluations_kpis_light_cache(inst_alg)
+
+        return (inst_alg_sett in self._evaluations_kpis_cache
+                or (inst_alg in self._evaluations_kpis_light_cache
+                    and settings in self._evaluations_kpis_light_cache[inst_alg]))
+
+    def __update_evaluations_light_cache(self, inst_alg: str):
+        bio.serialize_evaluations(self._evaluations_cache.values(), self._evaluations_location)
+        inst_alg_filename = os.path.join(self._evaluations_location, inst_alg+'.json')
+        if os.path.exists(inst_alg_filename):
+            self._evaluations_light_cache[inst_alg] = bio.parse_evaluations(inst_alg_filename)
+
+    def __update_evaluations_kpis_light_cache(self, inst_alg: str):
+        bio.serialize_evaluations_kpis(self._evaluations_kpis_cache.values(), self._evaluations_kpis_location)
+        inst_alg_filename = os.path.join(self._evaluations_kpis_location, inst_alg+'.json')
+        if os.path.exists(inst_alg_filename):
+            self._evaluations_kpis_light_cache[inst_alg] = bio.parse_evaluations_kpis(inst_alg_filename)
 
     def __enter__(self):
         return self

@@ -319,6 +319,7 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
 
 def evaluate_algorithms(problem: ProblemSetup,
                         algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]],
+                        cache_manager=None,
                         ) -> list[list[Evaluation]]:
     algorithms, alg_settings = __construct_settings(algorithms_settings)
 
@@ -338,7 +339,12 @@ def evaluate_algorithms(problem: ProblemSetup,
 
         algorithm_evaluations = []
         for i_setting, setting in enumerate(settings):
-            result = algorithm.evaluate(problem, setting)
+            evaluation_id = algorithm.represent(setting)
+            if cache_manager and cache_manager.is_evaluation_cached(problem.instance.name, evaluation_id):
+                result = cache_manager.load_evaluation(problem.instance.name, evaluation_id)
+            else:
+                result = algorithm.evaluate(problem, setting)
+
             algorithm_evaluations.append(result)
 
             print(f"\r{print_prefix}: ({1+i_setting:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
