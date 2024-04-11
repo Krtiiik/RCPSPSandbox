@@ -284,25 +284,29 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
     def settings_type(self) -> type:
         """Gets the type of the algorithm settings type"""
 
-    @property
-    @abc.abstractmethod
-    def shortname(self) -> str:
-        """Gets a short name of the algorithm."""
-
-    @abc.abstractmethod
-    def represent(self, settings) -> str:
-        """Constructs a representation of the algorithm using its settings."""
-
-    @abc.abstractmethod
-    def represent_short(self, settings) -> str:
-        """Constructs a representation of the algorithm using its settings."""
-
     @abc.abstractmethod
     def _run(self,
              base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
              settings,
              ) -> tuple[ProblemInstance, Solution]:
         """Runs the algorithm."""
+
+    @property
+    def shortname(self) -> str:
+        """Gets a short name of the algorithm."""
+        return ''.join(filter(str.isupper, type(self).__name__))
+
+    def represent(self, settings) -> str:
+        """Constructs a representation of the algorithm using its settings."""
+        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
+        alg_str = type(self).__name__
+        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
+
+    def represent_short(self, settings) -> str:
+        """Constructs a representation of the algorithm using its settings."""
+        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
+        alg_str = self.shortname
+        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
 
     def evaluate(self, problem: ProblemSetup, settings) -> Evaluation:
         """Evaluates the given instance."""

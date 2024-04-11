@@ -8,7 +8,7 @@ from intervaltree import IntervalTree
 
 from bottlenecks.evaluations import EvaluationAlgorithm
 from bottlenecks.utils import jobs_consuming_resource, compute_resource_shift_starts, \
-    compute_resource_shift_ends,compute_resource_consumption, compute_capacity_surpluses, \
+    compute_resource_shift_ends, compute_resource_consumption, compute_capacity_surpluses, \
     group_consecutive_intervals
 from instances.algorithms import build_instance_graph
 from instances.problem_instance import ProblemInstance, ResourceConsumption, compute_resource_periodical_availability, \
@@ -29,20 +29,6 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     @property
     def settings_type(self) -> type:
         return TimeVariableConstraintRelaxingAlgorithmSettings
-
-    @property
-    def shortname(self) -> str:
-        return ''.join(filter(str.isupper, type(self).__name__))
-
-    def represent(self, settings) -> str:
-        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
-        alg_str = type(self).__name__
-        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
-
-    def represent_short(self, settings) -> str:
-        settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
-        alg_str = self.shortname
-        return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
 
     def _run(self,
              base_instance: ProblemInstance, base_solution: Solution, target_job_id: int,
