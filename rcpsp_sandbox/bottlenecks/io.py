@@ -12,16 +12,22 @@ from utils import try_open_read
 def serialize_evaluations(evaluations: Iterable[Evaluation],
                           location: str,
                           ):
-    evaluations_by_alg = defaultdict(list)
+    evaluations_by_inst_alg = defaultdict(list)
     for evaluation in evaluations:
-        alg = evaluation.alg_string
-        evaluations_by_alg[alg].append(evaluation)
+        inst_alg = f'{evaluation.base_instance.name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation.alg_string}'
+        evaluations_by_inst_alg[inst_alg].append(evaluation)
 
-    for alg, alg_evaluations in evaluations_by_alg.items():
+    for inst_alg, inst_alg_evaluations in evaluations_by_inst_alg.items():
         evaluations_obj = {evaluation.settings_string: __serialize_evaluation(evaluation)
-                           for evaluation in alg_evaluations}
+                           for evaluation in inst_alg_evaluations}
+
+        filename = os.path.join(location, inst_alg+'.json')
+        if os.path.exists(filename):
+            existing_obj = try_open_read(filename, json.load)
+            evaluations_obj = existing_obj | evaluations_obj
+
         json_str = json.dumps(evaluations_obj)
-        with open(os.path.join(location, alg+'.json'), "wt") as file:
+        with open(filename, "wt") as file:
             file.write(json_str)
 
 
@@ -36,16 +42,22 @@ def serialize_evaluations_kpis(evaluations_kpis: Iterable[EvaluationKPIs],
             "schedule_difference": _evaluation_kpis.schedule_difference,
         }
 
-    evaluations_kpis_by_alg = defaultdict(list)
+    evaluations_kpis_by_inst_alg = defaultdict(list)
     for evaluation_kpis in evaluations_kpis:
-        alg = evaluation_kpis.evaluation.alg_string
-        evaluations_kpis_by_alg[alg].append(evaluation_kpis)
+        inst_alg = f'{evaluation_kpis.evaluation.base_instance.name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis.evaluation.alg_string}'
+        evaluations_kpis_by_inst_alg[inst_alg].append(evaluation_kpis)
 
-    for alg, alg_evaluations_kpis in evaluations_kpis_by_alg.items():
+    for inst_alg, alg_evaluations_kpis in evaluations_kpis_by_inst_alg.items():
         evaluations_kpis_obj = {evaluation_kpis.evaluation.settings_string: serialize_evaluation_kpis(evaluation_kpis)
                                 for evaluation_kpis in alg_evaluations_kpis}
+
+        filename = os.path.join(location, inst_alg+'.json')
+        if os.path.exists(filename):
+            existing_obj = try_open_read(filename, json.load)
+            evaluations_kpis_obj = existing_obj | evaluations_kpis_obj
+
         json_str = json.dumps(evaluations_kpis_obj)
-        with open(os.path.join(location, alg+'.json'), "wt") as file:
+        with open(os.path.join(location, inst_alg+'.json'), "wt") as file:
             file.write(json_str)
 
 
