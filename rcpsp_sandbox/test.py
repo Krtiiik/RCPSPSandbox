@@ -2,7 +2,7 @@ import os.path
 import random
 
 from bottlenecks.evaluations import evaluate_algorithms, ProblemSetup, compute_evaluation_kpis
-from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm
+from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm
 from manager import ExperimentManager
 from utils import flatten
 
@@ -29,6 +29,14 @@ def main():
                 "max_iterations": [1, 2, 3],
                 "relax_granularity": [1],
                 "max_improvement_intervals": [1, 2, 3]
+            }),
+            (MetricsRelaxingAlgorithm(), {
+                "metric": ["auac"],
+                "granularity": [4],
+                "convolution_mask": ["pre1"],
+                "max_iterations": [1, 2, 3],
+                "max_improvement_intervals": [1, 2, 3],
+                "capacity_addition": [2, 4, 6, 8, 10],
             }),
         ])
         evaluations_kpis = compute_evaluation_kpis(evaluations, 5, 1)

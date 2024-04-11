@@ -11,7 +11,7 @@ from solver.solution import Solution
 from utils import print_error, intervals_overlap, modify_tuple
 
 T_MetricResult = float
-T_Evaluation = dict[Resource, T_MetricResult]
+T_Evaluation = dict[str, T_MetricResult]
 
 T_Period = list[tuple[CpoIntervalVarSolution, Job]]
 
@@ -35,7 +35,7 @@ def evaluate_solution(solution: Solution,
 
     resource_metrics = T_Evaluation()
     for resource in instance.resources:
-        resource_metrics[resource] = evaluation_metric(solution, instance, resource)
+        resource_metrics[resource.key] = evaluation_metric(solution, instance, resource)
     return MetricEvaluation(evaluation_name, resource_metrics)
 
 
@@ -43,7 +43,7 @@ def print_evaluation(instance: ProblemInstance, evaluations: Iterable[MetricEval
     evaluation_data = []
     resources_sorted_by_key = sorted(instance.resources, key=lambda r: r.key)
     for resource in resources_sorted_by_key:
-        resource_evaluations = [resource.key] + [me.evaluation[resource] for me in evaluations]
+        resource_evaluations = [resource.key] + [me.evaluation[resource.key] for me in evaluations]
         resource_evaluations = tuple(resource_evaluations)
         evaluation_data.append(resource_evaluations)
 
