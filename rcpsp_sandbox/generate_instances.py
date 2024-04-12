@@ -32,7 +32,7 @@ def build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
 
 
 experiment_instances: dict[str, InstanceSetup] = {
-    # ------------------------------------------------------------------------------------------------------------------
+    # --- 30 jobs 4 resources ------------------------------------------------------------------------------------------
     "instance01": InstanceSetup(
         base_filename="j3011_4.sm",
         name="instance01",
@@ -60,7 +60,7 @@ experiment_instances: dict[str, InstanceSetup] = {
         target_job=29,
         scaledown_durations=False,
     ),
-    # ------------------------------------------------------------------------------------------------------------------
+    # --- 30 jobs 2 resources ------------------------------------------------------------------------------------------
     "instance02": InstanceSetup(
         base_filename="j3010_2.sm",
         name="instance02",
@@ -86,10 +86,31 @@ experiment_instances: dict[str, InstanceSetup] = {
         target_job=26,
         scaledown_durations=False,
     ),
-    # ------------------------------------------------------------------------------------------------------------------
+    # --- 60 jobs 1 resource Single tardy ------------------------------------------------------------------------------
     "instance03": InstanceSetup(
         base_filename="j6010_7.sm",
         name="instance03",
+        gradual_level=1,
+        shifts={
+            "R1": MORNING | AFTERNOON,
+        },
+        due_dates={
+            59: 94,
+            60: 94,
+            62: 94,
+        },
+        tardiness_weights={
+            59: 1,
+            60: 1,
+            62: 3,
+        },
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    # --- 60 jobs 1 resource All tardy ---------------------------------------------------------------------------------
+    "instance04": InstanceSetup(
+        base_filename="j6010_7.sm",
+        name="instance04",
         gradual_level=1,
         shifts={
             "R1": MORNING | AFTERNOON,
@@ -107,10 +128,10 @@ experiment_instances: dict[str, InstanceSetup] = {
         target_job=62,
         scaledown_durations=False,
     ),
-    # ------------------------------------------------------------------------------------------------------------------
-    "instance04": InstanceSetup(
+    # --- 60 jobs 4 resources ------------------------------------------------------------------------------------------
+    "instance05": InstanceSetup(
         base_filename="j6011_10.sm",
-        name="instance04",
+        name="instance05",
         gradual_level=1,
         shifts={
             "R1": MORNING | AFTERNOON,

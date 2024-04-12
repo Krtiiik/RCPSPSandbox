@@ -4,6 +4,7 @@ import random
 from bottlenecks.drawing import plot_evaluations, plot_solution
 from bottlenecks.evaluations import evaluate_algorithms, compute_evaluation_kpis
 from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm
+from generate_instances import experiment_instances
 from manager import ExperimentManager
 from utils import flatten
 
@@ -21,15 +22,9 @@ PLOT_DIRECTORY = os.path.join('..', 'plots')
 def main():
     random.seed(42)
 
-    instances_to_evaluate = [
-        "instance01",
-        "instance02",
-        "instance03",
-        "instance04",
-    ]
-
+    instance_evaluations_kpis = dict()
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
-        for instance_name in instances_to_evaluate:
+        for instance_name in experiment_instances:
             instance = manager.load_base_instance(instance_name)
             from solver.solver import Solver; plot_solution(Solver().solve(instance))
 
@@ -58,7 +53,9 @@ def main():
             manager.save_evaluations(flatten(evaluations))
             manager.save_evaluations_kpis(flatten(evaluations_kpis))
 
-            plot_evaluations(evaluations_kpis)
+            instance_evaluations_kpis[instance_name] = evaluations_kpis
+
+    plot_evaluations(instance_evaluations_kpis)
 
 
 if __name__ == "__main__":
