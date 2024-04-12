@@ -4,6 +4,7 @@ import math
 from collections import namedtuple
 from typing import Iterable
 
+import numpy as np
 import matplotlib.colors
 import matplotlib.spines
 import matplotlib.patches
@@ -12,10 +13,10 @@ from adjustText import adjust_text
 from matplotlib.ticker import MaxNLocator
 
 import utils
-from bottlenecks.evaluations import EvaluationKPIs
+from bottlenecks.evaluations import EvaluationKPIs, Evaluation
 from bottlenecks.utils import compute_resource_consumption
 from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability
-from utils import interval_overlap_function
+from utils import interval_overlap_function, flatten
 from solver.solution import Solution
 
 
@@ -83,7 +84,7 @@ class ColorMap:
         return self._cm[self._job_component_index[job_id]]
 
 
-def plot_evaluation(evaluation, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
+def plot_solution_comparison(evaluation: Evaluation, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
     def get(iterable, i): return None if iterable is None else iterable[i]
     horizon = max(max(int_sol.end for int_sol in evaluation.base_solution.job_interval_solutions.values()),
                   max(int_sol.end for int_sol in evaluation.solution.job_interval_solutions.values()))
@@ -91,39 +92,59 @@ def plot_evaluation(evaluation, block: bool = True, save_as: list[str] = None, d
     plot_solution(evaluation.solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
 
 
-def plot_evaluations(evaluations_kpis: list[EvaluationKPIs | list[EvaluationKPIs]],
+def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
                      ):
-    if not isinstance(evaluations_kpis[0], list):
-        evaluations_kpis = [evaluations_kpis]
+    f: plt.Figure
+    axarr: np.ndarray[plt.Axes]
+    n_rows = math.ceil(len(instance_evaluations_kpis) / 2)
+    f, axarr = plt.subplots(nrows=n_rows, ncols=2, height_ratios=n_rows*[1])
 
-    plt.grid(which='both', axis='both', ls='--')
-    for evaluation_kpis in evaluations_kpis:
-        costs = [evaluation_kpi.cost for evaluation_kpi in evaluation_kpis]
-        improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluation_kpis]
-        plt.scatter(costs, improvements)
+    for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten()):
+        __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name)
 
-    def get_name(_evaluation):
-        _alg, _settings = _evaluation.by.split('--')
-        _alg = ''.join(itertools.filterfalse(str.islower, _alg))
-        return f'{_alg}-{_settings}'
+    for axes in axarr.flatten()[len(instance_evaluations_kpis):]:
+        axes.set_axis_off()
 
-    interesting_evaluation_kpis = [kpi for kpis in evaluations_kpis
-                                   for kpi in [
-                                       min(kpis, key=lambda e_kpi: e_kpi.cost),
-                                       max(kpis, key=lambda e_kpi: e_kpi.cost),
-                                       min(kpis, key=lambda e_kpi: e_kpi.improvement),
-                                       max(kpis, key=lambda e_kpi: e_kpi.improvement),
-                                   ]]
-    texts = [plt.text(evaluation_kpi.cost, evaluation_kpi.improvement, get_name(evaluation_kpi.evaluation), ha='center', va='top')
-             for evaluation_kpi in interesting_evaluation_kpis]
-    adjust_text(texts, expand_axes=True, arrowprops=dict(arrowstyle='->', color='gray'))
+    f.legend(labels=[evaluations_kpis[0].evaluation.alg_string for evaluations_kpis in instance_evaluations_kpis[next(iter(instance_evaluations_kpis))]],
+             loc='lower center'
+             )
 
-    plt.xlabel("Cost")
-    plt.ylabel("Improvement")
-    plt.title(evaluations_kpis[0][0].evaluation.base_instance.name)
-    plt.legend(labels=[evaluations_kpis_iter[0].evaluation.alg_string for evaluations_kpis_iter in evaluations_kpis])
-
+    f.tight_layout()
+    f.set_size_inches(8, axarr.shape[0]*3)
+    f.subplots_adjust(hspace=0.5,
+                      wspace=0.3,
+                      top=0.95,
+                      bottom=0.1,
+                      left=0.15,
+                      right=0.95
+                      )
     plt.show()
+
+
+def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[EvaluationKPIs]], axes: plt.Axes,
+                                       title: str = None,
+                                       evaluations_kpis_to_annotate: Iterable[str] = None,
+                                       ):
+    evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None else ())
+
+    axes.grid(which='both', axis='both', ls='--')
+    for evaluations_kpis in algorithms_evaluations_kpis:
+        costs = [evaluation_kpi.cost for evaluation_kpi in evaluations_kpis]
+        improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluations_kpis]
+        axes.scatter(costs, improvements)
+
+    def get_name(_evaluation): return f'{"".join(filter(str.isupper, _evaluation.alg_string))}-{_evaluation.settings_string}'
+    annotations = [axes.text(e_kpis.cost, e_kpis.improvement, get_name(e_kpis.evaluation), ha='center', va='center')
+                   for e_kpis in flatten(algorithms_evaluations_kpis)
+                   if e_kpis.evaluation.by in evaluations_kpis_to_annotate]
+
+    axes.set_xlabel("Cost")
+    axes.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+    axes.set_ylabel("Improvement")
+    axes.yaxis.set_label_coords(-0.15, 0.5)
+    axes.yaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+    if title is not None:
+        axes.set_title(title)
 
 
 def plot_solution(solution: Solution,

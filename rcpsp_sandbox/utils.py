@@ -55,7 +55,7 @@ def intervals_overlap(i1, i2):
     return i1[0] < i2[1] and i2[0] < i1[1]
 
 
-def flatten(iterables: Iterable[Iterable]):
+def flatten(iterables: Iterable[Iterable[T]]) -> Iterable[T]:
     return itertools.chain.from_iterable(iterables)
 
 
