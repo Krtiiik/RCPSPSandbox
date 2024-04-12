@@ -174,8 +174,9 @@ def plot_solution(solution: Solution,
     __resources_panels(solution, axarr[1:], params,
                        split_consumption=split_consumption, highlight_consumption=highlight)
 
+    f.suptitle(solution.instance.name)
     f.tight_layout()
-    f.subplots_adjust(hspace=0.1, top=0.95, bottom=0.05, left=0.1, right=0.95)
+    f.subplots_adjust(hspace=0.1, top=0.92, bottom=0.05, left=0.1, right=0.95)
     f.set_size_inches(dimensions)
     f.set_dpi(300)
 
