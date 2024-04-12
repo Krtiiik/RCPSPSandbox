@@ -313,10 +313,10 @@ def reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
 
             # Find the resource to migrate from based on the most capacity that can be migrated
             _take_from = max(_possible_migrations.items(),
-                             key=(lambda _r_key__migrations: sum(c for s, e, c in _r_key__migrations[1]))
-                             )[0]
+                             key=(lambda _r_key__migrations: sum(c for s, e, c in _r_key__migrations[1])),
+                             default=(None, None))[0]
 
-            _total_migration = sum(c for s, e, c in _possible_migrations[_take_from])
+            _total_migration = 0 if _take_from is None else sum(c for s, e, c in _possible_migrations[_take_from])
             if _total_migration == 0:  # If no more migrations are possible...
                 break
 

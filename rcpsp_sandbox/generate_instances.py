@@ -191,42 +191,35 @@ def build_instance(instance_name: str,
 if __name__ == "__main__":
 
     import os
-    import functools
     from bottlenecks.drawing import plot_solution
     from instances.drawing import plot_components
     from solver.solver import Solver
-    from bottlenecks.metrics import evaluate_solution, average_uninterrupted_active_consumption, print_evaluation
 
-    instance_name = 'instance04'
-    instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
-    instance.horizon = 2000
-    plot_components(instance)
-    solution = Solver().solve(instance)
-    plot_solution(solution, split_consumption=True, orderify_legends=True,
-                  # dimensions=(8, 8)
-                  )
-    print_evaluation(solution.instance, [
-         evaluate_solution(solution, functools.partial(average_uninterrupted_active_consumption, average_over="consumption ratio"))
-    ])
+    for instance_name in experiment_instances:
+        instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
+        plot_components(instance)
+        solution = Solver().solve(instance)
+        plot_solution(solution, split_consumption=True, orderify_legends=True,
+                      # dimensions=(8, 8)
+                      )
 
     exit()
 
-    from instances.drawing import plot_components
-    from instances.problem_modifier import modify_instance
-    import os
-    inst = 'j60'
-    base_dir = os.path.join('..', '..', 'Data', inst)
-    filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
-    instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
-
-    instances_ = []
-    for instance in instances:
-        random.seed(42)
-        instances_.append(modify_instance(instance)
-                          .split_job_components(split="gradual", gradual_level=1)
-                          .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
-                          .generate_modified_instance(instance.name + '_split'))
-    instances = instances_
-    for instance in instances[:50]:
-        plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
+    # from instances.drawing import plot_components
+    # from instances.problem_modifier import modify_instance
+    # import os
+    # inst = 'j90'
+    # base_dir = os.path.join('..', '..', 'Data', inst)
+    # filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
+    # instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
+    #
+    # instances_ = []
+    # for instance in instances:
+    #     instances_.append(modify_instance(instance)
+    #                       .split_job_components(split="gradual", gradual_level=2)
+    #                       .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
+    #                       .generate_modified_instance(instance.name + '_split'))
+    # instances = instances_
+    # for instance in instances[:50]:
+    #     plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
 
