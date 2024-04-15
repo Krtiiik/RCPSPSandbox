@@ -301,7 +301,8 @@ def reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
             for _r_from_key in capacity_surpluses:
                 if _r_from_key == _r_to_key:
                     continue
-                _possible_migrations[_r_from_key] = [(s, e, min_surplus_in_range(_r_from_key, s, e)) for s, e, c in _change_group]
+                _possible_migrations[_r_from_key] = [(chng[0], chng[1], min(_changes_to_find[i], min_surplus_in_range(_r_from_key, chng[0], chng[1])))
+                                                     for i, chng in enumerate(_change_group)]
 
             # Find the resource to migrate from based on the most capacity that can be migrated
             _take_from = max(_possible_migrations.items(),
@@ -314,7 +315,7 @@ def reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
 
             _new_migrations = [CapacityMigration(_r_to_key, s, e, c) for s, e, c in _possible_migrations[_take_from] if c > 0]
 
-            _migrations[_take_from] = _new_migrations
+            _migrations[_take_from] += _new_migrations
             update_surplus(_take_from, _new_migrations)
             _to_find -= _total_migration
             for _i, _mig in enumerate(_possible_migrations[_take_from]):

@@ -3,7 +3,8 @@ import random
 
 from bottlenecks.drawing import plot_evaluations, plot_solution
 from bottlenecks.evaluations import evaluate_algorithms, compute_evaluation_kpis
-from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm
+from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm, \
+    TimeVariableConstraintRelaxingAlgorithmSettings
 from generate_instances import experiment_instances
 from manager import ExperimentManager
 from utils import flatten
@@ -30,7 +31,7 @@ def main():
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
         for instance_name in instances:
             instance = manager.load_base_instance(instance_name)
-            from solver.solver import Solver; plot_solution(Solver().solve(instance))
+            from solver.solver import Solver; plot_solution(Solver().solve(instance), block=False)
 
             evaluations = evaluate_algorithms(
                 instance,

@@ -114,7 +114,7 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
     f.subplots_adjust(hspace=0.5,
                       wspace=0.3,
                       top=0.95,
-                      bottom=0.1,
+                      bottom=0.15,
                       left=0.15,
                       right=0.95
                       )
@@ -308,6 +308,7 @@ def __resources_panels(solution: Solution,
         __plot_dividers(params.dividers, axes, params)
         __plot_step_function(availability, axes, params, color=params.colormap.resource_capacity(resource.key), fill=True)
 
+        # TODO highlight added consumption
         if split_consumption:
             component_jobs = {root_job.id_job: {j.id_job for j in jobs}
                               for root_job, jobs in compute_component_jobs(instance).items()}
