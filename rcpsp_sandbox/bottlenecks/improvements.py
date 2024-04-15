@@ -27,6 +27,9 @@ TimeVariableConstraintRelaxingAlgorithmSettings = namedtuple("TimeVariableConstr
                                                              ("max_iterations", "relax_granularity", "max_improvement_intervals"))
 
 
+OLD = False
+
+
 class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     def __init__(self):
         super().__init__()
@@ -62,16 +65,16 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
     def __find_intervals_to_relax(settings: TimeVariableConstraintRelaxingAlgorithmSettings,
                                   instance: ProblemInstance, solution: Solution,
                                   ) -> dict[str, list[CapacityChange]]:
-        _, improvement_intervals = relaxed_interval_consumptions(instance, solution, granularity=settings.relax_granularity, component=instance.target_job)
-        ints = [(resource_key, start, end, consumption, improvement)
-                for resource_key, improvements in improvement_intervals.items()
-                for start, end, consumption, improvement in improvements]
-        ints.sort(key=lambda i: i[4], reverse=True)  # Sort by improvement
-        best_intervals = ints[:settings.max_improvement_intervals]
+        improvement_intervals = relaxed_interval_consumptions(instance, solution, granularity=settings.relax_granularity, component=instance.target_job)
+        improvement_intervals.sort(key=lambda i: i[3], reverse=True)  # Sort by improvement
+        best_intervals = improvement_intervals[:settings.max_improvement_intervals]
 
         best_intervals_by_resource = defaultdict(list)
-        for resource_key, start, end, consumption, improvement in best_intervals:
-            best_intervals_by_resource[resource_key].append(CapacityChange(start, end, consumption))
+        for start, end, consumption, improvement in best_intervals:
+            for resource in consumption.consumption_by_resource:
+                if consumption[resource] > 0:
+                    best_intervals_by_resource[resource.key].append(CapacityChange(start, end, consumption[resource]))
+
         return best_intervals_by_resource
 
 
@@ -188,19 +191,8 @@ def relaxed_interval_consumptions(instance: ProblemInstance, solution: Solution,
         lists of tuples representing the relaxed intervals for each resource. Each tuple contains the start time, end time,
         the resource consumption, and the start time improvement of the interval under this relaxation.
     """
-
-    interval_consumptions: dict[int, list[tuple[int, int, ResourceConsumption, int]]] = time_relaxed_suffix_consumptions(instance, solution, granularity, component)
-    interval_consumptions_by_resource: dict[str, list[tuple[int, int, int]]] = defaultdict(list)
-    improvements_by_resource: dict[str, list[int]] = defaultdict(list)
-
-    for start, end, consumptions, improvement in itertools.chain(*interval_consumptions.values()):
-        for resource in consumptions.consumption_by_resource:
-            if consumptions.consumption_by_resource[resource] > 0:
-                interval_consumptions_by_resource[resource.key].append((start, end, consumptions.consumption_by_resource[resource]))
-                improvements_by_resource[resource.key].append(improvement)
-
-    result = {r: interval_overlap_function(interval_consumptions_by_resource[r], first_x=0, last_x=instance.horizon) for r in interval_consumptions_by_resource}
-    return result, {r: [(c[0], c[1], c[2], impr) for c, impr in zip(cons, improvements_by_resource[r])] for r, cons in interval_consumptions_by_resource.items()}
+    intervals_consumptions = time_relaxed_suffix_consumptions(instance, solution, granularity, component)
+    return list(itertools.chain.from_iterable(intervals_consumptions.values()))
 
 
 def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> Iterable[int]:

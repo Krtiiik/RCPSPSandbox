@@ -22,9 +22,13 @@ PLOT_DIRECTORY = os.path.join('..', 'plots')
 def main():
     random.seed(42)
 
+    instances = list(experiment_instances) + [
+        "instance120",
+    ]
+
     instance_evaluations_kpis = dict()
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
-        for instance_name in experiment_instances:
+        for instance_name in instances:
             instance = manager.load_base_instance(instance_name)
             from solver.solver import Solver; plot_solution(Solver().solve(instance))
 
@@ -38,6 +42,14 @@ def main():
                     }),
                     (MetricsRelaxingAlgorithm(), {
                         "metric": ["auac"],
+                        "granularity": [4],
+                        "convolution_mask": ["pre1"],
+                        "max_iterations": [1, 2, 3],
+                        "max_improvement_intervals": [1, 2, 3],
+                        "capacity_addition": [2, 4, 6, 8, 10],
+                    }),
+                    (MetricsRelaxingAlgorithm(), {
+                        "metric": ["mrur"],
                         "granularity": [4],
                         "convolution_mask": ["pre1"],
                         "max_iterations": [1, 2, 3],
