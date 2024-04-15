@@ -16,7 +16,7 @@ from bottlenecks.utils import jobs_consuming_resource, compute_resource_shift_st
     compute_resource_shift_ends, compute_resource_consumption, compute_capacity_surpluses, \
     group_consecutive_intervals
 from instances.algorithms import build_instance_graph
-from instances.problem_instance import ProblemInstance, ResourceConsumption, compute_resource_periodical_availability, \
+from instances.problem_instance import ProblemInstance, compute_resource_periodical_availability, \
     CapacityMigration, CapacityChange, Resource
 from instances.problem_modifier import modify_instance
 from solver.model_builder import add_hot_start
@@ -24,13 +24,19 @@ from solver.solution import Solution
 from utils import interval_overlap_function, intervals_overlap
 
 TimeVariableConstraintRelaxingAlgorithmSettings = namedtuple("TimeVariableConstraintRelaxingAlgorithmSettings",
-                                                             ("max_iterations", "relax_granularity", "max_improvement_intervals"))
+                                                             ("max_iterations", "relax_granularity", "max_improvement_intervals",
+                                                              "interval_sort"))
 
 
 OLD = False
 
 
 class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
+    INTERVAL_SORTS = {
+        "improvement": (lambda itv: -itv[3]),
+        "time": (lambda itv: (-itv[0], -itv[1]))
+    }
+
     def __init__(self):
         super().__init__()
 
@@ -45,6 +51,8 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         def modified_instance_name(): return (f'{modified_instance.name.split(EvaluationAlgorithm.ID_SEPARATOR)[0]}'
                                               f'{EvaluationAlgorithm.ID_SEPARATOR}{self.represent_short(settings)}'
                                               f'{EvaluationAlgorithm.ID_SUB_SEPARATOR}{i_iter}')
+        if settings.interval_sort.lower() not in self.INTERVAL_SORTS:
+            raise ValueError("Unrecognized interval sort")
 
         modified_instance = base_instance.copy()
         solution = base_solution
@@ -61,12 +69,12 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
         return modified_instance, solution
 
-    @staticmethod
-    def __find_intervals_to_relax(settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+    def __find_intervals_to_relax(self,
+                                  settings: TimeVariableConstraintRelaxingAlgorithmSettings,
                                   instance: ProblemInstance, solution: Solution,
                                   ) -> dict[str, list[CapacityChange]]:
-        improvement_intervals = relaxed_interval_consumptions(instance, solution, granularity=settings.relax_granularity, component=instance.target_job)
-        improvement_intervals.sort(key=lambda i: i[3], reverse=True)  # Sort by improvement
+        improvement_intervals = self.relaxed_interval_consumptions(instance, solution, settings, component=instance.target_job)
+        improvement_intervals.sort(key=self.INTERVAL_SORTS[settings.interval_sort])
         best_intervals = improvement_intervals[:settings.max_improvement_intervals]
 
         best_intervals_by_resource = defaultdict(list)
@@ -77,189 +85,189 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
         return best_intervals_by_resource
 
+    @staticmethod
+    def time_relaxed_suffixes(instance: ProblemInstance, solution: Solution,
+                              settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                              ):
+        """
+        Calculate the start times and first job indicators for each job at different time intervals.
 
-def time_relaxed_suffixes(instance: ProblemInstance, solution: Solution,
-                          granularity: int = 1,
-                          ):
-    """
-    Calculate the start times and first job indicators for each job at different time intervals.
+        Given a solution to a given problem isntance, this function calculates the possible start times for each job
+        at different time intervals under the assumption that the job can start at any time within the interval - ignoring
+        capacity constraints.
 
-    Given a solution to a given problem isntance, this function calculates the possible start times for each job
-    at different time intervals under the assumption that the job can start at any time within the interval - ignoring
-    capacity constraints.
+        The first job indicator is a boolean value indicating whether the job is the first among its precedence predecessors
+        to start in the given time interval under the assumption.
 
-    The first job indicator is a boolean value indicating whether the job is the first among its precedence predecessors
-    to start in the given time interval under the assumption.
-
-    Args:
-        instance (ProblemInstance): The problem instance.
-        solution (Solution): The solution containing job interval solutions.
-        granularity (int, optional): The time interval granularity. Defaults to 1.
-
-    Returns:
-        Tuple[Dict[int, Dict[int, int]], Dict[int, Dict[int, bool]]]: A tuple containing two dictionaries:
-            - t_job_start: A dictionary mapping time intervals to job IDs and their corresponding start times.
-            - t_job_first: A dictionary mapping time intervals to job IDs and their corresponding first job indicators.
-    """
-
-    start_times = {job.id_job: solution.job_interval_solutions[job.id_job].start for job in instance.jobs}
-    durations = {job.id_job: job.duration for job in instance.jobs}
-    predecessors = {job.id_job: [] for job in instance.jobs}
-    for precedence in instance.precedences:
-        predecessors[precedence.id_parent].append(precedence.id_child)
-
-    t_job_start = {t: dict() for t in range(0, instance.horizon, granularity)}
-    t_job_first = {t: dict() for t in range(0, instance.horizon, granularity)}
-
-    graph = build_instance_graph(instance)
-    jobs_topological = list(nx.topological_sort(graph))
-    for t in range(0, instance.horizon, granularity):
-        for job_id in jobs_topological:
-            if start_times[job_id] <= t:
-                t_job_start[t][job_id] = start_times[job_id]
-                t_job_first[t][job_id] = True
-            else:
-                earliest_bound = max((t_job_start[t][predecessor] + durations[predecessor] for predecessor, _ in graph.in_edges(job_id)), default=0)
-                t_job_start[t][job_id] = earliest_bound
-                t_job_first[t][job_id] = all(start_times[predecessor] <= t for predecessor, _ in graph.in_edges(job_id))
-
-    return t_job_start, t_job_first
+        Args:
+            instance (ProblemInstance): The problem instance.
+            solution (Solution): The solution containing job interval solutions.
 
 
-def time_relaxed_suffix_consumptions(instance: ProblemInstance, solution: Solution,
-                                     granularity: int = 1,
-                                     component: int = None,
-                                     ):
-    """
-    Computes consumptions of relaxed job intervals under the assumption that the job can start at any time within
-    a time interval - ignoring capacity constraints.
+        Returns:
+            Tuple[Dict[int, Dict[int, int]], Dict[int, Dict[int, bool]]]: A tuple containing two dictionaries:
+                - t_job_start: A dictionary mapping time intervals to job IDs and their corresponding start times.
+                - t_job_first: A dictionary mapping time intervals to job IDs and their corresponding first job indicators.
+        """
 
-    Args:
-        instance (ProblemInstance): The problem instance.
-        solution (Solution): The solution.
-        granularity (int, optional): The granularity of the intervals. Defaults to 1.
-        component (int, optional): The component to consider. Defaults to None.
+        start_times = {job.id_job: solution.job_interval_solutions[job.id_job].start for job in instance.jobs}
+        durations = {job.id_job: job.duration for job in instance.jobs}
+        predecessors = {job.id_job: [] for job in instance.jobs}
+        for precedence in instance.precedences:
+            predecessors[precedence.id_parent].append(precedence.id_child)
 
-    Returns:
-        dict: A dictionary containing the relaxed intervals. The keys of the dictionary are job IDs, and the values are
-        lists of tuples representing the relaxed intervals for each job. Each tuple contains the start time and end time
-        of a relaxed interval.
-    """
+        t_job_start = {t: dict() for t in range(0, instance.horizon, settings.relax_granularity)}
+        t_job_first = {t: dict() for t in range(0, instance.horizon, settings.relax_granularity)}
 
-    t_job_start, t_job_first = time_relaxed_suffixes(instance, solution, granularity)
-    durations = {j.id_job: j.duration for j in instance.jobs}
-    consumptions = {j.id_job: j.resource_consumption for j in instance.jobs}
-    start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
-    component_closure = (left_closure(component, instance, solution) if component else set(j.id_job for j in instance.jobs))
+        graph = build_instance_graph(instance)
+        jobs_topological = list(nx.topological_sort(graph))
+        for t in range(0, instance.horizon, settings.relax_granularity):
+            for job_id in jobs_topological:
+                if start_times[job_id] <= t:
+                    t_job_start[t][job_id] = start_times[job_id]
+                    t_job_first[t][job_id] = True
+                else:
+                    earliest_bound = max((t_job_start[t][predecessor] + durations[predecessor] for predecessor, _ in graph.in_edges(job_id)), default=0)
+                    t_job_start[t][job_id] = earliest_bound
+                    t_job_first[t][job_id] = all(start_times[predecessor] <= t for predecessor, _ in graph.in_edges(job_id))
 
-    t_consumptions = defaultdict(list)
-    included = set()
-    for t, t1 in itertools.pairwise(sorted(t_job_start) + [instance.horizon + 1]):
-        for job_id in t_job_start[t]:
-            start = t_job_start[t][job_id]
-            end = start + durations[job_id]
-            if (t <= start < t1
-                and start < start_times[job_id]
-                and job_id not in included
-                and t_job_first[t][job_id]
-                and job_id in component_closure
-            ):
-                t_consumptions[t].append((start, end, consumptions[job_id], start_times[job_id] - start))
-                included.add(job_id)
+        return t_job_start, t_job_first
 
-    return t_consumptions
+    def time_relaxed_suffix_consumptions(self,
+                                         instance: ProblemInstance, solution: Solution,
+                                         settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                                         component: int = None,
+                                         ):
+        """
+        Computes consumptions of relaxed job intervals under the assumption that the job can start at any time within
+        a time interval - ignoring capacity constraints.
 
+        Args:
+            instance (ProblemInstance): The problem instance.
+            solution (Solution): The solution.
 
-def relaxed_interval_consumptions(instance: ProblemInstance, solution: Solution,
-                                  granularity: int = 1,
-                                  component: int = None,
-                                  ):
-    """
-    Calculate consumptions of jobs under a relaxed assumption that the job can start at any time within a time interval.
+            component (int, optional): The component to consider. Defaults to None.
 
-    Args:
-        instance (ProblemInstance): The problem instance.
-        solution (Solution): The solution.
-        granularity (int, optional): The granularity of the intervals. Defaults to 1.
-        component (int, optional): The component to consider. Defaults to None.
+        Returns:
+            dict: A dictionary containing the relaxed intervals. The keys of the dictionary are job IDs, and the values are
+            lists of tuples representing the relaxed intervals for each job. Each tuple contains the start time and end time
+            of a relaxed interval.
+        """
 
-    Returns:
-        resource_consumptions, relaxed_intervals: A tuple containing two dictionaries:
-        - A dictionary containing the resource consumptions. The keys of the dictionary are resources, and the values
-        are consumption step functions.
-        - A dictionary containing the relaxed intervals. The keys of the dictionary are resources, and the values are
-        lists of tuples representing the relaxed intervals for each resource. Each tuple contains the start time, end time,
-        the resource consumption, and the start time improvement of the interval under this relaxation.
-    """
-    intervals_consumptions = time_relaxed_suffix_consumptions(instance, solution, granularity, component)
-    return list(itertools.chain.from_iterable(intervals_consumptions.values()))
+        t_job_start, t_job_first = self.time_relaxed_suffixes(instance, solution, settings)
+        durations = {j.id_job: j.duration for j in instance.jobs}
+        consumptions = {j.id_job: j.resource_consumption for j in instance.jobs}
+        start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
+        component_closure = (self.left_closure(component, instance, solution) if component else set(j.id_job for j in instance.jobs))
 
+        t_consumptions = defaultdict(list)
+        included = set()
+        for t, t1 in itertools.pairwise(sorted(t_job_start) + [instance.horizon + 1]):
+            for job_id in t_job_start[t]:
+                start = t_job_start[t][job_id]
+                end = start + durations[job_id]
+                if (t <= start < t1
+                    and start < start_times[job_id]
+                    and job_id not in included
+                    and t_job_first[t][job_id]
+                    and job_id in component_closure
+                ):
+                    t_consumptions[t].append((start, end, consumptions[job_id], start_times[job_id] - start))
+                    included.add(job_id)
 
-def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> Iterable[int]:
-    """
-    Computes the left closure of a job in the given instance and solution.
+        return t_consumptions
 
-    Args:
-        id_job (int): The ID of the job for which to compute the left closure.
-        instance (ProblemInstance): The problem instance containing the jobs and resources.
-        solution (Solution): The solution containing the job interval solutions.
+    def relaxed_interval_consumptions(self,
+                                      instance: ProblemInstance, solution: Solution,
+                                      settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                                      component: int = None,
+                                      ):
+        """
+        Calculate consumptions of jobs under a relaxed assumption that the job can start at any time within a time interval.
 
-    Returns:
-        Iterable[int]: The set of job IDs in the left closure of the given job.
-    """
+        Args:
+            instance (ProblemInstance): The problem instance.
+            solution (Solution): The solution.
 
-    start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
-    completion_times = {j.id_job: solution.job_interval_solutions[j.id_job].end for j in instance.jobs}
-    durations = {j.id_job: j.duration for j in instance.jobs}
-    graph = build_instance_graph(instance)
-    resource_shift_starts = {r: set(ss) for r, ss in compute_resource_shift_starts(instance).items()}
-    resource_shift_ends = {r: sorted(se) for r, se in compute_resource_shift_ends(instance).items()}
-    resources_interval_trees = {r: IntervalTree.from_tuples((start_times[j.id_job], completion_times[j.id_job], j.id_job)
-                                                            for j, c in jobs_consuming_resource(instance, r))
-                                for r in instance.resources}
+            component (int, optional): The component to consider. Defaults to None.
 
-    completion_time_jobs = defaultdict(set)  # Mapping from time t to jobs with completion time t
-    job_consumption = {}  # Mapping from job to resources the job consumes
-    for job in instance.jobs:
-        job_consumption[job.id_job] = set()
-        completion_time_jobs[completion_times[job.id_job]].add(job.id_job)
-        for r, c in job.resource_consumption.consumption_by_resource.items():
-            if c > 0:
-                job_consumption[job.id_job].add(r)
+        Returns:
+            resource_consumptions, relaxed_intervals: A tuple containing two dictionaries:
+            - A dictionary containing the resource consumptions. The keys of the dictionary are resources, and the values
+            are consumption step functions.
+            - A dictionary containing the relaxed intervals. The keys of the dictionary are resources, and the values are
+            lists of tuples representing the relaxed intervals for each resource. Each tuple contains the start time, end time,
+            the resource consumption, and the start time improvement of the interval under this relaxation.
+        """
+        intervals_consumptions = self.time_relaxed_suffix_consumptions(instance, solution, settings, component)
+        return list(itertools.chain.from_iterable(intervals_consumptions.values()))
 
-    queue = Queue()
-    queue.put(id_job)
+    @staticmethod
+    def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> Iterable[int]:
+        """
+        Computes the left closure of a job in the given instance and solution.
 
-    closure = set()
-    while not queue.empty():
-        n = queue.get(block=False)
-        start = start_times[n]
+        Args:
+            id_job (int): The ID of the job for which to compute the left closure.
+            instance (ProblemInstance): The problem instance containing the jobs and resources.
+            solution (Solution): The solution containing the job interval solutions.
 
-        if n in closure:
-            continue
+        Returns:
+            Iterable[int]: The set of job IDs in the left closure of the given job.
+        """
 
-        # Process precedence predecessors
-        for pred in graph.predecessors(n):
-            if completion_times[pred] == start:
-                queue.put(pred)
+        start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
+        completion_times = {j.id_job: solution.job_interval_solutions[j.id_job].end for j in instance.jobs}
+        durations = {j.id_job: j.duration for j in instance.jobs}
+        graph = build_instance_graph(instance)
+        resource_shift_starts = {r: set(ss) for r, ss in compute_resource_shift_starts(instance).items()}
+        resource_shift_ends = {r: sorted(se) for r, se in compute_resource_shift_ends(instance).items()}
+        resources_interval_trees = {r: IntervalTree.from_tuples((start_times[j.id_job], completion_times[j.id_job], j.id_job)
+                                                                for j, c in jobs_consuming_resource(instance, r))
+                                    for r in instance.resources}
 
-        if start in completion_time_jobs:
-            # Process resource predecessors
-            for pred in completion_time_jobs[start]:
-                if job_consumption[n] & job_consumption[pred]:
+        completion_time_jobs = defaultdict(set)  # Mapping from time t to jobs with completion time t
+        job_consumption = {}  # Mapping from job to resources the job consumes
+        for job in instance.jobs:
+            job_consumption[job.id_job] = set()
+            completion_time_jobs[completion_times[job.id_job]].add(job.id_job)
+            for r, c in job.resource_consumption.consumption_by_resource.items():
+                if c > 0:
+                    job_consumption[job.id_job].add(r)
+
+        queue = Queue()
+        queue.put(id_job)
+
+        closure = set()
+        while not queue.empty():
+            n = queue.get(block=False)
+            start = start_times[n]
+
+            if n in closure:
+                continue
+
+            # Process precedence predecessors
+            for pred in graph.predecessors(n):
+                if completion_times[pred] == start:
                     queue.put(pred)
 
-        # Process resource predecessors over resource pauses
-        for r in job_consumption[n]:
-            if start in resource_shift_starts[r]:
-                prev_shift_end = max((s_end for s_end in resource_shift_ends[r] if s_end < start), default=0)
-                low_bound = prev_shift_end - durations[n]
-                for s, e, pred in resources_interval_trees[r].overlap(low_bound, prev_shift_end):
-                    queue.put(pred)
+            if start in completion_time_jobs:
+                # Process resource predecessors
+                for pred in completion_time_jobs[start]:
+                    if job_consumption[n] & job_consumption[pred]:
+                        queue.put(pred)
 
-        closure.add(n)
+            # Process resource predecessors over resource pauses
+            for r in job_consumption[n]:
+                if start in resource_shift_starts[r]:
+                    prev_shift_end = max((s_end for s_end in resource_shift_ends[r] if s_end < start), default=0)
+                    low_bound = prev_shift_end - durations[n]
+                    for s, e, pred in resources_interval_trees[r].overlap(low_bound, prev_shift_end):
+                        queue.put(pred)
 
-    return closure
+            closure.add(n)
+
+        return closure
 
 
 def modify_instance_availability(instance: ProblemInstance,

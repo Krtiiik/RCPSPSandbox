@@ -23,6 +23,15 @@ PLOT_DIRECTORY = os.path.join('..', 'plots')
 def main():
     random.seed(42)
 
+    # with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
+    #     instance = manager.load_base_instance("instance06")
+    #     from solver.solver import Solver; plot_solution(Solver().solve(instance), block=False)
+    #
+    #     evaluation = TimeVariableConstraintRelaxingAlgorithm().evaluate(instance, TimeVariableConstraintRelaxingAlgorithmSettings(3,1,3,"time"))
+    #     plot_solution(evaluation.solution, split_consumption=True)
+    #
+    # exit()
+
     instances = list(experiment_instances) + [
         "instance120",
     ]
@@ -39,7 +48,14 @@ def main():
                     (TimeVariableConstraintRelaxingAlgorithm(), {
                         "max_iterations": [1, 2, 3],
                         "relax_granularity": [1],
-                        "max_improvement_intervals": [1, 2, 3]
+                        "max_improvement_intervals": [1, 2, 3],
+                        "interval_sort": ["improvement"]
+                    }),
+                    (TimeVariableConstraintRelaxingAlgorithm(), {
+                        "max_iterations": [1, 2, 3],
+                        "relax_granularity": [1],
+                        "max_improvement_intervals": [1, 2, 3],
+                        "interval_sort": ["time"]
                     }),
                     (MetricsRelaxingAlgorithm(), {
                         "metric": ["auac"],
