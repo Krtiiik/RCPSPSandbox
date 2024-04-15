@@ -126,12 +126,13 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
                                        evaluations_kpis_to_annotate: Iterable[str] = None,
                                        ):
     evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None else ())
+    markers = itertools.cycle(['s', 'o', '^', 'v', '+', 'x'])
 
     axes.grid(which='both', axis='both', ls='--')
-    for evaluations_kpis in algorithms_evaluations_kpis:
+    for evaluations_kpis, marker in zip(algorithms_evaluations_kpis, markers):
         costs = [evaluation_kpi.cost for evaluation_kpi in evaluations_kpis]
         improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluations_kpis]
-        axes.scatter(costs, improvements)
+        axes.scatter(costs, improvements, marker=marker)
 
     def get_name(_evaluation): return f'{"".join(filter(str.isupper, _evaluation.alg_string))}-{_evaluation.settings_string}'
     annotations = [axes.text(e_kpis.cost, e_kpis.improvement, get_name(e_kpis.evaluation), ha='center', va='center')
