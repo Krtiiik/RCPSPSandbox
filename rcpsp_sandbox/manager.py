@@ -192,8 +192,12 @@ class ExperimentManager:
     def __enter__(self):
         return self
 
+    # noinspection PyBroadException
     def __exit__(self, exc_type, exc_val, exc_tb):
         for modified_instance in self._modified_instances_cache.values():
-            iio.serialize_json(modified_instance, os.path.join(self._modified_instances_location, modified_instance.name+'.json'), is_extended=True)
-        bio.serialize_evaluations(self._evaluations_cache.values(), self._evaluations_location)
-        bio.serialize_evaluations_kpis(self._evaluations_kpis_cache.values(), self._evaluations_kpis_location)
+            try: iio.serialize_json(modified_instance, os.path.join(self._modified_instances_location, modified_instance.name+'.json'), is_extended=True)
+            except: pass
+        try: bio.serialize_evaluations(self._evaluations_cache.values(), self._evaluations_location)
+        except: pass
+        try: bio.serialize_evaluations_kpis(self._evaluations_kpis_cache.values(), self._evaluations_kpis_location)
+        except: pass
