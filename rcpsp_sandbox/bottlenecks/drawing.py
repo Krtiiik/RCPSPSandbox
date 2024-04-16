@@ -2,7 +2,7 @@ import functools
 import itertools
 import math
 from collections import namedtuple
-from typing import Iterable
+from typing import Iterable, Literal
 
 import numpy as np
 import matplotlib.colors
@@ -93,6 +93,9 @@ def plot_solution_comparison(evaluation: Evaluation, block: bool = True, save_as
 
 
 def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
+                     value_axes: tuple[str, str],
+                     block: bool = True,
+                     save_as: str = None,
                      ):
     f: plt.Figure
     axarr: np.ndarray[plt.Axes]
@@ -100,7 +103,7 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
     f, axarr = plt.subplots(nrows=n_rows, ncols=2, height_ratios=n_rows*[1])
 
     for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten()):
-        __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name)
+        __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name, value_axes=value_axes)
 
     for axes in axarr.flatten()[len(instance_evaluations_kpis):]:
         axes.set_axis_off()
@@ -118,31 +121,43 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
                       left=0.15,
                       right=0.95
                       )
-    plt.show()
+
+    if save_as:
+        plt.savefig(save_as)
+    else:
+        plt.show(block=block)
 
 
 def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[EvaluationKPIs]], axes: plt.Axes,
+                                       value_axes: tuple[str, str],
                                        title: str = None,
                                        evaluations_kpis_to_annotate: Iterable[str] = None,
                                        ):
+    value_extractors = {
+        "cost": (lambda ev: ev.cost),
+        "improvement": (lambda ev: ev.improvement),
+        "schedule difference": (lambda ev: ev.schedule_difference),
+    }
+
     evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None else ())
     markers = itertools.cycle(['s', 'o', '^', 'v', '+', 'x'])
+    x_extractor, y_extractor = value_extractors[value_axes[0]], value_extractors[value_axes[1]]
 
     axes.grid(which='both', axis='both', ls='--')
     for evaluations_kpis, marker in zip(algorithms_evaluations_kpis, markers):
-        costs = [evaluation_kpi.cost for evaluation_kpi in evaluations_kpis]
-        improvements = [evaluation_kpi.improvement for evaluation_kpi in evaluations_kpis]
-        axes.scatter(costs, improvements, marker=marker)
+        xs = [x_extractor(evaluation_kpi) for evaluation_kpi in evaluations_kpis]
+        ys = [y_extractor(evaluation_kpi) for evaluation_kpi in evaluations_kpis]
+        axes.scatter(xs, ys, marker=marker)
 
     def get_name(_evaluation): return f'{"".join(filter(str.isupper, _evaluation.alg_string))}-{_evaluation.settings_string}'
     annotations = [axes.text(e_kpis.cost, e_kpis.improvement, get_name(e_kpis.evaluation), ha='center', va='center')
                    for e_kpis in flatten(algorithms_evaluations_kpis)
                    if e_kpis.evaluation.by in evaluations_kpis_to_annotate]
 
-    axes.set_xlabel("Cost")
+    axes.set_xlabel(value_axes[0].capitalize())
     axes.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
-    axes.set_ylabel("Improvement")
-    axes.yaxis.set_label_coords(-0.15, 0.5)
+    axes.set_ylabel(value_axes[1].capitalize())
+    axes.yaxis.set_label_coords(-0.18, 0.5)
     axes.yaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
     if title is not None:
         axes.set_title(title)

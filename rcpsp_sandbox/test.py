@@ -84,7 +84,8 @@ def main():
 
             instance_evaluations_kpis[instance_name] = evaluations_kpis
 
-    plot_evaluations(instance_evaluations_kpis)
+    plot_evaluations(instance_evaluations_kpis, value_axes=("cost", "improvement"))
+    plot_evaluations(instance_evaluations_kpis, value_axes=("improvement", "schedule difference"))
 
 
 if __name__ == "__main__":
