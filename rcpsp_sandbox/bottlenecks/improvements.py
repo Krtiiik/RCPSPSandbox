@@ -379,6 +379,7 @@ class MetricsRelaxingAlgorithm(EvaluationAlgorithm):
 
     CONVOLUTION_MASKS: dict[str, list[int]] = {
         "pre1": [2, 4, 5, 2, 1],
+        "around": [1, 3, 5, 3, 5, 3, 1],
     }
 
     @property

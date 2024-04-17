@@ -46,31 +46,31 @@ def main():
                 instance,
                 [
                     (TimeVariableConstraintRelaxingAlgorithm(), {
-                        "max_iterations": [1, 2, 3],
+                        "max_iterations": [1, 2, 3, 4, 5, 6],
                         "relax_granularity": [1],
-                        "max_improvement_intervals": [1, 2, 3],
+                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
                         "interval_sort": ["improvement"]
                     }),
                     (TimeVariableConstraintRelaxingAlgorithm(), {
-                        "max_iterations": [1, 2, 3],
+                        "max_iterations": [1, 2, 3, 4, 5, 6],
                         "relax_granularity": [1],
-                        "max_improvement_intervals": [1, 2, 3],
+                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
                         "interval_sort": ["time"]
                     }),
                     (MetricsRelaxingAlgorithm(), {
                         "metric": ["auac"],
-                        "granularity": [4],
-                        "convolution_mask": ["pre1"],
-                        "max_iterations": [1, 2, 3],
-                        "max_improvement_intervals": [1, 2, 3],
+                        "granularity": [4, 8],
+                        "convolution_mask": ["pre1", "around"],
+                        "max_iterations": [1, 2, 3, 4, 5, 6],
+                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
                         "capacity_addition": [2, 4, 6, 8, 10],
                     }),
                     (MetricsRelaxingAlgorithm(), {
                         "metric": ["mrur"],
-                        "granularity": [4],
-                        "convolution_mask": ["pre1"],
-                        "max_iterations": [1, 2, 3],
-                        "max_improvement_intervals": [1, 2, 3],
+                        "granularity": [4, 8],
+                        "convolution_mask": ["pre1", "around"],
+                        "max_iterations": [1, 2, 3, 4, 5, 6],
+                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
                         "capacity_addition": [2, 4, 6, 8, 10],
                     }),
                 ],
