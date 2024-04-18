@@ -15,7 +15,8 @@ from matplotlib.ticker import MaxNLocator
 import utils
 from bottlenecks.evaluations import EvaluationKPIs, Evaluation
 from bottlenecks.utils import compute_resource_consumption
-from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability
+from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability, \
+    compute_resource_periodical_availability
 from utils import interval_overlap_function, flatten
 from solver.solution import Solution
 
@@ -30,8 +31,10 @@ T_StepFunction = list[tuple[int, int, int]]
 COLOR_JOB = "green"
 COLOR_JOB_DISABLED = "gray"
 COLOR_RESOURCE_CAPACITY = "silver"
+COLOR_RESOURCE_CAPACITY_REDUCED = "indianred"
 COLOR_RESOURCE_CONSUMPTION = "green"
 COLOR_RESOURCE_CONSUMPTION_DIMMED = "gray"
+COLOR_RESOURCE_CONSUMPTION_HIGHLIGHT = "darkturquoise"
 COLOR_DIVIDERS = "lightgray"
 
 
@@ -61,11 +64,17 @@ class ColorMap:
     def resource_capacity(self, resource_key):
         return COLOR_RESOURCE_CAPACITY
 
+    def resource_capacity_reduced(self, resource_key):
+        return COLOR_RESOURCE_CAPACITY_REDUCED
+
     def resource_consumption(self, resource_key, job_id=None):
         return COLOR_RESOURCE_CONSUMPTION if not job_id else self.__job_component_color(job_id)
 
     def resource_consumption_mixed(self, resource_key, job_id=None):
         return COLOR_RESOURCE_CONSUMPTION_DIMMED if not job_id else self.__job_component_color(job_id)
+
+    def resource_consumption_highlight(self, resource_key):
+        return COLOR_RESOURCE_CONSUMPTION_HIGHLIGHT
 
     def component(self, job_id):
         return self.__job_component_color(job_id)
@@ -173,6 +182,7 @@ def plot_solution(solution: Solution,
                   orderify_legends: bool = False,
                   horizon: int = None,
                   job_interval_levels: dict[int, int] = None,
+                  highlight_non_periodical_consumption: bool = False,
                   ):
     instance = solution.instance
 
@@ -188,7 +198,8 @@ def plot_solution(solution: Solution,
                       component_legends=component_legends, orderify_legends=orderify_legends,
                       job_interval_levels=job_interval_levels)
     __resources_panels(solution, axarr[1:], params,
-                       split_consumption=split_consumption, highlight_consumption=highlight)
+                       split_consumption=split_consumption, highlight_consumption=highlight,
+                       highlight_non_periodical_consumption=highlight_non_periodical_consumption)
 
     f.suptitle(solution.instance.name)
     f.tight_layout()
@@ -249,7 +260,9 @@ def plot_resources(solution: Solution,
                    save_as: str = None,
                    dimensions: tuple[int, int] = (8, 11),
                    horizon: int = None,
+                   highlight_non_periodical_consumption: bool = False,
                    ):
+
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
@@ -260,7 +273,9 @@ def plot_resources(solution: Solution,
     resource_count = len(instance.resources)
     f, axarr = plt.subplots(resource_count, sharex="col")
 
-    __resources_panels(solution, axarr, params, split_consumption)
+    __resources_panels(solution, axarr, params,
+                       split_consumption=split_consumption,
+                       highlight_non_periodical_consumption=highlight_non_periodical_consumption)
 
     f.tight_layout()
     f.subplots_adjust(hspace=0.1, top=0.95, bottom=0.05, left=0.1, right=0.95)
@@ -310,6 +325,7 @@ def __resources_panels(solution: Solution,
                        axarr: list[plt.Axes], params: PlotParameters,
                        split_consumption: bool = False,
                        highlight_consumption: Iterable[int] = None,
+                       highlight_non_periodical_consumption: bool = False,
                        ):
     instance = solution.instance
     if highlight_consumption:
@@ -321,9 +337,13 @@ def __resources_panels(solution: Solution,
         availability = compute_resource_availability(resource, instance, params.horizon)
 
         __plot_dividers(params.dividers, axes, params)
+        if not split_consumption and not highlight_consumption and highlight_non_periodical_consumption:
+            periodical_availability = compute_resource_periodical_availability(resource, params.horizon)
+            full_periodical_availability = interval_overlap_function(periodical_availability, first_x=0, last_x=params.horizon)
+            __plot_step_function(full_periodical_availability, axes, params, color=params.colormap.resource_capacity_reduced(resource.key), fill=True)
+
         __plot_step_function(availability, axes, params, color=params.colormap.resource_capacity(resource.key), fill=True)
 
-        # TODO highlight added consumption
         if split_consumption:
             component_jobs = {root_job.id_job: {j.id_job for j in jobs}
                               for root_job, jobs in compute_component_jobs(instance).items()}
@@ -351,8 +371,19 @@ def __resources_panels(solution: Solution,
                 __plot_step_function(full_consumption, axes, params, color=params.colormap.resource_consumption_mixed(resource.key), fill=True)
                 __plot_step_function(highlighted_consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
             else:
-                consumption = compute_resource_consumption(instance, solution, resource)
-                __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
+                if highlight_non_periodical_consumption:
+                    def compute_capped_consumption(_start, _end, _c):
+                        overlapping_availability = [(_s, _e, _a) for _s, _e, _a in periodical_availability if
+                                                    utils.intervals_overlap((_start, _end), (_s, _e))]
+                        return min((_a for _s, _e, _a in overlapping_availability), default=0)
+
+                    consumption = compute_resource_consumption(instance, solution, resource)
+                    capped_consumption = [(s, e, min(c, compute_capped_consumption(s, e, c))) for s, e, c in consumption]
+                    __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption_highlight(resource.key), fill=True)
+                    __plot_step_function(capped_consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
+                else:
+                    consumption = compute_resource_consumption(instance, solution, resource)
+                    __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
 
     for axes, resource in zip(axarr, instance.resources):
         axes.yaxis.set_major_locator(MaxNLocator(nbins=7, steps=[1, 2, 5, 10], integer=True))
