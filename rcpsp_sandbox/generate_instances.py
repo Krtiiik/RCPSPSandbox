@@ -3,6 +3,8 @@ from collections import namedtuple
 from typing import Iterable
 
 import instances.io as iio
+from bottlenecks.evaluations import evaluate_algorithms
+from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm
 from bottlenecks.utils import compute_longest_shift_overlap
 from instances.problem_instance import ProblemInstance
 from instances.problem_modifier import modify_instance
@@ -32,32 +34,55 @@ def build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
 
 
 experiment_instances: dict[str, InstanceSetup] = {
-    # --- 30 jobs 4 resources ------------------------------------------------------------------------------------------
+    # --- 30 jobs 4 resources MORNING | AFTERNOON shifts ---------------------------------------------------------------
     "instance01": InstanceSetup(
         base_filename="j3011_4.sm",
         name="instance01",
         gradual_level=2,
-        shifts={
-            "R1": MORNING | AFTERNOON,
-            "R2": MORNING | AFTERNOON,
-            "R3": MORNING | AFTERNOON,
-            "R4": MORNING | AFTERNOON,
-        },
-        due_dates={
-            23: 46,
-            28: 46,
-            29: 46,
-            30: 46,
-            32: 46,
-        },
-        tardiness_weights={
-            23: 2,
-            28: 1,
-            29: 3,
-            30: 1,
-            32: 1,
-        },
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": MORNING | AFTERNOON, "R4": MORNING | AFTERNOON},
+        due_dates={23: 46, 28: 46, 29: 46, 30: 46, 32: 46},
+        tardiness_weights={23: 1, 28: 1, 29: 3, 30: 1, 32: 1},
         target_job=29,
+        scaledown_durations=False,
+    ),
+    "instance01_1": InstanceSetup(
+        base_filename="j3011_2.sm",
+        name="instance01_1",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": MORNING | AFTERNOON, "R4": MORNING | AFTERNOON},
+        due_dates={17: 46, 22: 46, 26: 46, 29: 46, 30: 46, 32: 46},
+        tardiness_weights={17: 1, 22: 3, 26: 1, 29: 1, 30: 1, 32: 1},
+        target_job=22,
+        scaledown_durations=False,
+    ),
+    "instance01_2": InstanceSetup(
+        base_filename="j3011_5.sm",
+        name="instance01_2",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": MORNING | AFTERNOON, "R4": MORNING | AFTERNOON},
+        due_dates={8: 46, 25: 46, 26: 46, 28: 46, 29: 46, 30: 46, 32: 46},
+        tardiness_weights={8: 1, 25: 1, 26: 3, 28: 1, 29: 1, 30: 1, 32: 1},
+        target_job=26,
+        scaledown_durations=False,
+    ),
+    "instance01_3": InstanceSetup(
+        base_filename="j3011_6.sm",
+        name="instance01_3",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": MORNING | AFTERNOON, "R4": MORNING | AFTERNOON},
+        due_dates={19: 46, 25: 46, 27: 46, 29: 46, 30: 46, 32: 46},
+        tardiness_weights={19: 1, 25: 1, 27: 1, 29: 1, 30: 1, 32: 3},
+        target_job=32,
+        scaledown_durations=False,
+    ),
+    "instance01_4": InstanceSetup(
+        base_filename="j3011_9.sm",
+        name="instance01_4",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": MORNING | AFTERNOON, "R4": MORNING | AFTERNOON},
+        due_dates={18: 46, 28: 46, 29: 46, 30: 46, 32: 46},
+        tardiness_weights={18: 1, 28: 3, 29: 1, 30: 1, 32: 1},
+        target_job=28,
         scaledown_durations=False,
     ),
     # --- 30 jobs 2 resources ------------------------------------------------------------------------------------------
@@ -65,24 +90,49 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j3010_2.sm",
         name="instance02",
         gradual_level=2,
-        shifts={
-            "R1": MORNING | AFTERNOON | NIGHT,
-            "R2": MORNING | AFTERNOON,
-        },
-        due_dates={
-            26: 22,
-            27: 22,
-            29: 22,
-            30: 22,
-            32: 22,
-        },
-        tardiness_weights={
-            26: 1,
-            27: 1,
-            29: 1,
-            30: 1,
-            32: 1,
-        },
+        shifts={"R1": MORNING | AFTERNOON | NIGHT, "R2": MORNING | AFTERNOON},
+        due_dates={26: 22, 27: 22, 29: 22, 30: 22, 32: 22},
+        tardiness_weights={26: 1, 27: 1, 29: 1, 30: 1, 32: 1},
+        target_job=26,
+        scaledown_durations=False,
+    ),
+    "instance02_1": InstanceSetup(
+        base_filename="j3010_4.sm",
+        name="instance02_1",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON | NIGHT, "R2": MORNING | AFTERNOON},
+        due_dates={23: 22, 28: 22, 29: 22, 30: 22, 32: 22},
+        tardiness_weights={23: 1, 28: 1, 29: 1, 30: 1, 32: 1},
+        target_job=26,
+        scaledown_durations=False,
+    ),
+    "instance02_2": InstanceSetup(
+        base_filename="j3010_5.sm",
+        name="instance02_2",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON | NIGHT,"R2": MORNING | AFTERNOON},
+        due_dates={19: 22, 22: 22, 23: 22, 26: 22, 27: 22, 29: 22, 30: 22, 32: 22},
+        tardiness_weights={19: 1, 22: 1, 23: 1, 26: 1, 27: 1, 29: 1, 30: 1, 32: 1},
+        target_job=26,
+        scaledown_durations=False,
+    ),
+    "instance02_3": InstanceSetup(
+        base_filename="j3010_7.sm",
+        name="instance02_3",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON | NIGHT, "R2": MORNING | AFTERNOON},
+        due_dates={17: 22, 25: 22, 28: 22, 29: 22, 30: 22, 32: 22},
+        tardiness_weights={17: 1, 25: 1, 28: 1, 29: 1, 30: 1, 32: 1},
+        target_job=26,
+        scaledown_durations=False,
+    ),
+    "instance02_4": InstanceSetup(
+        base_filename="j3010_8.sm",
+        name="instance02_4",
+        gradual_level=2,
+        shifts={"R1": MORNING | AFTERNOON | NIGHT, "R2": MORNING | AFTERNOON},
+        due_dates={24: 22, 27: 22, 28: 22, 29: 22, 30: 22, 32: 22},
+        tardiness_weights={24: 1, 27: 1, 28: 1, 29: 1, 30: 1, 32: 1},
         target_job=26,
         scaledown_durations=False,
     ),
@@ -91,19 +141,49 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6010_7.sm",
         name="instance03",
         gradual_level=1,
-        shifts={
-            "R1": MORNING | AFTERNOON,
-        },
-        due_dates={
-            59: 94,
-            60: 94,
-            62: 94,
-        },
-        tardiness_weights={
-            59: 1,
-            60: 1,
-            62: 3,
-        },
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 94, 60: 94, 62: 94},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance03_1": InstanceSetup(
+        base_filename="j6010_8.sm",
+        name="instance03_1",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 94, 60: 94, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance03_2": InstanceSetup(
+        base_filename="j6010_9.sm",
+        name="instance03_2",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 94, 60: 94, 62: 94},
+        tardiness_weights={59: 3, 60: 1, 62: 1},
+        target_job=59,
+        scaledown_durations=False,
+    ),
+    "instance03_3": InstanceSetup(
+        base_filename="j6010_6.sm",
+        name="instance03_3",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 94, 60: 94, 62: 46},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance03_4": InstanceSetup(
+        base_filename="j6010_2.sm",
+        name="instance03_4",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
         target_job=62,
         scaledown_durations=False,
     ),
@@ -112,19 +192,49 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6010_7.sm",
         name="instance04",
         gradual_level=1,
-        shifts={
-            "R1": MORNING | AFTERNOON,
-        },
-        due_dates={
-            59: 70,
-            60: 70,
-            62: 70,
-        },
-        tardiness_weights={
-            59: 1,
-            60: 1,
-            62: 3,
-        },
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance04_1": InstanceSetup(
+        base_filename="j6010_8.sm",
+        name="instance04_1",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 46, 60: 46, 62: 46},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance04_2": InstanceSetup(
+        base_filename="j6010_9.sm",
+        name="instance04_2",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 46, 60: 46, 62: 46},
+        tardiness_weights={59: 3, 60: 1, 62: 1},
+        target_job=59,
+        scaledown_durations=False,
+    ),
+    "instance04_3": InstanceSetup(
+        base_filename="j6010_6.sm",
+        name="instance04_3",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 46, 60: 46, 62: 46},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=False,
+    ),
+    "instance04_4": InstanceSetup(
+        base_filename="j6010_2.sm",
+        name="instance04_4",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON},
+        due_dates={59: 46, 60: 46, 62: 46},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
         target_job=62,
         scaledown_durations=False,
     ),
@@ -133,23 +243,50 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6011_10.sm",
         name="instance05",
         gradual_level=1,
-        shifts={
-            "R1": MORNING | AFTERNOON,
-            "R2": MORNING | AFTERNOON,
-            "R3":           AFTERNOON | NIGHT,
-            "R4": MORNING | AFTERNOON | NIGHT,
-        },
-        due_dates={
-            59: 70,
-            60: 70,
-            62: 70,
-        },
-        tardiness_weights={
-            59: 1,
-            60: 1,
-            62: 3,
-        },
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": AFTERNOON | NIGHT, "R4": MORNING | AFTERNOON | NIGHT},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
         target_job=62,
+        scaledown_durations=True,
+    ),
+    "instance05_1": InstanceSetup(
+        base_filename="j6011_2.sm",
+        name="instance05_1",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": AFTERNOON | NIGHT, "R4": MORNING | AFTERNOON | NIGHT},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=True,
+    ),
+    "instance05_2": InstanceSetup(
+        base_filename="j6011_3.sm",
+        name="instance05_2",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": AFTERNOON | NIGHT, "R4": MORNING | AFTERNOON | NIGHT},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=59,
+        scaledown_durations=True,
+    ),
+    "instance05_3": InstanceSetup(
+        base_filename="j6011_6.sm",
+        name="instance05_3",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": AFTERNOON | NIGHT, "R4": MORNING | AFTERNOON | NIGHT},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=62,
+        scaledown_durations=True,
+    ),
+    "instance05_4": InstanceSetup(
+        base_filename="j6011_7.sm",
+        name="instance05_4",
+        gradual_level=1,
+        shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON, "R3": AFTERNOON | NIGHT, "R4": MORNING | AFTERNOON | NIGHT},
+        due_dates={59: 70, 60: 70, 62: 70},
+        tardiness_weights={59: 1, 60: 1, 62: 3},
+        target_job=59,
         scaledown_durations=True,
     ),
     # --- 60 jobs 4 resources ------------------------------------------------------------------------------------------
@@ -157,31 +294,222 @@ experiment_instances: dict[str, InstanceSetup] = {
         base_filename="j6013_6.sm",
         name="instance06",
         gradual_level=2,
+        shifts={"R1": AFTERNOON, "R2": AFTERNOON, "R3": AFTERNOON, "R4": AFTERNOON},
+        due_dates={32: 70, 54: 94, 57: 214, 58: 166, 59: 46, 60: 70, 62: 94},
+        tardiness_weights={32: 1, 54: 1, 57: 1, 58: 1, 59: 1, 60: 3, 62: 1},
+        target_job=60,
+        scaledown_durations=True,
+    ),
+    "instance06_1": InstanceSetup(
+        base_filename="j6013_2.sm",
+        name="instance06_1",
+        gradual_level=2,
+        shifts={"R1": AFTERNOON, "R2": AFTERNOON, "R3": AFTERNOON, "R4": AFTERNOON},
+        due_dates={6: 14, 50: 46, 51: 118, 53: 46, 54: 118, 58: 118, 59: 118, 60: 214, 62: 214},
+        tardiness_weights={26: 1, 50: 1, 51: 3, 53: 1, 54: 1, 58: 1, 59: 1, 60: 1, 62: 1},
+        target_job=51,
+        scaledown_durations=True,
+    ),
+    "instance06_2": InstanceSetup(
+        base_filename="j6013_3.sm",
+        name="instance06_2",
+        gradual_level=2,
+        shifts={"R1": AFTERNOON, "R2": AFTERNOON, "R3": AFTERNOON, "R4": AFTERNOON},
+        due_dates={52: 46, 54: 46, 55: 166, 56: 94, 57: 46, 59: 94, 60: 166, 62: 166},
+        tardiness_weights={52: 1, 54: 1, 55: 1, 56: 1, 57: 1, 59: 3, 60: 1, 62: 1},
+        target_job=59,
+        scaledown_durations=True,
+    ),
+    "instance06_3": InstanceSetup(
+        base_filename="j6013_5.sm",
+        name="instance06_3",
+        gradual_level=2,
+        shifts={"R1": AFTERNOON, "R2": AFTERNOON, "R3": AFTERNOON, "R4": AFTERNOON},
+        due_dates={38: 46, 39: 70, 56: 118, 57: 118, 58: 142, 59: 142, 60: 166, 62: 166},
+        tardiness_weights={38: 1, 39: 1, 56: 1, 57: 1, 58: 1, 59: 1, 60: 3, 62: 1},
+        target_job=60,
+        scaledown_durations=True,
+    ),
+    "instance06_4": InstanceSetup(
+        base_filename="j6013_10.sm",
+        name="instance06_4",
+        gradual_level=2,
+        shifts={"R1": AFTERNOON, "R2": AFTERNOON, "R3": AFTERNOON, "R4": AFTERNOON},
+        due_dates={26: 46, 50: 70, 53: 94, 54: 118, 58: 118, 59: 118, 60: 142, 62: 142},
+        tardiness_weights={26: 1, 50: 1, 53: 1, 54: 1, 58: 3, 59: 1, 60: 1, 62: 1},
+        target_job=58,
+        scaledown_durations=True,
+    ),
+    # --- 120 jobs 4 resources -----------------------------------------------------------------------------------------
+    "instance07": InstanceSetup(
+        base_filename="j1201_1.sm",
+        name="instance07",
+        gradual_level=2,
         shifts={
-            "R1": AFTERNOON,
-            "R2": AFTERNOON,
-            "R3": AFTERNOON,
-            "R4": AFTERNOON,
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON
         },
         due_dates={
-            32: 70,
-            54: 94,
-            57: 214,
-            58: 166,
-            59: 46,
-            60: 70,
-            62: 94,
+            57: 46,
+            108: 46,
+            109: 46,
+            111: 70,
+            115: 94,
+            118: 118,
+            119: 142,
+            120: 142,
+            122: 166,
         },
         tardiness_weights={
-            32: 1,
-            54: 1,
             57: 1,
-            58: 1,
-            59: 1,
-            60: 3,
-            62: 1,
+            108: 1,
+            109: 1,
+            111: 1,
+            115: 1,
+            118: 1,
+            119: 1,
+            120: 1,
+            122: 1,
         },
-        target_job=60,
+        target_job=115,
+        scaledown_durations=True,
+    ),
+    "instance07_1": InstanceSetup(
+        base_filename="j1201_3.sm",
+        name="instance07_1",
+        gradual_level=2,
+        shifts={
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON
+        },
+        due_dates={
+            47: 22,
+            114: 46,
+            116: 70,
+            117: 118,
+            118: 118,
+            119: 118,
+            120: 118,
+            122: 142,
+        },
+        tardiness_weights={
+            47: 1,
+            114: 1,
+            116: 1,
+            117: 1,
+            118: 1,
+            119: 1,
+            120: 1,
+            122: 1,
+        },
+        target_job=117,
+        scaledown_durations=True,
+    ),
+    "instance07_2": InstanceSetup(
+        base_filename="j1201_6.sm",
+        name="instance07_2",
+        gradual_level=2,
+        shifts={
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON
+        },
+        due_dates={
+            83: 46,
+            107: 46,
+            110: 46,
+            115: 70,
+            118: 94,
+            119: 94,
+            120: 70,
+            122: 94,
+        },
+        tardiness_weights={
+            83: 1,
+            107: 1,
+            110: 1,
+            115: 1,
+            118: 1,
+            119: 1,
+            120: 1,
+            122: 1,
+        },
+        target_job=120,
+        scaledown_durations=True,
+    ),
+    "instance07_3": InstanceSetup(
+        base_filename="j1201_7.sm",
+        name="instance07_3",
+        gradual_level=2,
+        shifts={
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON
+        },
+        due_dates={
+            73: 46,
+            82: 46,
+            112: 70,
+            113: 70,
+            115: 70,
+            118: 70,
+            119: 70,
+            120: 118,
+            122: 118,
+        },
+        tardiness_weights={
+            73: 1,
+            82: 1,
+            112: 1,
+            113: 1,
+            115: 1,
+            118: 1,
+            119: 1,
+            120: 1,
+            122: 1,
+        },
+        target_job=122,
+        scaledown_durations=True,
+    ),
+    "instance07_4": InstanceSetup(
+        base_filename="j1201_10.sm",
+        name="instance07_4",
+        gradual_level=2,
+        shifts={
+            "R1": MORNING | AFTERNOON,
+            "R2": MORNING | AFTERNOON,
+            "R3": MORNING | AFTERNOON,
+            "R4": MORNING | AFTERNOON
+        },
+        due_dates={
+            79: 46,
+            104: 46,
+            109: 46,
+            113: 46,
+            114: 94,
+            118: 94,
+            119: 118,
+            120: 118,
+            122: 118,
+        },
+        tardiness_weights={
+            79: 1,
+            104: 1,
+            109: 1,
+            113: 1,
+            114: 1,
+            118: 1,
+            119: 1,
+            120: 1,
+            122: 1,
+        },
+        target_job=118,
         scaledown_durations=True,
     ),
     # ------------------------------------------------------------------------------------------------------------------
@@ -242,37 +570,54 @@ def build_instance(instance_name: str,
 
 
 if __name__ == "__main__":
-
     import os
     from bottlenecks.drawing import plot_solution
     from instances.drawing import plot_components
     from solver.solver import Solver
 
-    for instance_name in experiment_instances:
+    # instance_names = ["instance06"]
+    instance_names = ["instance07", "instance07_1", "instance07_2", "instance07_3", "instance07_4"]
+    # instance_names = experiment_instances
+    for instance_name in instance_names:
         instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
         plot_components(instance)
-        solution = Solver().solve(instance)
-        plot_solution(solution, split_consumption=True, orderify_legends=True,
+        plot_solution(Solver().solve(instance)
                       # dimensions=(8, 8)
                       )
 
-    exit()
+    # from instances.drawing import plot_components
+    # from instances.problem_modifier import modify_instance
+    # import os
+    # inst = 'j120'
+    # base_dir = os.path.join('..', '..', 'Data', inst)
+    # filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
+    # instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
+    #
+    # instances_ = []
+    # for instance in instances:
+    #     instances_.append(modify_instance(instance)
+    #                       .split_job_components(split="gradual", gradual_level=2)
+    #                       .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
+    #                       .generate_modified_instance(instance.name + '_split'))
+    # instances = instances_
+    # for instance in instances:
+    #     plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
 
-    from instances.drawing import plot_components
-    from instances.problem_modifier import modify_instance
-    import os
-    inst = 'j60'
-    base_dir = os.path.join('..', '..', 'Data', inst)
-    filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
-    instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
-
-    instances_ = []
-    for instance in instances:
-        instances_.append(modify_instance(instance)
-                          .split_job_components(split="gradual", gradual_level=2)
-                          .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
-                          .generate_modified_instance(instance.name + '_split'))
-    instances = instances_
-    for instance in instances[:50]:
-        plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
-
+    # from instances.drawing import plot_components
+    # from instances.problem_modifier import modify_instance
+    # import os
+    # base_dir = os.path.join('..', '..', 'Data', 'j60')
+    # filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f)) and f.startswith('j6013')]
+    # instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
+    #
+    # instances_ = []
+    # for instance in instances:
+    #     instances_.append(modify_instance(instance)
+    #                       .split_job_components(split="gradual", gradual_level=2)
+    #                       .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
+    #                       .generate_modified_instance(instance.name + '_split'))
+    # instances = instances_
+    # for instance in sorted(instances, key=lambda i: i.name):
+    #     print(instance.name)
+    #     plot_components(instance)
+    #

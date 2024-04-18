@@ -32,16 +32,14 @@ def main():
     #
     # exit()
 
-    # instances = list(experiment_instances) + [
-    #     "instance120",
+    instances = list(experiment_instances)
+    # instances = [
+    #     "instance01",
+    #     "instance01_1",
+    #     "instance01_2",
+    #     "instance01_3",
+    #     "instance01_4",
     # ]
-    instances = [
-        "instance01",
-        "instance01_1",
-        "instance01_2",
-        "instance01_3",
-        "instance01_4",
-    ]
     # instances = [
     #     "instance02",
     #     "instance02_1",
