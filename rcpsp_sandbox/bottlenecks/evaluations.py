@@ -268,6 +268,10 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
         """Runs the algorithm."""
 
     @property
+    def name(self) -> str:
+        return type(self).__name__
+
+    @property
     def shortname(self) -> str:
         """Gets a short name of the algorithm."""
         return ''.join(filter(str.isupper, type(self).__name__))
@@ -275,7 +279,7 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
     def represent(self, settings) -> str:
         """Constructs a representation of the algorithm using its settings."""
         settings_str = self.ID_SETTINGS_SEPARATOR.join(map(str, settings))
-        alg_str = type(self).__name__
+        alg_str = self.name
         return f'{alg_str}{self.ID_SEPARATOR}{settings_str}'
 
     def represent_short(self, settings) -> str:
@@ -308,12 +312,13 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
 def evaluate_algorithms(instance: ProblemInstance,
                         algorithms_settings: Iterable[EvaluationAlgorithm | tuple[EvaluationAlgorithm, dict | Iterable[Any]]],
                         cache_manager=None,
+                        save_results: bool = True,
                         ) -> list[list[Evaluation]]:
-    algorithms, alg_settings = __construct_settings(algorithms_settings)
-
     def timeit():
         delta = time.time() - start_time
         return f'{delta//60:0>2.0f}\'{delta % 60:0>2.0f}"'
+
+    algorithms, alg_settings = __construct_settings(algorithms_settings)
 
     print_n_algs, print_n_algs_digits = len(algorithms), int(math.log10(len(algorithms))) + 1
     start_time = time.time()
@@ -321,23 +326,36 @@ def evaluate_algorithms(instance: ProblemInstance,
 
     evaluations = []
     for i_alg, (algorithm, settings) in enumerate(zip(algorithms, alg_settings)):
+        computed = 0
+        cached = 0
         print_n_settings, print_n_settings_digits = len(settings), int(math.log10(len(settings))) + 1
         print_prefix = f"\t{1+i_alg:>{print_n_algs_digits}d}/{print_n_algs}"
-        print(f"\r{print_prefix}: ({0:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
+        print(f"\r{print_prefix}: (cached {0:>{print_n_settings_digits}d} + computed {0:>{print_n_settings_digits}d} = {0:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
+
+        if cache_manager:
+            cache_manager.load_evaluations_caches(instance.name, algorithm.name)
 
         algorithm_evaluations = []
         for i_setting, setting in enumerate(settings):
             evaluation_id = algorithm.represent(setting)
             if cache_manager and cache_manager.is_evaluation_cached(instance.name, evaluation_id):
                 result = cache_manager.load_evaluation(instance.name, evaluation_id)
+                cached += 1
             else:
                 result = algorithm.evaluate(instance, setting)
+                computed += 1
 
             algorithm_evaluations.append(result)
 
-            print(f"\r{print_prefix}: ({1+i_setting:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
+            print(f"\r{print_prefix}: (cached {cached:>{print_n_settings_digits}d} + computed {computed:>{print_n_settings_digits}d} = {1+i_setting:>{print_n_settings_digits}d}/{print_n_settings}) >> {timeit()}", end='')
 
         evaluations.append(algorithm_evaluations)
+
+        if cache_manager and save_results:
+            cache_manager.save_modified_instances(evaluation.modified_instance for evaluation in algorithm_evaluations)
+            cache_manager.save_evaluations(algorithm_evaluations)
+            cache_manager.flush()
+            cache_manager.clear_caches()
 
     print(f"\rEvaluation completed in {timeit()}")
 

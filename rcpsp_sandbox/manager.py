@@ -88,9 +88,7 @@ class ExperimentManager:
     # ~~ Evaluations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def load_evaluation(self, instance_name: str, evaluation_id: str) -> Evaluation:
-        alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
-        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_id}'
-        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
+        _, settings, inst_alg, inst_alg_sett = get_inst_alg_sett(instance_name, evaluation_id)
 
         if inst_alg_sett in self._evaluations_cache:
             return self._evaluations_cache[inst_alg_sett]
@@ -114,9 +112,7 @@ class ExperimentManager:
         return evaluations
 
     def load_evaluation_kpis(self, instance_name: str, evaluation_kpis_id: str) -> EvaluationKPIs:
-        alg, settings = evaluation_alg_string(evaluation_kpis_id), evaluation_settings_string(evaluation_kpis_id)
-        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis_id}'
-        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
+        _, settings, inst_alg, inst_alg_sett = get_inst_alg_sett(instance_name, evaluation_kpis_id)
 
         if inst_alg_sett in self._evaluations_kpis_cache:
             return self._evaluations_kpis_cache[inst_alg_sett]
@@ -156,22 +152,14 @@ class ExperimentManager:
             self.save_evaluation_kpis(evaluation_kpis)
 
     def is_evaluation_cached(self, instance_name: str, evaluation_id: str) -> bool:
-        alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
-        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_id}'
-        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
-
-        self.__update_evaluations_light_cache(inst_alg)
+        _, settings, inst_alg, inst_alg_sett = get_inst_alg_sett(instance_name, evaluation_id)
 
         return (inst_alg_sett in self._evaluations_cache
                 or (inst_alg in self._evaluations_light_cache
                     and settings in self._evaluations_light_cache[inst_alg]))
 
     def is_evaluation_kpis_cached(self, instance_name: str, evaluation_kpis_id: str) -> bool:
-        alg, settings = evaluation_alg_string(evaluation_kpis_id), evaluation_settings_string(evaluation_kpis_id)
-        inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_kpis_id}'
-        inst_alg = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{alg}'
-
-        self.__update_evaluations_kpis_light_cache(inst_alg)
+        _, settings, inst_alg, inst_alg_sett = get_inst_alg_sett(instance_name, evaluation_kpis_id)
 
         return (inst_alg_sett in self._evaluations_kpis_cache
                 or (inst_alg in self._evaluations_kpis_light_cache
@@ -189,11 +177,20 @@ class ExperimentManager:
         if os.path.exists(inst_alg_filename):
             self._evaluations_kpis_light_cache[inst_alg] = bio.parse_evaluations_kpis(inst_alg_filename)
 
-    def __enter__(self):
-        return self
+    def load_evaluations_caches(self, instance_name, algorithm_name):
+        inst_alg = get_inst_alg(instance_name, algorithm_name)
+        self.__update_evaluations_light_cache(inst_alg)
+        self.__update_evaluations_kpis_light_cache(inst_alg)
 
-    # noinspection PyBroadException
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def clear_caches(self):
+        self._base_instances_cache.clear()
+        self._modified_instances_cache.clear()
+        self._evaluations_light_cache.clear()
+        self._evaluations_cache.clear()
+        self._evaluations_kpis_light_cache.clear()
+        self._evaluations_kpis_cache.clear()
+
+    def flush(self):
         for modified_instance in self._modified_instances_cache.values():
             try: iio.serialize_json(modified_instance, os.path.join(self._modified_instances_location, modified_instance.name+'.json'), is_extended=True)
             except: pass
@@ -201,3 +198,22 @@ class ExperimentManager:
         except: pass
         try: bio.serialize_evaluations_kpis(self._evaluations_kpis_cache.values(), self._evaluations_kpis_location)
         except: pass
+
+    def __enter__(self):
+        return self
+
+    # noinspection PyBroadException
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.flush()
+
+
+def get_inst_alg(instance_name, algorithm_name):
+    return f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{algorithm_name}'
+
+
+def get_inst_alg_sett(instance_name, evaluation_id):
+    alg, settings = evaluation_alg_string(evaluation_id), evaluation_settings_string(evaluation_id)
+    inst_alg_sett = f'{instance_name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation_id}'
+    inst_alg = get_inst_alg(instance_name, alg)
+
+    return alg, settings, inst_alg, inst_alg_sett
