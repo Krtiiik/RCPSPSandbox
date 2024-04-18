@@ -93,7 +93,6 @@ class ExperimentManager:
         if inst_alg_sett in self._evaluations_cache:
             return self._evaluations_cache[inst_alg_sett]
 
-        self.__update_evaluations_light_cache(inst_alg)
         if settings not in self._evaluations_light_cache[inst_alg]:  # The requested evaluation has not yet been computed or saved
             raise ValueError("Requested evaluation could not be found.")
 
@@ -117,7 +116,6 @@ class ExperimentManager:
         if inst_alg_sett in self._evaluations_kpis_cache:
             return self._evaluations_kpis_cache[inst_alg_sett]
 
-        self.__update_evaluations_kpis_light_cache(inst_alg)
         if settings not in self._evaluations_kpis_light_cache[inst_alg]:
             raise ValueError("Requested evaluation could not be found.")
 
