@@ -133,6 +133,7 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
 
     if save_as:
         plt.savefig(save_as)
+        plt.close()
     else:
         plt.show(block=block)
 
@@ -209,6 +210,7 @@ def plot_solution(solution: Solution,
 
     if save_as:
         plt.savefig(save_as)
+        plt.close()
     else:
         plt.show(block=block)
 
@@ -250,6 +252,7 @@ def plot_intervals(solution: Solution,
 
     if save_as:
         plt.savefig(save_as)
+        plt.close()
     else:
         plt.show(block=block)
 
@@ -284,6 +287,7 @@ def plot_resources(solution: Solution,
 
     if save_as:
         plt.savefig(save_as)
+        plt.close()
     else:
         plt.show(block=block)
 
