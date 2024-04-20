@@ -147,6 +147,7 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
         "cost": (lambda ev: ev.cost),
         "improvement": (lambda ev: ev.improvement),
         "schedule difference": (lambda ev: ev.schedule_difference),
+        "duration": (lambda ev: ev.duration)
     }
 
     evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None else ())
