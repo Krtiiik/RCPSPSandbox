@@ -25,4 +25,4 @@ class Solver:
 
     @staticmethod
     def __solve_model(model: CpoModel, instance: ProblemInstance) -> Solution:
-        return ModelSolution(instance, model.solve())
+        return ModelSolution(instance, model.solve(TimeLimit=10))
