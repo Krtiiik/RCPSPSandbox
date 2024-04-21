@@ -103,7 +103,7 @@ def main():
                         "convolution_mask": ["pre1", "around"],
                         "max_iterations": [1, 2, 3, 4, 5, 6],
                         "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
-                        "capacity_addition": [2, 4, 6, 8, 10],
+                        "capacity_addition": [6, 8, 10],
                     }),
                     (MetricsRelaxingAlgorithm(), {
                         "metric": ["mrur"],
@@ -111,7 +111,7 @@ def main():
                         "convolution_mask": ["pre1", "around"],
                         "max_iterations": [1, 2, 3, 4, 5, 6],
                         "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
-                        "capacity_addition": [2, 4, 6, 8, 10],
+                        "capacity_addition": [6, 8, 10],
                     }),
                 ],
                 cache_manager=manager,
