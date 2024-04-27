@@ -165,8 +165,15 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
 
     if pareto_front:
         x_extractor, y_extractor = pareto_extractors[value_axes[0]], pareto_extractors[value_axes[1]]
+
+        def build_kpis_array(_alg_evaluations_kpis):
+            return np.array([(x_extractor(_e_kpis), y_extractor(_e_kpis)) for _e_kpis in _alg_evaluations_kpis])
+        algorithms_evaluations_kpis = [[_e_kpis for _e_kpis in alg_evaluations_kpis
+                                        if (_e_kpis.improvement > 0
+                                            or (_e_kpis.cost == 0 and _e_kpis.schedule_difference == 0))]
+                                       for alg_evaluations_kpis in algorithms_evaluations_kpis]
         algorithms_evaluations_kpis = [
-            np.array(alg_evaluations_kpis)[__is_pareto_efficient(np.array([(x_extractor(e_kpis), y_extractor(e_kpis)) for e_kpis in alg_evaluations_kpis]))]
+            np.array(alg_evaluations_kpis)[__is_pareto_efficient(build_kpis_array(alg_evaluations_kpis))]
             for alg_evaluations_kpis in algorithms_evaluations_kpis]
 
     x_extractor, y_extractor = value_extractors[value_axes[0]], value_extractors[value_axes[1]]

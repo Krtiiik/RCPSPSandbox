@@ -290,15 +290,14 @@ class EvaluationAlgorithm(metaclass=abc.ABCMeta):
 
     def evaluate(self, base_instance: ProblemInstance, settings) -> Evaluation:
         """Evaluates the given instance."""
-        time_start = time.thread_time()
+        time_start = time.perf_counter()
 
-        target_job_id = base_instance.target_job
         model = self._build_standard_model(base_instance)
         base_solution = self._solver.solve(base_instance, model)
 
         modified_instance, solution = self._run(base_instance, base_solution, settings)
 
-        duration = time.thread_time() - time_start
+        duration = time.perf_counter() - time_start
         return Evaluation(base_instance, base_solution, modified_instance, solution, self.represent(settings), duration)
 
     @staticmethod
