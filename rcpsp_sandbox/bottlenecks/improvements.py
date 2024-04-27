@@ -373,13 +373,14 @@ MetricsRelaxingAlgorithmSettings = namedtuple("MetricsRelaxingAlgorithmSettings"
 class MetricsRelaxingAlgorithm(EvaluationAlgorithm):
     METRIC_MAPPING: dict[str, Callable[[Solution, ProblemInstance, Resource], T_MetricResult] | partial] = {
         'mrw': machine_resource_workload,
-        'mrur': machine_resource_utilization_rate,
+        'mrur': partial(machine_resource_utilization_rate, variable_capacity=True),
         'auac': partial(average_uninterrupted_active_consumption, average_over="consumption ratio"),
     }
 
     CONVOLUTION_MASKS: dict[str, list[int]] = {
         "pre1": [2, 4, 5, 2, 1],
         "around": [1, 3, 5, 3, 5, 3, 1],
+        "post": [1, 1, 2, 3, 5, 4, 2],
     }
 
     @property

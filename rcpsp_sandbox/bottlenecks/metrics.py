@@ -79,16 +79,18 @@ def machine_resource_workload(solution: Solution, instance: ProblemInstance, res
     return T_MetricResult(mrw)
 
 
-def machine_resource_utilization_rate(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
+def machine_resource_utilization_rate(solution: Solution, instance: ProblemInstance, resource: Resource,
+                                      variable_capacity: bool = False) -> T_MetricResult:
+    denominator = (__machine_total_capacity(solution, instance, resource) if variable_capacity
+                   else (resource.capacity * __machine_worktime(solution, instance, resource)))
     mrur = (machine_resource_workload(solution, instance, resource)
-            / (resource.capacity * __machine_worktime(solution, instance, resource)))
+            / denominator)
     return T_MetricResult(mrur)
 
 
 def average_uninterrupted_active_consumption(solution: Solution, instance: ProblemInstance, resource: Resource,
-                                             average_over: Literal["consumption", "consumption ratio", "averaged consumption"]) -> T_MetricResult:
-    # TODO resource capacity does not account for variable capacities
-
+                                             average_over: Literal["consumption", "consumption ratio", "averaged consumption"],
+                                             variable_capacity: bool = False) -> T_MetricResult:
     def period_consumption(period: T_Period) -> int: return sum(job.resource_consumption.consumption_by_resource[resource] for interval, job in period)
     def period_length(period: T_Period) -> int: return period[-1][0].end - period[0][0].start
     def period_availability(availability_period): return sum(_c for _s, _e, _c in availability_period)
@@ -128,6 +130,14 @@ def __machine_worktime(solution: Solution, instance: ProblemInstance, resource: 
     def start_time(j): return solution.job_interval_solutions[j.id_job].start
     machine_worktime = max(completion_time(job) for job in instance.jobs) - min(start_time(job) for job in instance.jobs)
     return machine_worktime
+
+
+def __machine_total_capacity(solution: Solution, instance: ProblemInstance, resource: Resource) -> int:
+    def completion_time(j): return solution.job_interval_solutions[j.id_job].end
+    def start_time(j): return solution.job_interval_solutions[j.id_job].start
+    start, end = min(start_time(job) for job in instance.jobs), max(completion_time(job) for job in instance.jobs)
+    availability = compute_resource_availability(resource, instance, end)
+    return sum((e - s) * c for s, e, c in availability)
 
 
 def __compute_active_periods(solution: Solution, instance: ProblemInstance, resource: Resource) -> list[T_Period]:
