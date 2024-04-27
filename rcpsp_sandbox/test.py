@@ -1,6 +1,8 @@
 import os.path
 import random
 
+import numpy as np
+
 from bottlenecks.drawing import plot_evaluations, plot_solution
 from bottlenecks.evaluations import evaluate_algorithms, compute_evaluation_kpis
 from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm, \
@@ -32,7 +34,7 @@ def main():
     #
     # exit()
 
-    instances = list(experiment_instances)
+    # instances = list(experiment_instances)
     # instances = [
     #     "instance01",
     #     "instance01_1",
@@ -75,6 +77,22 @@ def main():
     #     "instance06_3",
     #     "instance06_4",
     # ]
+    # instances = [
+    #     "instance07",
+    #     "instance07_1",
+    #     "instance07_2",
+    #     "instance07_3",
+    #     "instance07_4",
+    # ]
+    instances = [
+        "instance08",
+        "instance08_1",
+        "instance08_2",
+        "instance08_3",
+        "instance08_4",
+    ]
+
+    # TODO auac -> auau Utilization
 
     instance_evaluations_kpis = dict()
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
@@ -102,7 +120,7 @@ def main():
                         "granularity": [4, 8],
                         "convolution_mask": ["pre1", "around"],
                         "max_iterations": [1, 2, 3, 4, 5, 6],
-                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
+                        "max_improvement_intervals": [1, 2, 3, 4],
                         "capacity_addition": [6, 8, 10],
                     }),
                     (MetricsRelaxingAlgorithm(), {
@@ -110,7 +128,7 @@ def main():
                         "granularity": [4, 8],
                         "convolution_mask": ["pre1", "around"],
                         "max_iterations": [1, 2, 3, 4, 5, 6],
-                        "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
+                        "max_improvement_intervals": [1, 2, 3, 4],
                         "capacity_addition": [6, 8, 10],
                     }),
                 ],
@@ -124,8 +142,9 @@ def main():
 
             instance_evaluations_kpis[instance_name] = evaluations_kpis
 
-    plot_evaluations(instance_evaluations_kpis, value_axes=("cost", "improvement"))
-    plot_evaluations(instance_evaluations_kpis, value_axes=("improvement", "schedule difference"))
+    plot_evaluations(instance_evaluations_kpis, value_axes=("cost", "improvement"), pareto_front=True)
+    plot_evaluations(instance_evaluations_kpis, value_axes=("improvement", "schedule difference"), pareto_front=True)
+    plot_evaluations(instance_evaluations_kpis, value_axes=("duration", "improvement"), pareto_front=True)
 
 
 if __name__ == "__main__":

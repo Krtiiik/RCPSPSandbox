@@ -103,6 +103,9 @@ def plot_solution_comparison(evaluation: Evaluation, block: bool = True, save_as
 
 def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
                      value_axes: tuple[str, str],
+                     pareto_front: bool = False,
+                     evaluations_kpis_to_annotate: Iterable[str] = None,
+                     annotate_extremes: bool = False,
                      block: bool = True,
                      save_as: str = None,
                      ):
@@ -112,7 +115,9 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
     f, axarr = plt.subplots(nrows=n_rows, ncols=2, height_ratios=n_rows*[1])
 
     for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten()):
-        __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name, value_axes=value_axes)
+        __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name,
+                                           value_axes=value_axes, pareto_front=pareto_front, evaluations_kpis_to_annotate=evaluations_kpis_to_annotate,
+                                           annotate_extremes=annotate_extremes)
 
     for axes in axarr.flatten()[len(instance_evaluations_kpis):]:
         axes.set_axis_off()
@@ -140,6 +145,8 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
 
 def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[EvaluationKPIs]], axes: plt.Axes,
                                        value_axes: tuple[str, str],
+                                       pareto_front: bool,
+                                       annotate_extremes: bool,
                                        title: str = None,
                                        evaluations_kpis_to_annotate: Iterable[str] = None,
                                        ):
@@ -147,12 +154,30 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
         "cost": (lambda ev: ev.cost),
         "improvement": (lambda ev: ev.improvement),
         "schedule difference": (lambda ev: ev.schedule_difference),
-        "duration": (lambda ev: ev.duration)
+        "duration": (lambda ev: ev.evaluation.duration)
+    }
+    pareto_extractors = {
+        "cost": (lambda ev: ev.cost),
+        "improvement": (lambda ev: -ev.improvement),
+        "schedule difference": (lambda ev: ev.schedule_difference),
+        "duration": (lambda ev: ev.evaluation.duration)
     }
 
-    evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None else ())
-    markers = itertools.cycle(['s', 'o', '^', 'v', '+', 'x'])
+    if pareto_front:
+        x_extractor, y_extractor = pareto_extractors[value_axes[0]], pareto_extractors[value_axes[1]]
+        algorithms_evaluations_kpis = [
+            np.array(alg_evaluations_kpis)[__is_pareto_efficient(np.array([(x_extractor(e_kpis), y_extractor(e_kpis)) for e_kpis in alg_evaluations_kpis]))]
+            for alg_evaluations_kpis in algorithms_evaluations_kpis]
+
     x_extractor, y_extractor = value_extractors[value_axes[0]], value_extractors[value_axes[1]]
+    evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None
+                                       else ({
+                                           min(flatten(algorithms_evaluations_kpis), key=x_extractor).evaluation.by,
+                                           max(flatten(algorithms_evaluations_kpis), key=x_extractor).evaluation.by,
+                                           min(flatten(algorithms_evaluations_kpis), key=y_extractor).evaluation.by,
+                                           max(flatten(algorithms_evaluations_kpis), key=y_extractor).evaluation.by,
+                                       } if annotate_extremes else ()))
+    markers = itertools.cycle(['s', 'o', '^', 'v', '+', 'x'])
 
     axes.grid(which='both', axis='both', ls='--')
     for evaluations_kpis, marker in zip(algorithms_evaluations_kpis, markers):
@@ -161,7 +186,7 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
         axes.scatter(xs, ys, marker=marker)
 
     def get_name(_evaluation): return f'{"".join(filter(str.isupper, _evaluation.alg_string))}-{_evaluation.settings_string}'
-    annotations = [axes.text(e_kpis.cost, e_kpis.improvement, get_name(e_kpis.evaluation), ha='center', va='center')
+    annotations = [axes.text(x_extractor(e_kpis), y_extractor(e_kpis), get_name(e_kpis.evaluation), ha='center', va='center')
                    for e_kpis in flatten(algorithms_evaluations_kpis)
                    if e_kpis.evaluation.by in evaluations_kpis_to_annotate]
 
@@ -511,6 +536,34 @@ def compute_shifting_interval_levels(solution_a: Solution, solution_b: Solution)
 
 def __build_intervals(solution: Solution):
     return (Interval(j_id, j_interval.start, j_interval.end) for j_id, j_interval in solution.job_interval_solutions.items())
+
+
+def __is_pareto_efficient(costs, return_mask = True):
+    """
+    Find the pareto-efficient points.
+    :param costs: An (n_points, n_costs) array
+    :param return_mask: True to return a mask
+    :return: An array of indices of pareto-efficient points.
+        If return_mask is True, this will be an (n_points, ) boolean array
+        Otherwise it will be a (n_efficient_points, ) integer array of indices.
+
+    From https://stackoverflow.com/a/40239615.
+    """
+    is_efficient = np.arange(costs.shape[0])
+    n_points = costs.shape[0]
+    next_point_index = 0  # Next index in the is_efficient array to search for
+    while next_point_index < len(costs):
+        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
+        nondominated_point_mask[next_point_index] = True
+        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
+        costs = costs[nondominated_point_mask]
+        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
+    if return_mask:
+        is_efficient_mask = np.zeros(n_points, dtype = bool)
+        is_efficient_mask[is_efficient] = True
+        return is_efficient_mask
+    else:
+        return is_efficient
 
 
 def last_from(iterator):
