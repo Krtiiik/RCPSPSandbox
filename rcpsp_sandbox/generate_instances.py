@@ -1,14 +1,10 @@
 import os
 from collections import namedtuple
-from typing import Iterable
 
 import instances.io as iio
-from bottlenecks.evaluations import evaluate_algorithms
-from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm
 from bottlenecks.utils import compute_longest_shift_overlap
 from instances.problem_instance import ProblemInstance
 from instances.problem_modifier import modify_instance
-
 
 InstanceSetup = namedtuple("InstanceSetup", ("base_filename", "name", "gradual_level", "shifts", "due_dates",
                                              "tardiness_weights", "target_job", "scaledown_durations"))
@@ -27,11 +23,6 @@ SHIFT_INTERVALS = [
     [( 0,  6), (14, 24)],   # 6 =         | Afternoon | Night
     [( 0, 24)],             # 7 = Morning | Afternoon | Night
 ]
-
-
-def build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
-    return {r_key: SHIFT_INTERVALS[shift_flags] for r_key, shift_flags in shifts.items()}
-
 
 experiment_instances: dict[str, InstanceSetup] = {
     # --- 30 jobs 4 resources MORNING | AFTERNOON shifts ---------------------------------------------------------------
@@ -391,23 +382,15 @@ experiment_instances: dict[str, InstanceSetup] = {
         target_job=118,
         scaledown_durations=True,
     ),
-    # ------------------------------------------------------------------------------------------------------------------
+    # ---- 120 jobs 2 resources ----------------------------------------------------------------------------------------
     "instance08": InstanceSetup(
         base_filename="j1205_1.sm",
         name="instance08",
         gradual_level=2,
         shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON},
-        due_dates={
-            108: 0,
-            116: 0,
-            117: 0,
-            118: 0,
-            119: 0,
-            120: 0,
-            122: 0,
-        },
+        due_dates={108: 22, 116: 70, 117: 70, 118: 70, 119: 46, 120: 118, 122: 94},
         tardiness_weights={108: 1, 116: 1, 117: 1, 118: 1, 119: 1, 120: 1, 122: 1},
-        target_job=118,
+        target_job=116,
         scaledown_durations=True,
     ),
     "instance08_1": InstanceSetup(
@@ -415,18 +398,9 @@ experiment_instances: dict[str, InstanceSetup] = {
         name="instance08_1",
         gradual_level=2,
         shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON},
-        due_dates={
-            101: 0,
-            112: 0,
-            113: 0,
-            116: 0,
-            117: 0,
-            119: 0,
-            120: 0,
-            122: 0,
-        },
+        due_dates={101: 22, 112: 70, 113: 46, 116: 94, 117: 94, 119: 46, 120: 46, 122: 46},
         tardiness_weights={101: 1, 112: 1, 113: 1, 116: 1, 117: 1, 119: 1, 120: 1, 122: 1},
-        target_job=118,
+        target_job=112,
         scaledown_durations=True,
     ),
     "instance08_2": InstanceSetup(
@@ -434,16 +408,7 @@ experiment_instances: dict[str, InstanceSetup] = {
         name="instance08_2",
         gradual_level=2,
         shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON},
-        due_dates={
-            106: 0,
-            110: 0,
-            116: 0,
-            117: 0,
-            118: 0,
-            119: 0,
-            120: 0,
-            122: 0,
-        },
+        due_dates={106: 22, 110: 70, 116: 46, 117: 70, 118: 134, 119: 70, 120: 46, 122: 70},
         tardiness_weights={106: 1, 110: 1, 116: 1, 117: 1, 118: 1, 119: 1, 120: 1, 122: 1},
         target_job=118,
         scaledown_durations=True,
@@ -453,19 +418,9 @@ experiment_instances: dict[str, InstanceSetup] = {
         name="instance08_3",
         gradual_level=2,
         shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON},
-        due_dates={
-            101: 0,
-            110: 0,
-            114: 0,
-            115: 0,
-            116: 0,
-            117: 0,
-            119: 0,
-            120: 0,
-            122: 0,
-        },
+        due_dates={101: 22, 110: 22, 114: 70, 115: 46, 116: 118, 117: 70, 119: 22, 120: 22, 122: 70},
         tardiness_weights={101: 1, 110: 1, 114: 1, 115: 1, 116: 1, 117: 1, 119: 1, 120: 1, 122: 1},
-        target_job=118,
+        target_job=117,
         scaledown_durations=True,
     ),
     "instance08_4": InstanceSetup(
@@ -473,32 +428,78 @@ experiment_instances: dict[str, InstanceSetup] = {
         name="instance08_4",
         gradual_level=2,
         shifts={"R1": MORNING | AFTERNOON, "R2": MORNING | AFTERNOON},
-        due_dates={
-            57: 0,
-            90: 0,
-            110: 0,
-            116: 0,
-            118: 0,
-            119: 0,
-            120: 0,
-            122: 0,
-        },
+        due_dates={57: 46, 90: 22, 110: 46, 116: 94, 118: 118, 119: 22, 120: 22, 122: 46},
         tardiness_weights={57: 1, 90: 1, 110: 1, 116: 1, 118: 1, 119: 1, 120: 1, 122: 1},
-        target_job=118,
+        target_job=116,
         scaledown_durations=True,
     ),
 }
 
 
-def parse_and_process(data_directory: str, output_directory: str,
-                      setup: InstanceSetup,
-                      ) -> ProblemInstance:
-    shifts = build_shifts(setup.shifts)
+experiment_instances_info = {
+    'instance01':   {"n": 32, },
+    'instance01_1': {"n": 32, },
+    'instance01_2': {"n": 32, },
+    'instance01_3': {"n": 32, },
+    'instance01_4': {"n": 32, },
+
+    'instance02':   {"n": 32, },
+    'instance02_1': {"n": 32, },
+    'instance02_2': {"n": 32, },
+    'instance02_3': {"n": 32, },
+    'instance02_4': {"n": 32, },
+
+    'instance03':   {"n": 62, },
+    'instance03_1': {"n": 62, },
+    'instance03_2': {"n": 62, },
+    'instance03_3': {"n": 62, },
+    'instance03_4': {"n": 62, },
+
+    'instance04':   {"n": 62, },
+    'instance04_1': {"n": 62, },
+    'instance04_2': {"n": 62, },
+    'instance04_3': {"n": 62, },
+    'instance04_4': {"n": 62, },
+
+    'instance05':   {"n": 62, },
+    'instance05_1': {"n": 62, },
+    'instance05_2': {"n": 62, },
+    'instance05_3': {"n": 62, },
+    'instance05_4': {"n": 62, },
+
+    'instance06':   {"n": 62, },
+    'instance06_1': {"n": 62, },
+    'instance06_2': {"n": 62, },
+    'instance06_3': {"n": 62, },
+    'instance06_4': {"n": 62, },
+
+    'instance07':   {"n": 122, },
+    'instance07_1': {"n": 122, },
+    'instance07_2': {"n": 122, },
+    'instance07_3': {"n": 122, },
+    'instance07_4': {"n": 122, },
+
+    'instance08':   {"n": 122, },
+    'instance08_1': {"n": 122, },
+    'instance08_2': {"n": 122, },
+    'instance08_3': {"n": 122, },
+    'instance08_4': {"n": 122, },
+}
+
+
+def __build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
+    return {r_key: SHIFT_INTERVALS[shift_flags] for r_key, shift_flags in shifts.items()}
+
+
+def __parse_and_process(data_directory: str,
+                        setup: InstanceSetup,
+                        ) -> ProblemInstance:
+    shifts = __build_shifts(setup.shifts)
 
     # Parse
     instance = iio.parse_psplib(os.path.join(data_directory, setup.base_filename))
 
-    # Modify
+    # Get problem modifier
     instance_builder = modify_instance(instance)
 
     # Remove unused resources
@@ -506,12 +507,14 @@ def parse_and_process(data_directory: str, output_directory: str,
         instance_builder.remove_resources(set(r.key for r in instance.resources) - set(shifts))
 
     # Component splitting, availabilities, due dates
-    instance = instance_builder.split_job_components(split="gradual", gradual_level=setup.gradual_level) \
-               .assign_resource_availabilities(availabilities=shifts) \
-               .assign_job_due_dates('uniform', interval=(0, 0)) \
-               .assign_job_due_dates(due_dates=setup.due_dates, overwrite=True) \
-               .with_target_job(setup.target_job) \
-               .generate_modified_instance(setup.name)
+    instance = (instance_builder
+                .split_job_components(split="gradual", gradual_level=setup.gradual_level)
+                .assign_resource_availabilities(availabilities=shifts)
+                .assign_job_due_dates('uniform', interval=(0, 0))
+                .assign_job_due_dates(due_dates=setup.due_dates, overwrite=True)
+                .with_target_job(setup.target_job)
+                .generate_modified_instance(setup.name)
+                )
 
     # Scaling down long job durations
     if setup.scaledown_durations:
@@ -535,7 +538,7 @@ def build_instance(instance_name: str,
         raise ValueError(f'Unrecognized experiment instance "{instance_name}"')
 
     instance_setup = experiment_instances[instance_name]
-    instance = parse_and_process(base_instance_directory, output_directory, instance_setup)
+    instance = __parse_and_process(base_instance_directory, instance_setup)
 
     if serialize:
         iio.serialize_json(instance, os.path.join(output_directory, instance_name+'.json'), is_extended=True)
@@ -545,53 +548,43 @@ def build_instance(instance_name: str,
 
 if __name__ == "__main__":
     import os
-    from bottlenecks.drawing import plot_solution
-    from instances.drawing import plot_components
+    import itertools
+    import tabulate
+    from bottlenecks.improvements import MetricsRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithm, \
+    MetricsRelaxingAlgorithmSettings, TimeVariableConstraintRelaxingAlgorithmSettings, left_closure
+    from bottlenecks.evaluations import compute_evaluation_kpis, evaluate_algorithms
+    from bottlenecks.drawing import plot_evaluation_solution_comparison
     from solver.solver import Solver
+    from manager import ExperimentManager
 
-    # instance_names = ["instance06"]
-    instance_names = ["instance07", "instance07_1", "instance07_2", "instance07_3", "instance07_4"]
-    # instance_names = experiment_instances
-    for instance_name in instance_names:
-        instance = build_instance(instance_name, os.path.join('..', 'data', 'base_instances'), os.path.join('..', 'data', 'base_instances'))
-        plot_components(instance)
-        plot_solution(Solver().solve(instance)
-                      # dimensions=(8, 8)
-                      )
+    DATA_DIRECTORY = os.path.join('..', 'data')
+    DATA_DIRECTORY_STRUCTURE = {
+        'base_instances_location': os.path.join(DATA_DIRECTORY, 'base_instances'),
+        'modified_instances_location': os.path.join(DATA_DIRECTORY, 'modified_instances'),
+        'evaluations_location': os.path.join(DATA_DIRECTORY, 'evaluations'),
+        'evaluations_kpis_location': os.path.join(DATA_DIRECTORY, 'evaluations_kpis'),
+    }
 
-    # from instances.drawing import plot_components
-    # from instances.problem_modifier import modify_instance
-    # import os
-    # inst = 'j120'
-    # base_dir = os.path.join('..', '..', 'Data', inst)
-    # filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f))]
-    # instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
-    #
-    # instances_ = []
-    # for instance in instances:
-    #     instances_.append(modify_instance(instance)
-    #                       .split_job_components(split="gradual", gradual_level=2)
-    #                       .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
-    #                       .generate_modified_instance(instance.name + '_split'))
-    # instances = instances_
-    # for instance in instances:
-    #     plot_components(instance, save_as=os.path.join('..', 'insts', inst, instance.name+'.png'))
+    instance_name = "instance02_1"
+    with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
+        instance = manager.load_base_instance(instance_name)
 
-    # from instances.drawing import plot_components
-    # from instances.problem_modifier import modify_instance
-    # import os
-    # base_dir = os.path.join('..', '..', 'Data', 'j60')
-    # filenames = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if os.path.isfile(os.path.join(base_dir, f)) and f.startswith('j6013')]
-    # instances = [iio.parse_psplib(f, os.path.basename(f).split('.')[0]) for f in filenames]
-    #
-    # instances_ = []
-    # for instance in instances:
-    #     instances_.append(modify_instance(instance)
-    #                       .split_job_components(split="gradual", gradual_level=2)
-    #                       .assign_job_due_dates('gradual', gradual_base=0, gradual_interval=(0, 1))
-    #                       .generate_modified_instance(instance.name + '_split'))
-    # instances = instances_
-    # for instance in sorted(instances, key=lambda i: i.name):
-    #     print(instance.name)
-    #     plot_components(instance)
-    #
+    iira = MetricsRelaxingAlgorithm()
+    ssira = TimeVariableConstraintRelaxingAlgorithm()
+    iira_evaluation = iira.evaluate(instance, MetricsRelaxingAlgorithmSettings(
+        metric="auac",
+        granularity=4,
+        convolution_mask="around",
+        max_iterations=1,
+        max_improvement_intervals=1,
+        capacity_addition=10,
+    ))
+    ssira_evaluation = ssira.evaluate(instance, TimeVariableConstraintRelaxingAlgorithmSettings(
+        max_iterations=1,
+        relax_granularity=1,
+        max_improvement_intervals=1,
+        interval_sort="time",
+    ))
+
+    plot_evaluation_solution_comparison(iira_evaluation, highlight_addition=True)
+    plot_evaluation_solution_comparison(ssira_evaluation, highlight_addition=True)

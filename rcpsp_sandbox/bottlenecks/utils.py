@@ -98,17 +98,18 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
     return missing_capacities, capacity_surpluses if return_reduced_surpluses else missing_capacities
 
 
-def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource,
+def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource, horizon: int = None,
                                  selected: Iterable[int] = None,
                                  ) -> T_StepFunction:
     selected = set(selected if selected is not None else (j.id_job for j in instance.jobs))
     consumptions = []
+    horizon = horizon if horizon is not None else instance.horizon
     for job, consumption in jobs_consuming_resource(instance, resource, yield_consumption=True):
         if job.id_job not in selected:
             continue
         int_solution = solution.job_interval_solutions[job.id_job]
         consumptions.append((int_solution.start, int_solution.end, consumption))
-    consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=instance.horizon)
+    consumption_f = interval_overlap_function(consumptions, first_x=0, last_x=horizon)
     return consumption_f
 
 

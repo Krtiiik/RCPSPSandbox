@@ -14,6 +14,7 @@ from matplotlib.ticker import MaxNLocator
 
 import utils
 from bottlenecks.evaluations import EvaluationKPIs, Evaluation
+from bottlenecks.improvements import left_closure
 from bottlenecks.utils import compute_resource_consumption
 from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability, \
     compute_resource_periodical_availability
@@ -93,12 +94,25 @@ class ColorMap:
         return self._cm[self._job_component_index[job_id]]
 
 
-def plot_solution_comparison(evaluation: Evaluation, block: bool = True, save_as: list[str] = None, dimensions: list[tuple[int, int]] = ((8, 11), (8, 11))):
+def plot_evaluation_solution_comparison(evaluation: Evaluation,
+                                        block: bool = True,
+                                        save_as: list[str] = None,
+                                        dimensions: list[tuple[int, int]] = ((8, 11), (8, 11)),
+                                        highlight_addition: bool = False,
+                                        highlight: bool = False,
+                                        ):
     def get(iterable, i): return None if iterable is None else iterable[i]
     horizon = max(max(int_sol.end for int_sol in evaluation.base_solution.job_interval_solutions.values()),
                   max(int_sol.end for int_sol in evaluation.solution.job_interval_solutions.values()))
-    plot_solution(evaluation.base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), horizon=horizon)
-    plot_solution(evaluation.solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon)
+    levels_a, levels_b = compute_shifting_interval_levels(evaluation.base_solution, evaluation.solution)
+    if highlight:
+        highlight_a = left_closure(evaluation.base_instance.target_job, evaluation.base_instance, evaluation.base_solution)
+        highlight_b = left_closure(evaluation.base_instance.target_job, evaluation.modified_instance, evaluation.solution)
+    else:
+        highlight_a = highlight_b = None
+
+    plot_solution(evaluation.base_solution, block=block, save_as=get(save_as, 0), dimensions=get(dimensions, 0), horizon=horizon, job_interval_levels=levels_a, highlight_non_periodical_consumption=highlight_addition, highlight=highlight_a)
+    plot_solution(evaluation.solution, block=block, save_as=get(save_as, 1), dimensions=get(dimensions, 1), horizon=horizon, job_interval_levels=levels_b, highlight_non_periodical_consumption=highlight_addition, highlight=highlight_b)
 
 
 def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
@@ -106,13 +120,14 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
                      pareto_front: bool = False,
                      evaluations_kpis_to_annotate: Iterable[str] = None,
                      annotate_extremes: bool = False,
+                     ncols: int = 2,
                      block: bool = True,
                      save_as: str = None,
                      ):
     f: plt.Figure
     axarr: np.ndarray[plt.Axes]
-    n_rows = math.ceil(len(instance_evaluations_kpis) / 2)
-    f, axarr = plt.subplots(nrows=n_rows, ncols=2, height_ratios=n_rows*[1])
+    nrows = math.ceil(len(instance_evaluations_kpis) / ncols)
+    f, axarr = plt.subplots(nrows=nrows, ncols=ncols, height_ratios=nrows*[1])
 
     for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten()):
         __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name,
@@ -127,7 +142,7 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
              )
 
     f.tight_layout()
-    f.set_size_inches(8, axarr.shape[0]*3)
+    f.set_size_inches(4*ncols, nrows*3)
     f.subplots_adjust(hspace=0.5,
                       wspace=0.3,
                       top=0.95,
@@ -199,9 +214,11 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
 
     axes.set_xlabel(value_axes[0].capitalize())
     axes.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+    axes.set_xlim(xmin=0)
     axes.set_ylabel(value_axes[1].capitalize())
     axes.yaxis.set_label_coords(-0.18, 0.5)
     axes.yaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+    axes.set_ylim(ymin=0)
     if title is not None:
         axes.set_title(title)
 
@@ -374,7 +391,7 @@ def __resources_panels(solution: Solution,
         availability = compute_resource_availability(resource, instance, params.horizon)
 
         __plot_dividers(params.dividers, axes, params)
-        if not split_consumption and not highlight_consumption and highlight_non_periodical_consumption:
+        if not split_consumption and highlight_non_periodical_consumption:
             periodical_availability = compute_resource_periodical_availability(resource, params.horizon)
             full_periodical_availability = interval_overlap_function(periodical_availability, first_x=0, last_x=params.horizon)
             __plot_step_function(full_periodical_availability, axes, params, color=params.colormap.resource_capacity_reduced(resource.key), fill=True)
@@ -387,15 +404,15 @@ def __resources_panels(solution: Solution,
             if highlight_consumption:
                 highlight_component_jobs = {root_job_id: jobs & highlight_consumption for root_job_id, jobs in component_jobs.items()}
                 remaining_jobs = set(j.id_job for j in instance.jobs) - highlight_consumption
-                consumptions = [compute_resource_consumption(solution.instance, solution, resource, selected=highlight_component_jobs[root_job_id])
+                consumptions = [compute_resource_consumption(solution.instance, solution, resource, selected=highlight_component_jobs[root_job_id], horizon=params.horizon)
                                 for root_job_id in sorted(highlight_component_jobs)] \
-                               + [compute_resource_consumption(solution.instance, solution, resource, selected=remaining_jobs)]
+                               + [compute_resource_consumption(solution.instance, solution, resource, selected=remaining_jobs, horizon=params.horizon)]
                 accumulated_consumptions = map(functools.partial(interval_overlap_function, first_x=0, last_x=params.horizon),
                                                itertools.accumulate(consumptions))
                 for id_root_job, consumption in reversed(list(zip(list(sorted(component_jobs)) + [None], accumulated_consumptions))):
                     __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption_mixed(resource.key, id_root_job), fill=True)
             else:
-                consumptions = [compute_resource_consumption(solution.instance, solution, resource, selected=component_jobs[root_job_id])
+                consumptions = [compute_resource_consumption(solution.instance, solution, resource, selected=component_jobs[root_job_id], horizon=params.horizon)
                                 for root_job_id in sorted(component_jobs)]
                 accumulated_consumptions = map(functools.partial(interval_overlap_function, first_x=0, last_x=params.horizon),
                                                itertools.accumulate(consumptions))
@@ -403,23 +420,23 @@ def __resources_panels(solution: Solution,
                     __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption(resource.key, job_id=id_root_job), fill=True)
         else:
             if highlight_consumption:
-                highlighted_consumption = compute_resource_consumption(instance, solution, resource, selected=highlight_consumption)
-                full_consumption = compute_resource_consumption(instance, solution, resource)
+                highlighted_consumption = compute_resource_consumption(instance, solution, resource, selected=highlight_consumption, horizon=params.horizon)
+                full_consumption = compute_resource_consumption(instance, solution, resource, horizon=params.horizon)
                 __plot_step_function(full_consumption, axes, params, color=params.colormap.resource_consumption_mixed(resource.key), fill=True)
                 __plot_step_function(highlighted_consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
             else:
                 if highlight_non_periodical_consumption:
                     def compute_capped_consumption(_start, _end, _c):
-                        overlapping_availability = [(_s, _e, _a) for _s, _e, _a in periodical_availability if
+                        overlapping_availability = [(_s, _e, _a) for _s, _e, _a in full_periodical_availability if
                                                     utils.intervals_overlap((_start, _end), (_s, _e))]
                         return min((_a for _s, _e, _a in overlapping_availability), default=0)
 
-                    consumption = compute_resource_consumption(instance, solution, resource)
+                    consumption = unitize_intervals(compute_resource_consumption(instance, solution, resource, horizon=params.horizon))
                     capped_consumption = [(s, e, min(c, compute_capped_consumption(s, e, c))) for s, e, c in consumption]
                     __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption_highlight(resource.key), fill=True)
                     __plot_step_function(capped_consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
                 else:
-                    consumption = compute_resource_consumption(instance, solution, resource)
+                    consumption = compute_resource_consumption(instance, solution, resource, horizon=params.horizon)
                     __plot_step_function(consumption, axes, params, color=params.colormap.resource_consumption(resource.key), fill=True)
 
     for axes, resource in zip(axarr, instance.resources):
@@ -580,3 +597,9 @@ def last_from(iterator):
 
 def clamp(num, low, high):
     return max(low, min(num, high))
+
+
+def unitize_intervals(intervals):
+    return [(t, t+1, c)
+            for s, e, c in intervals
+            for t in range(s, e, 1)]

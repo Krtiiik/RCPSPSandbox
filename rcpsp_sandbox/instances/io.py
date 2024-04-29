@@ -64,11 +64,11 @@ def parse_json(filename: str,
 
     if is_extended:
         for i, r in enumerate(instance_object["Resources"]):
-            availability_periodical = [AvailabilityInterval(start=av["Start"], end=av["End"], capacity=r["Capacity"])
+            availability_periodical = [AvailabilityInterval(start=av["Start"], end=av["End"], capacity=(av["Capacity"] if "Capacity" in av else r["Capacity"]))
                                        for av in r["Availability"]["Periodical"]]
-            availability_additions = [CapacityChange(start=av["Start"], end=av["End"], capacity=r["Capacity"])
+            availability_additions = [CapacityChange(start=av["Start"], end=av["End"], capacity=av["Capacity"])
                                       for av in r["Availability"]["Additions"]]
-            availability_migrations = [CapacityMigration(resource_to=av["ResourceTo"], start=av["Start"], end=av["End"], capacity=r["Capacity"])
+            availability_migrations = [CapacityMigration(resource_to=av["ResourceTo"], start=av["Start"], end=av["End"], capacity=av["Capacity"])
                                        for av in r["Availability"]["Migrations"]]
 
             resources[i].availability = ResourceAvailability(availability_periodical, availability_additions, availability_migrations)

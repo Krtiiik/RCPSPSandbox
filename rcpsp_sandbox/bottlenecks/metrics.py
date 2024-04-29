@@ -1,4 +1,3 @@
-import itertools
 from functools import partial
 from typing import Callable, Iterable, Literal
 
@@ -8,7 +7,7 @@ from docplex.cp.solution import CpoIntervalVarSolution
 from bottlenecks.utils import jobs_consuming_resource
 from instances.problem_instance import Resource, ProblemInstance, Job, compute_resource_availability
 from solver.solution import Solution
-from utils import print_error, intervals_overlap, modify_tuple
+from utils import print_error, intervals_overlap, modify_tuple, avg
 
 T_MetricResult = float
 T_Evaluation = dict[str, T_MetricResult]
@@ -173,13 +172,3 @@ def __compute_availability_periods(periods: list[T_Period], instance: ProblemIns
     availability_periods = [period_availability_overlap(period[0][0].start, period[-1][0].end)
                             for period in periods]
     return availability_periods
-
-
-def avg(it: Iterable):
-    sm = 0
-    count = 0
-    for item in it:
-        sm += item
-        count += 1
-
-    return sm / count

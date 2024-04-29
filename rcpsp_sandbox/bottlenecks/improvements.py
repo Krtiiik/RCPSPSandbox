@@ -158,7 +158,8 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         durations = {j.id_job: j.duration for j in instance.jobs}
         consumptions = {j.id_job: j.resource_consumption for j in instance.jobs}
         start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
-        component_closure = (self.left_closure(component, instance, solution) if component else set(j.id_job for j in instance.jobs))
+        component_closure = (
+            left_closure(component, instance, solution) if component else set(j.id_job for j in instance.jobs))
 
         t_consumptions = defaultdict(list)
         included = set()
@@ -202,72 +203,72 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         intervals_consumptions = self.time_relaxed_suffix_consumptions(instance, solution, settings, component)
         return list(itertools.chain.from_iterable(intervals_consumptions.values()))
 
-    @staticmethod
-    def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> Iterable[int]:
-        """
-        Computes the left closure of a job in the given instance and solution.
 
-        Args:
-            id_job (int): The ID of the job for which to compute the left closure.
-            instance (ProblemInstance): The problem instance containing the jobs and resources.
-            solution (Solution): The solution containing the job interval solutions.
+def left_closure(id_job: int, instance: ProblemInstance, solution: Solution) -> Iterable[int]:
+    """
+    Computes the left closure of a job in the given instance and solution.
 
-        Returns:
-            Iterable[int]: The set of job IDs in the left closure of the given job.
-        """
+    Args:
+        id_job (int): The ID of the job for which to compute the left closure.
+        instance (ProblemInstance): The problem instance containing the jobs and resources.
+        solution (Solution): The solution containing the job interval solutions.
 
-        start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
-        completion_times = {j.id_job: solution.job_interval_solutions[j.id_job].end for j in instance.jobs}
-        durations = {j.id_job: j.duration for j in instance.jobs}
-        graph = build_instance_graph(instance)
-        resource_shift_starts = {r: set(ss) for r, ss in compute_resource_shift_starts(instance).items()}
-        resource_shift_ends = {r: sorted(se) for r, se in compute_resource_shift_ends(instance).items()}
-        resources_interval_trees = {r: IntervalTree.from_tuples((start_times[j.id_job], completion_times[j.id_job], j.id_job)
-                                                                for j, c in jobs_consuming_resource(instance, r))
-                                    for r in instance.resources}
+    Returns:
+        Iterable[int]: The set of job IDs in the left closure of the given job.
+    """
 
-        completion_time_jobs = defaultdict(set)  # Mapping from time t to jobs with completion time t
-        job_consumption = {}  # Mapping from job to resources the job consumes
-        for job in instance.jobs:
-            job_consumption[job.id_job] = set()
-            completion_time_jobs[completion_times[job.id_job]].add(job.id_job)
-            for r, c in job.resource_consumption.consumption_by_resource.items():
-                if c > 0:
-                    job_consumption[job.id_job].add(r)
+    start_times = {j.id_job: solution.job_interval_solutions[j.id_job].start for j in instance.jobs}
+    completion_times = {j.id_job: solution.job_interval_solutions[j.id_job].end for j in instance.jobs}
+    durations = {j.id_job: j.duration for j in instance.jobs}
+    graph = build_instance_graph(instance)
+    resource_shift_starts = {r: set(ss) for r, ss in compute_resource_shift_starts(instance).items()}
+    resource_shift_ends = {r: sorted(se) for r, se in compute_resource_shift_ends(instance).items()}
+    resources_interval_trees = {r: IntervalTree.from_tuples((start_times[j.id_job], completion_times[j.id_job], j.id_job)
+                                                            for j, c in jobs_consuming_resource(instance, r))
+                                for r in instance.resources}
 
-        queue = Queue()
-        queue.put(id_job)
+    completion_time_jobs = defaultdict(set)  # Mapping from time t to jobs with completion time t
+    job_consumption = {}  # Mapping from job to resources the job consumes
+    for job in instance.jobs:
+        job_consumption[job.id_job] = set()
+        completion_time_jobs[completion_times[job.id_job]].add(job.id_job)
+        for r, c in job.resource_consumption.consumption_by_resource.items():
+            if c > 0:
+                job_consumption[job.id_job].add(r)
 
-        closure = set()
-        while not queue.empty():
-            n = queue.get(block=False)
-            start = start_times[n]
+    queue = Queue()
+    queue.put(id_job)
 
-            if n in closure:
-                continue
+    closure = set()
+    while not queue.empty():
+        n = queue.get(block=False)
+        start = start_times[n]
 
-            # Process precedence predecessors
-            for pred in graph.predecessors(n):
-                if completion_times[pred] == start:
+        if n in closure:
+            continue
+
+        # Process precedence predecessors
+        for pred in graph.predecessors(n):
+            if completion_times[pred] == start:
+                queue.put(pred)
+
+        if start in completion_time_jobs:
+            # Process resource predecessors
+            for pred in completion_time_jobs[start]:
+                if job_consumption[n] & job_consumption[pred]:
                     queue.put(pred)
 
-            if start in completion_time_jobs:
-                # Process resource predecessors
-                for pred in completion_time_jobs[start]:
-                    if job_consumption[n] & job_consumption[pred]:
-                        queue.put(pred)
+        # Process resource predecessors over resource pauses
+        for r in job_consumption[n]:
+            if start in resource_shift_starts[r]:
+                prev_shift_end = max((s_end for s_end in resource_shift_ends[r] if s_end < start), default=0)
+                low_bound = prev_shift_end - durations[n]
+                for s, e, pred in resources_interval_trees[r].overlap(low_bound, prev_shift_end):
+                    queue.put(pred)
 
-            # Process resource predecessors over resource pauses
-            for r in job_consumption[n]:
-                if start in resource_shift_starts[r]:
-                    prev_shift_end = max((s_end for s_end in resource_shift_ends[r] if s_end < start), default=0)
-                    low_bound = prev_shift_end - durations[n]
-                    for s, e, pred in resources_interval_trees[r].overlap(low_bound, prev_shift_end):
-                        queue.put(pred)
+        closure.add(n)
 
-            closure.add(n)
-
-        return closure
+    return closure
 
 
 def modify_instance_availability(instance: ProblemInstance,

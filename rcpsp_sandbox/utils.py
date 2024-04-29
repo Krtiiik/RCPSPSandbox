@@ -156,3 +156,55 @@ def chunk(sequence: Sequence[T],
 
 def str_or_default(x: Any):
     return str(x) if x is not None else ""
+
+
+def group_evaluations_kpis_by_instance_type(evaluations_kpis,
+                                            scale: bool = False
+                                            ):
+    from bottlenecks.evaluations import EvaluationKPIsLightweight
+    from bottlenecks.evaluations import Evaluation
+
+    def make_dfdict(): return defaultdict(list)
+    alpha = 10
+
+    grouped_evaluations_kpis = defaultdict(make_dfdict)
+    for inst_name, inst_evaluations_kpis in evaluations_kpis.items():
+        inst_group_name = inst_name[:10]
+        for i in range(len(inst_evaluations_kpis)):
+            if scale:
+                improv_max = max(e_kpi.improvement for e_kpi in inst_evaluations_kpis[i])
+                cost_max = max(e_kpi.cost for e_kpi in inst_evaluations_kpis[i])
+                diff_max = max(e_kpi.schedule_difference for e_kpi in inst_evaluations_kpis[i])
+                duration_max = max(e_kpi.evaluation.duration for e_kpi in inst_evaluations_kpis[i])
+                improv_max = improv_max if improv_max != 0 else 1
+                cost_max = cost_max if cost_max != 0 else 1
+                diff_max = diff_max if diff_max != 0 else 1
+                duration_max = duration_max if duration_max != 0 else 1
+                # noinspection PyTypeChecker
+                grouped_evaluations_kpis[inst_group_name][i] += [
+                    EvaluationKPIsLightweight(Evaluation(e_kpis.evaluation.base_instance.name,
+                                                         e_kpis.evaluation.base_solution.job_interval_solutions,
+                                                         e_kpis.evaluation.modified_instance.name,
+                                                         e_kpis.evaluation.solution.job_interval_solutions,
+                                                         e_kpis.evaluation.by,
+                                                         alpha * e_kpis.evaluation.duration / duration_max),
+                                              alpha * e_kpis.cost / cost_max,
+                                              alpha * e_kpis.improvement / improv_max,
+                                              alpha * e_kpis.schedule_difference / diff_max)
+                    for e_kpis in inst_evaluations_kpis[i]
+                ]
+            else:
+                grouped_evaluations_kpis[inst_group_name][i] += inst_evaluations_kpis[i]
+
+    return {group_name: [evals_kpis[key] for key in sorted(evals_kpis)]
+            for group_name, evals_kpis in grouped_evaluations_kpis.items()}
+
+
+def avg(it: Iterable):
+    sm = 0
+    count = 0
+    for item in it:
+        sm += item
+        count += 1
+
+    return sm / count
