@@ -188,6 +188,10 @@ def plot(evaluations_kpis, args: argparse.Namespace):
         cost_improv = os.path.join(PLOT_DIRECTORY, 'cost_improv.pdf')
         improv_diff = os.path.join(PLOT_DIRECTORY, 'improv_diff.pdf')
         duration_improv = os.path.join(PLOT_DIRECTORY, 'duration_improv.pdf')
+        if args.aggregate:
+            cost_improv = 'aggregated_' + cost_improv
+            improv_diff = 'aggregated_' + improv_diff
+            duration_improv = 'aggregated_' + duration_improv
 
     # Plotting
     ncols = 2 if args.aggregate else 5
