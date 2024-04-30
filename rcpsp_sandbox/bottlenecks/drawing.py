@@ -120,6 +120,8 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
                      evaluations_kpis_to_annotate: Iterable[str] = None,
                      annotate_extremes: bool = False,
                      ncols: int = 2,
+                     dimensions: tuple[int, int] = None,
+                     layout: dict[str, float] = None,
                      block: bool = True,
                      save_as: str = None,
                      ):
@@ -140,15 +142,21 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
              loc='lower center'
              )
 
+    if dimensions is None:
+        dimensions = (4*ncols, nrows*3)
+    if layout is None:
+        layout = {
+            "hspace": 0.5,
+            "wspace": 0.3,
+            "top": 0.95,
+            "bottom": 0.15,
+            "left": 0.15,
+            "right": 0.95,
+        }
+
     f.tight_layout()
-    f.set_size_inches(4*ncols, nrows*3)
-    f.subplots_adjust(hspace=0.5,
-                      wspace=0.3,
-                      top=0.95,
-                      bottom=0.15,
-                      left=0.15,
-                      right=0.95
-                      )
+    f.set_size_inches(dimensions)
+    f.subplots_adjust(**layout)
 
     if save_as:
         plt.savefig(save_as)
@@ -185,7 +193,6 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
                                        } if annotate_extremes else ()))
     markers = itertools.cycle(['s', 'o', '^', 'v', '+', 'x'])
 
-    axes.grid(which='both', axis='both', ls='--')
     for evaluations_kpis, marker in zip(algorithms_evaluations_kpis, markers):
         xs = [x_extractor(evaluation_kpi) for evaluation_kpi in evaluations_kpis]
         ys = [y_extractor(evaluation_kpi) for evaluation_kpi in evaluations_kpis]
@@ -196,13 +203,33 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
                    for e_kpis in flatten(algorithms_evaluations_kpis)
                    if e_kpis.evaluation.by in evaluations_kpis_to_annotate]
 
+    if value_axes[0] in {"improvement"}:
+        axes.set_xlim(xmin=0)
+    if value_axes[1] in {"improvement"}:
+        axes.set_ylim(ymin=0)
+
+    if value_axes[0] in {"cost"}:
+        axes.set_xscale('log', base=10)
+        axes.grid(which='major', axis='x', ls='--')
+    else:
+        axes.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+        axes.grid(which='both', axis='x', ls='--')
+    if value_axes[1] in {"cost"}:
+        axes.set_yscale('log', base=10)
+        axes.grid(which='major', axis='y', ls='--')
+    else:
+        axes.yaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
+        axes.grid(which='both', axis='y', ls='--')
+
     axes.set_xlabel(value_axes[0].capitalize())
-    axes.xaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
-    axes.set_xlim(xmin=0)
+    if value_axes[0] in {"cost"}:
+        axes.set_xlabel(axes.get_xlabel() + " (log)")
+
     axes.set_ylabel(value_axes[1].capitalize())
     axes.yaxis.set_label_coords(-0.18, 0.5)
-    axes.yaxis.set_major_locator(MaxNLocator(nbins='auto', integer=True, min_n_ticks=1))
-    axes.set_ylim(ymin=0)
+    if value_axes[0] in {"cost"}:
+        axes.set_ylabel(axes.get_ylabel() + " (log)")
+
     if title is not None:
         axes.set_title(title)
 

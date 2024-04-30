@@ -206,9 +206,12 @@ def plot(evaluations_kpis, args: argparse.Namespace):
 
     # Plotting
     ncols = 2 if args.aggregate else 5
-    plot_evaluations(cost_improv_kpis, value_axes=("cost", "improvement"), save_as=cost_improv, ncols=ncols)
-    plot_evaluations(improv_diff_kpis, value_axes=("improvement", "schedule difference"), save_as=improv_diff, ncols=ncols)
-    plot_evaluations(duration_improv_kpis, value_axes=("duration", "improvement"), save_as=duration_improv, ncols=ncols)
+    dimensions = (8, 11) if args.aggregate else (20, 20)
+    layout = ({"hspace": 0.5, "wspace": 0.3, "top": 0.95, "bottom": 0.15, "left": 0.15, "right": 0.95} if args.aggregate else
+              {"hspace": 0.5, "wspace": 0.3, "top": 0.98, "bottom": 0.08, "left": 0.05, "right": 0.98})
+    plot_evaluations(cost_improv_kpis, value_axes=("cost", "improvement"), save_as=cost_improv, ncols=ncols, dimensions=dimensions, layout=layout)
+    plot_evaluations(improv_diff_kpis, value_axes=("improvement", "schedule difference"), save_as=improv_diff, ncols=ncols, dimensions=dimensions, layout=layout)
+    plot_evaluations(duration_improv_kpis, value_axes=("duration", "improvement"), save_as=duration_improv, ncols=ncols, dimensions=dimensions, layout=layout)
 
 
 def main(args: argparse.Namespace):
