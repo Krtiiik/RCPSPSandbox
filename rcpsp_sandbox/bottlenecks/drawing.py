@@ -122,6 +122,8 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
                      ncols: int = 2,
                      dimensions: tuple[int, int] = None,
                      layout: dict[str, float] = None,
+                     inverse_order: bool = False,
+                     labels: list[str] = None,
                      block: bool = True,
                      save_as: str = None,
                      ):
@@ -130,7 +132,9 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
     nrows = math.ceil(len(instance_evaluations_kpis) / ncols)
     f, axarr = plt.subplots(nrows=nrows, ncols=ncols, height_ratios=nrows*[1])
 
-    for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten()):
+    flatten_order = 'F' if inverse_order else 'C'
+    # noinspection PyTypeChecker
+    for instance_name, axes in zip(instance_evaluations_kpis, axarr.flatten(flatten_order)):
         __plot_algorithms_evaluations_kpis(instance_evaluations_kpis[instance_name], axes, title=instance_name,
                                            value_axes=value_axes, pareto_front=pareto_front, evaluations_kpis_to_annotate=evaluations_kpis_to_annotate,
                                            annotate_extremes=annotate_extremes)
@@ -138,9 +142,9 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
     for axes in axarr.flatten()[len(instance_evaluations_kpis):]:
         axes.set_axis_off()
 
-    f.legend(labels=[evaluations_kpis[0].evaluation.alg_string for evaluations_kpis in instance_evaluations_kpis[next(iter(instance_evaluations_kpis))]],
-             loc='lower center'
-             )
+    if labels is None:
+        labels = [evaluations_kpis[0].evaluation.alg_string for evaluations_kpis in instance_evaluations_kpis[next(iter(instance_evaluations_kpis))]]
+    f.legend(labels=labels, loc='lower center')
 
     if dimensions is None:
         dimensions = (4*ncols, nrows*3)

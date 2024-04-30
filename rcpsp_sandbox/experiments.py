@@ -205,13 +205,14 @@ def plot(evaluations_kpis, args: argparse.Namespace):
         duration_improv_kpis = group_evaluations_kpis_by_instance_type(duration_improv_kpis, args.scale)
 
     # Plotting
-    ncols = 2 if args.aggregate else 5
-    dimensions = (8, 11) if args.aggregate else (20, 20)
-    layout = ({"hspace": 0.5, "wspace": 0.3, "top": 0.95, "bottom": 0.15, "left": 0.15, "right": 0.95} if args.aggregate else
-              {"hspace": 0.5, "wspace": 0.3, "top": 0.98, "bottom": 0.08, "left": 0.05, "right": 0.98})
-    plot_evaluations(cost_improv_kpis, value_axes=("cost", "improvement"), save_as=cost_improv, ncols=ncols, dimensions=dimensions, layout=layout)
-    plot_evaluations(improv_diff_kpis, value_axes=("improvement", "schedule difference"), save_as=improv_diff, ncols=ncols, dimensions=dimensions, layout=layout)
-    plot_evaluations(duration_improv_kpis, value_axes=("duration", "improvement"), save_as=duration_improv, ncols=ncols, dimensions=dimensions, layout=layout)
+    ncols = 2 if args.aggregate else 8
+    dimensions = (8, 11) if args.aggregate else (35, 24)
+    layout = ({"hspace": 0.50, "wspace": 0.3, "top": 0.97, "bottom": 0.13, "left": 0.10, "right": 0.99} if args.aggregate else
+              {"hspace": 0.25, "wspace": 0.3, "top": 0.98, "bottom": 0.06, "left": 0.03, "right": 0.99})
+    labels = ["SSIRA (improvement sort)", "SSIRA (time sort)", "IIRA (AUAU)", "IIRA (MRUR)"]
+    plot_evaluations(cost_improv_kpis, value_axes=("cost", "improvement"), save_as=cost_improv, ncols=ncols, dimensions=dimensions, layout=layout, inverse_order=not args.aggregate, labels=labels)
+    plot_evaluations(improv_diff_kpis, value_axes=("improvement", "schedule difference"), save_as=improv_diff, ncols=ncols, dimensions=dimensions, layout=layout, inverse_order=not args.aggregate, labels=labels)
+    plot_evaluations(duration_improv_kpis, value_axes=("duration", "improvement"), save_as=duration_improv, ncols=ncols, dimensions=dimensions, layout=layout, inverse_order=not args.aggregate, labels=labels)
 
 
 def main(args: argparse.Namespace):
