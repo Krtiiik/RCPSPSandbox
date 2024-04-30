@@ -1,7 +1,6 @@
 import argparse
 import os.path
 import pickle
-from functools import partial
 
 import numpy as np
 import tabulate
@@ -11,8 +10,7 @@ from bottlenecks.evaluations import evaluate_algorithms, compute_evaluation_kpis
 from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm
 from generate_instances import experiment_instances, experiment_instances_info
 from manager import ExperimentManager
-from utils import group_evaluations_kpis_by_instance_type, avg
-
+from utils import group_evaluations_kpis_by_instance_type, pareto_front_kpis
 
 DATA_DIRECTORY = os.path.join('..', 'data')
 DATA_DIRECTORY_STRUCTURE = {
@@ -21,10 +19,9 @@ DATA_DIRECTORY_STRUCTURE = {
     'evaluations_location': os.path.join(DATA_DIRECTORY, 'evaluations'),
     'evaluations_kpis_location': os.path.join(DATA_DIRECTORY, 'evaluations_kpis'),
 }
-PLOT_DIRECTORY = os.path.join('..', 'plots')
+RESULTS_DIRECTORY = os.path.join('..', 'results')
 EVALUATIONS_PICKLE_FILENAME = os.path.join(DATA_DIRECTORY, 'evaluations.pickle')
 EVALUATIONS_KPIS_PICKLE_FILENAME = os.path.join(DATA_DIRECTORY, 'evaluations_kpis.pickle')
-AGGREGATED_EVALUATIONS_KPIS_PICKLE_FILENAME = os.path.join(DATA_DIRECTORY, 'aggregated_evaluations_kpis.pickle')
 ALGORITHMS_SETTINGS = [
     (TimeVariableConstraintRelaxingAlgorithm(), {
         "max_iterations": [1, 2, 3],
@@ -56,13 +53,13 @@ ALGORITHMS_SETTINGS = [
     }),
 ]
 
+I_improvement = 0
+I_cost = 1
+I_schedule_difference = 2
+I_duration = 3
+
 
 def get_evaluations_kpis(args: argparse.Namespace):
-    if args.aggregate and os.path.exists(AGGREGATED_EVALUATIONS_KPIS_PICKLE_FILENAME):
-        with open(AGGREGATED_EVALUATIONS_KPIS_PICKLE_FILENAME, "rb") as f:
-            evaluations_kpis = pickle.load(f)
-        return evaluations_kpis
-
     if os.path.exists(EVALUATIONS_KPIS_PICKLE_FILENAME):  # if cached evaluations kpis exist...
         with open(EVALUATIONS_KPIS_PICKLE_FILENAME, "rb") as f:
             evaluations_kpis = pickle.load(f)
@@ -90,15 +87,13 @@ def get_evaluations_kpis(args: argparse.Namespace):
         with open(EVALUATIONS_KPIS_PICKLE_FILENAME, "wb") as f:
             pickle.dump(evaluations_kpis, f)
 
-    if args.aggregate:
-        evaluations_kpis = group_evaluations_kpis_by_instance_type(evaluations_kpis, args.scale)
-        with open(AGGREGATED_EVALUATIONS_KPIS_PICKLE_FILENAME, "wb") as f:
-            pickle.dump(evaluations_kpis, f)
-
     return evaluations_kpis
 
 
 def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]], args):
+    if args.aggregate:
+        evaluations_kpis = group_evaluations_kpis_by_instance_type(evaluations_kpis, args.scale)
+
     def extract_kpis(_kpis):
         return [[
             _e_kpi.improvement,
@@ -120,11 +115,6 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]], 
     i_ssira = 0
     i_iira = 1
 
-    i_improvement = 0
-    i_cost = 1
-    i_schedule_difference = 2
-    i_duration = 3
-
     n_instances = kpis_by_alg_by_inst.shape[0]
     maxs = np.array([[np.max(alg_kpis, axis=0) for alg_kpis in inst_kpis] for inst_kpis in kpis_by_alg_by_inst])
     mins = np.array([[np.min(alg_kpis, axis=0) for alg_kpis in inst_kpis] for inst_kpis in kpis_by_alg_by_inst])
@@ -133,7 +123,7 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]], 
     inst_mins = np.min(mins, axis=1)
     inst_avgs = np.average(avgs, axis=1)
 
-    improving_kpis_by_alg_by_inst = np.array([[kpis[kpis[:, i_improvement] > 0]
+    improving_kpis_by_alg_by_inst = np.array([[kpis[kpis[:, I_improvement] > 0]
                                                for kpis in algs_kpis]
                                               for algs_kpis in kpis_by_alg_by_inst], dtype=object)
     improving_maxs = np.array([[np.max(alg_kpis, initial=0, axis=0) for alg_kpis in inst_kpis] for inst_kpis in improving_kpis_by_alg_by_inst])
@@ -144,23 +134,23 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]], 
     improving_inst_avgs = np.average(improving_avgs, axis=1)
 
     # Found improvements
-    total_improved_instances = np.sum(inst_maxs[:, i_improvement] > 0)
-    ssira_improved_instances = np.sum(maxs[:, i_ssira, i_improvement] > 0)
-    iira_improved_instances = np.sum(maxs[:, i_iira, i_improvement] > 0)
+    total_improved_instances = np.sum(inst_maxs[:, I_improvement] > 0)
+    ssira_improved_instances = np.sum(maxs[:, i_ssira, I_improvement] > 0)
+    iira_improved_instances = np.sum(maxs[:, i_iira, I_improvement] > 0)
 
     # Best found improvements
-    ssira_best_improvements = np.sum(inst_maxs[:, i_improvement] == maxs[:, i_ssira, i_improvement])
-    iira_best_improvements = np.sum(inst_maxs[:, i_improvement] == maxs[:, i_iira, i_improvement])
-    both_best_improvements = np.sum(maxs[:, i_ssira, i_improvement] == maxs[:, i_iira, i_improvement])
+    ssira_best_improvements = np.sum(inst_maxs[:, I_improvement] == maxs[:, i_ssira, I_improvement])
+    iira_best_improvements = np.sum(inst_maxs[:, I_improvement] == maxs[:, i_iira, I_improvement])
+    both_best_improvements = np.sum(maxs[:, i_ssira, I_improvement] == maxs[:, i_iira, I_improvement])
 
     # Cost
-    ssira_avg_cost_per_improvement = improving_avgs[:, i_ssira, i_cost] / improving_avgs[:, i_ssira, i_improvement]
-    iira_avg_cost_per_improvement = improving_avgs[:, i_iira, i_cost] / improving_avgs[:, i_iira, i_improvement]
+    ssira_avg_cost_per_improvement = improving_avgs[:, i_ssira, I_cost] / improving_avgs[:, i_ssira, I_improvement]
+    iira_avg_cost_per_improvement = improving_avgs[:, i_iira, I_cost] / improving_avgs[:, i_iira, I_improvement]
 
     # Schedule difference
     inst_ns = np.array([experiment_instances_info[instance]["n"] for instance in evaluations_kpis])
-    ssira_avg_diff_per_job = improving_avgs[:, i_ssira, i_schedule_difference] / inst_ns
-    iira_avg_diff_per_job = improving_avgs[:, i_iira, i_schedule_difference] / inst_ns
+    ssira_avg_diff_per_job = improving_avgs[:, i_ssira, I_schedule_difference] / inst_ns
+    iira_avg_diff_per_job = improving_avgs[:, i_iira, I_schedule_difference] / inst_ns
 
     print("total_improved_instances", ": ", total_improved_instances)
     print("ssira_improved_instances", ": ", ssira_improved_instances)
@@ -169,35 +159,56 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]], 
     print("iira_best_improvements",   ": ", iira_best_improvements)
     print("both_best_improvements",   ": ", both_best_improvements)
 
-    t = tabulate.tabulate([
-        [
+    table_data = [[
             instance,
             ssira_avg_diff_per_job[i_instances[instance]],
-            iira_avg_diff_per_job[i_instances[instance]],
             ssira_avg_cost_per_improvement[i_instances[instance]],
+            iira_avg_diff_per_job[i_instances[instance]],
             iira_avg_cost_per_improvement[i_instances[instance]],
         ] for instance in evaluations_kpis
-    ], ["Instance", "SSIRA avg diff", "IIRA avg diff", "SSIRA avg cost/improvement", "IIRA avg cost/improvement"])
+        ]
+    t = tabulate.tabulate(
+        table_data,
+        ["Instance", "SSIRA avg diff", "SSIRA avg cost/improvement", "IIRA avg diff", "IIRA avg cost/improvement"],
+        tablefmt='tsv',
+    )
     print(t)
 
+    with open(os.path.join(RESULTS_DIRECTORY, ('aggregated_data.tsv' if args.aggregate else 'data.tsv')), "wt") as f:
+        def row(*_vals): print(*_vals, sep='\t', end='\n', file=f)
+        row("Instance", "SSIRA avg diff", "IIRA avg diff", "SSIRA avg cost/improvement", "IIRA avg cost/improvement")
+        for instance_data in table_data:
+            row(*instance_data)
 
+
+# noinspection PyTypeChecker
 def plot(evaluations_kpis, args: argparse.Namespace):
     # Determine whether to save plots to files
     cost_improv = improv_diff = duration_improv = None
     if args.save_plots:
-        cost_improv = os.path.join(PLOT_DIRECTORY, 'cost_improv.pdf')
-        improv_diff = os.path.join(PLOT_DIRECTORY, 'improv_diff.pdf')
-        duration_improv = os.path.join(PLOT_DIRECTORY, 'duration_improv.pdf')
         if args.aggregate:
-            cost_improv = 'aggregated_' + cost_improv
-            improv_diff = 'aggregated_' + improv_diff
-            duration_improv = 'aggregated_' + duration_improv
+            cost_improv = os.path.join(RESULTS_DIRECTORY, 'aggregated_cost_improv.pdf')
+            improv_diff = os.path.join(RESULTS_DIRECTORY, 'aggregated_improv_diff.pdf')
+            duration_improv = os.path.join(RESULTS_DIRECTORY, 'aggregated_duration_improv.pdf')
+        else:
+            cost_improv = os.path.join(RESULTS_DIRECTORY, 'cost_improv.pdf')
+            improv_diff = os.path.join(RESULTS_DIRECTORY, 'improv_diff.pdf')
+            duration_improv = os.path.join(RESULTS_DIRECTORY, 'duration_improv.pdf')
+
+    cost_improv_kpis = {instance: [pareto_front_kpis(alg_kpis, x="cost", y="improvement") for alg_kpis in algs_kpis] for instance, algs_kpis in evaluations_kpis.items()}
+    improv_diff_kpis = {instance: [pareto_front_kpis(alg_kpis, x="improvement", y="schedule difference") for alg_kpis in algs_kpis] for instance, algs_kpis in evaluations_kpis.items()}
+    duration_improv_kpis = {instance: [pareto_front_kpis(alg_kpis, x="duration", y="improvement") for alg_kpis in algs_kpis] for instance, algs_kpis in evaluations_kpis.items()}
+
+    if args.aggregate:
+        cost_improv_kpis = group_evaluations_kpis_by_instance_type(cost_improv_kpis, args.scale)
+        improv_diff_kpis = group_evaluations_kpis_by_instance_type(improv_diff_kpis, args.scale)
+        duration_improv_kpis = group_evaluations_kpis_by_instance_type(duration_improv_kpis, args.scale)
 
     # Plotting
     ncols = 2 if args.aggregate else 5
-    plot_evaluations(evaluations_kpis, value_axes=("cost", "improvement"), pareto_front=True, save_as=cost_improv, ncols=ncols)
-    plot_evaluations(evaluations_kpis, value_axes=("improvement", "schedule difference"), pareto_front=True, save_as=improv_diff, ncols=ncols)
-    plot_evaluations(evaluations_kpis, value_axes=("duration", "improvement"), pareto_front=True, save_as=duration_improv, ncols=ncols)
+    plot_evaluations(cost_improv_kpis, value_axes=("cost", "improvement"), save_as=cost_improv, ncols=ncols)
+    plot_evaluations(improv_diff_kpis, value_axes=("improvement", "schedule difference"), save_as=improv_diff, ncols=ncols)
+    plot_evaluations(duration_improv_kpis, value_axes=("duration", "improvement"), save_as=duration_improv, ncols=ncols)
 
 
 def main(args: argparse.Namespace):

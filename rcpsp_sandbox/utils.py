@@ -3,6 +3,7 @@ import sys
 from collections import defaultdict
 from typing import Iterable, Collection, TypeVar, Any, Sequence
 
+import numpy as np
 
 T = TypeVar('T')
 T_StepFunction = list[tuple[int, int, int]]
@@ -208,3 +209,50 @@ def avg(it: Iterable):
         count += 1
 
     return sm / count
+
+
+def __is_pareto_efficient(costs, return_mask = True):
+    """
+    Find the pareto-efficient points.
+    :param costs: An (n_points, n_costs) array
+    :param return_mask: True to return a mask
+    :return: An array of indices of pareto-efficient points.
+        If return_mask is True, this will be an (n_points, ) boolean array
+        Otherwise it will be a (n_efficient_points, ) integer array of indices.
+
+    From https://stackoverflow.com/a/40239615.
+    """
+    is_efficient = np.arange(costs.shape[0])
+    n_points = costs.shape[0]
+    next_point_index = 0  # Next index in the is_efficient array to search for
+    while next_point_index < len(costs):
+        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
+        nondominated_point_mask[next_point_index] = True
+        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
+        costs = costs[nondominated_point_mask]
+        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
+    if return_mask:
+        is_efficient_mask = np.zeros(n_points, dtype = bool)
+        is_efficient_mask[is_efficient] = True
+        return is_efficient_mask
+    else:
+        return is_efficient
+
+
+def pareto_front_kpis(evaluations_kpis, x, y):
+    pareto_extractors = {
+        "cost": (lambda ev: ev.cost),
+        "improvement": (lambda ev: -ev.improvement),
+        "schedule difference": (lambda ev: ev.schedule_difference),
+        "duration": (lambda ev: ev.evaluation.duration)
+    }
+
+    x_extractor, y_extractor = pareto_extractors[x], pareto_extractors[y]
+
+    def build_kpis_array(_alg_evaluations_kpis):
+        return np.array([(x_extractor(_e_kpis), y_extractor(_e_kpis)) for _e_kpis in _alg_evaluations_kpis])
+
+    filtered_evaluations_kpis = [_e_kpis for _e_kpis in evaluations_kpis
+                                 if (_e_kpis.improvement > 0
+                                     or (_e_kpis.cost == 0 and _e_kpis.schedule_difference == 0))]
+    return [filtered_evaluations_kpis[i] for i in __is_pareto_efficient(build_kpis_array(filtered_evaluations_kpis), return_mask=False)]

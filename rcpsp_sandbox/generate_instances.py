@@ -565,7 +565,8 @@ if __name__ == "__main__":
         'evaluations_kpis_location': os.path.join(DATA_DIRECTORY, 'evaluations_kpis'),
     }
 
-    instance_name = "instance02_1"
+    # instance_name = "instance02_1"
+    instance_name = "instance03"
     with ExperimentManager(**DATA_DIRECTORY_STRUCTURE) as manager:
         instance = manager.load_base_instance(instance_name)
 

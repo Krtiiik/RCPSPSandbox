@@ -2,14 +2,13 @@ import functools
 import itertools
 import math
 from collections import namedtuple
-from typing import Iterable, Literal
+from typing import Iterable
 
 import numpy as np
 import matplotlib.colors
 import matplotlib.spines
 import matplotlib.patches
 import matplotlib.pyplot as plt
-from adjustText import adjust_text
 from matplotlib.ticker import MaxNLocator
 
 import utils
@@ -18,7 +17,7 @@ from bottlenecks.improvements import left_closure
 from bottlenecks.utils import compute_resource_consumption
 from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability, \
     compute_resource_periodical_availability
-from utils import interval_overlap_function, flatten
+from utils import interval_overlap_function, flatten, __is_pareto_efficient
 from solver.solution import Solution
 
 
@@ -171,25 +170,10 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
         "schedule difference": (lambda ev: ev.schedule_difference),
         "duration": (lambda ev: ev.evaluation.duration)
     }
-    pareto_extractors = {
-        "cost": (lambda ev: ev.cost),
-        "improvement": (lambda ev: -ev.improvement),
-        "schedule difference": (lambda ev: ev.schedule_difference),
-        "duration": (lambda ev: ev.evaluation.duration)
-    }
 
     if pareto_front:
-        x_extractor, y_extractor = pareto_extractors[value_axes[0]], pareto_extractors[value_axes[1]]
-
-        def build_kpis_array(_alg_evaluations_kpis):
-            return np.array([(x_extractor(_e_kpis), y_extractor(_e_kpis)) for _e_kpis in _alg_evaluations_kpis])
-        algorithms_evaluations_kpis = [[_e_kpis for _e_kpis in alg_evaluations_kpis
-                                        if (_e_kpis.improvement > 0
-                                            or (_e_kpis.cost == 0 and _e_kpis.schedule_difference == 0))]
+        algorithms_evaluations_kpis = [utils.pareto_front_kpis(alg_evaluations_kpis, value_axes[0], value_axes[1])
                                        for alg_evaluations_kpis in algorithms_evaluations_kpis]
-        algorithms_evaluations_kpis = [
-            np.array(alg_evaluations_kpis)[__is_pareto_efficient(build_kpis_array(alg_evaluations_kpis))]
-            for alg_evaluations_kpis in algorithms_evaluations_kpis]
 
     x_extractor, y_extractor = value_extractors[value_axes[0]], value_extractors[value_axes[1]]
     evaluations_kpis_to_annotate = set(evaluations_kpis_to_annotate if evaluations_kpis_to_annotate is not None
@@ -560,34 +544,6 @@ def compute_shifting_interval_levels(solution_a: Solution, solution_b: Solution)
 
 def __build_intervals(solution: Solution):
     return (Interval(j_id, j_interval.start, j_interval.end) for j_id, j_interval in solution.job_interval_solutions.items())
-
-
-def __is_pareto_efficient(costs, return_mask = True):
-    """
-    Find the pareto-efficient points.
-    :param costs: An (n_points, n_costs) array
-    :param return_mask: True to return a mask
-    :return: An array of indices of pareto-efficient points.
-        If return_mask is True, this will be an (n_points, ) boolean array
-        Otherwise it will be a (n_efficient_points, ) integer array of indices.
-
-    From https://stackoverflow.com/a/40239615.
-    """
-    is_efficient = np.arange(costs.shape[0])
-    n_points = costs.shape[0]
-    next_point_index = 0  # Next index in the is_efficient array to search for
-    while next_point_index < len(costs):
-        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
-        nondominated_point_mask[next_point_index] = True
-        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
-        costs = costs[nondominated_point_mask]
-        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
-    if return_mask:
-        is_efficient_mask = np.zeros(n_points, dtype = bool)
-        is_efficient_mask[is_efficient] = True
-        return is_efficient_mask
-    else:
-        return is_efficient
 
 
 def last_from(iterator):
