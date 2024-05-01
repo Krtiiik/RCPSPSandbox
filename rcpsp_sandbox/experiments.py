@@ -151,8 +151,10 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
     inst_ns = np.array([experiment_instances_info[instance]["n"] for instance in evaluations_kpis])
     ssira_avg_diff = improving_avgs[:, i_ssira, I_schedule_difference]
     ssira_avg_diff_per_job = improving_avgs[:, i_ssira, I_schedule_difference] / inst_ns
+    ssira_avg_diff_per_improvement = np.array([(np.average(kpis[I_schedule_difference] / kpis[I_improvement]) if kpis.shape[0] > 0 else float("nan")) for kpis in improving_kpis_by_alg_by_inst[:, i_ssira]])
     iira_avg_diff = improving_avgs[:, i_iira, I_schedule_difference]
     iira_avg_diff_per_job = improving_avgs[:, i_iira, I_schedule_difference] / inst_ns
+    iira_avg_diff_per_improvement = np.array([(np.average(kpis[I_schedule_difference] / kpis[I_improvement]) if kpis.shape[0] > 0 else float("nan")) for kpis in improving_kpis_by_alg_by_inst[:, i_iira]])
 
     # Duration
     avgs_improvement_per_duration = np.array([[np.average(alg_kpis[:, I_improvement] / alg_kpis[:, I_duration]) for alg_kpis in algs_kpis] for algs_kpis in improving_kpis_by_alg_by_inst])
@@ -201,18 +203,20 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
 
         iira_avg_diff[i_instances[instance]],
         iira_avg_diff_per_job[i_instances[instance]],
+        iira_avg_diff_per_improvement[i_instances[instance]],
         iira_avg_cost_per_improvement[i_instances[instance]],
         iira_avg_improvement_per_duration[i_instances[instance]],
 
         ssira_avg_diff[i_instances[instance]],
         ssira_avg_diff_per_job[i_instances[instance]],
+        ssira_avg_diff_per_improvement[i_instances[instance]],
         ssira_avg_cost_per_improvement[i_instances[instance]],
         ssira_avg_improvement_per_duration[i_instances[instance]],
     ] for instance in evaluations_kpis]
     data_kpis_cols = [
         "Instance",
-        "IIRA avg diff", "IIRA avg diff per job", "IIRA avg cost per improvement", "IIRA avg improvement per duration",
-        "SSIRA avg diff", "SSIRA avg diff per job", "SSIRA avg cost per improvement", "SSIRA avg improvement per duration",
+        "IIRA avg diff", "IIRA avg diff per job", "IIRA avg diff per improvement", "IIRA avg cost per improvement", "IIRA avg improvement per duration",
+        "SSIRA avg diff", "SSIRA avg diff per job", "SSIRA avg diff per improvement", "SSIRA avg cost per improvement", "SSIRA avg improvement per duration",
     ]
 
     do_table(data_kpis, data_kpis_cols, "data_kpis")
