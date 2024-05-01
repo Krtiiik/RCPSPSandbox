@@ -135,10 +135,10 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
     # Found improvement
     iira_improved = maxs[:, i_iira, I_improvement] > 0
     iira_improved_aggregated = np.sum(iira_improved.reshape((8, -1)), axis=1)
-    iira_improved_best = inst_maxs[:, I_improvement] == maxs[:, i_iira, I_improvement]
+    iira_improved_best = iira_improved & (inst_maxs[:, I_improvement] == maxs[:, i_iira, I_improvement])
     ssira_improved = maxs[:, i_ssira, I_improvement] > 0
-    ssira_improved_best = inst_maxs[:, I_improvement] == maxs[:, i_ssira, I_improvement]
     ssira_improved_aggregated = np.sum(ssira_improved.reshape((8, -1)), axis=1)
+    ssira_improved_best = ssira_improved & (inst_maxs[:, I_improvement] == maxs[:, i_ssira, I_improvement])
     iira_improved_unique = iira_improved.reshape((8, -1)) & ~ssira_improved.reshape((8, -1))
     ssira_improved_unique = ssira_improved.reshape((8, -1)) & ~iira_improved.reshape((8, -1))
 
@@ -222,6 +222,9 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
     minutes = int((total_duration % 3600) // 60)
     seconds = int(total_duration % 60)
     print("Total evaluation duration:", f'{hours}:{minutes}:{seconds}', f'[{total_duration} s]')
+
+    print("IIRA found better : ", np.sum((maxs[:, i_iira, I_improvement] > 0) & (maxs[:, i_iira, I_improvement] > maxs[:, i_ssira, I_improvement])))
+    print("SSIRA found better: ", np.sum((maxs[:, i_ssira, I_improvement] > 0) & (maxs[:, i_ssira, I_improvement] > maxs[:, i_iira, I_improvement])))
 
 
 # noinspection PyTypeChecker
