@@ -166,7 +166,7 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
                 _row(*_row_data)
 
     data_instances = [[
-        f"instance{i+1}*",
+        f"instance0{i+1}*",
 
         f'{iira_improved_aggregated[i]}/5',
         (f'{np.sum(iira_improved_best.reshape((8, -1)), axis=1)[i]}/{iira_improved_aggregated[i]}' if iira_improved_aggregated[i] > 0 else " "),
@@ -210,6 +210,12 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
     ]
 
     do_table(data_kpis, data_kpis_cols, "data_kpis")
+
+    total_duration = sum(map(lambda kpis: kpis.sum(axis=0)[I_duration], kpis_by_alg_by_inst.flatten()))
+    hours = int(total_duration // 3600)
+    minutes = int((total_duration % 3600) // 60)
+    seconds = int(total_duration % 60)
+    print("Total evaluation duration:", f'{hours}:{minutes}:{seconds}', f'[{total_duration} s]')
 
 
 # noinspection PyTypeChecker
