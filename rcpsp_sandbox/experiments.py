@@ -139,6 +139,8 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
     ssira_improved = maxs[:, i_ssira, I_improvement] > 0
     ssira_improved_best = inst_maxs[:, I_improvement] == maxs[:, i_ssira, I_improvement]
     ssira_improved_aggregated = np.sum(ssira_improved.reshape((8, -1)), axis=1)
+    iira_improved_unique = iira_improved.reshape((8, -1)) & ~ssira_improved.reshape((8, -1))
+    ssira_improved_unique = ssira_improved.reshape((8, -1)) & ~iira_improved.reshape((8, -1))
 
     # Cost
     avgs_cost_per_improvement = np.array([[np.average(alg_kpis[:, I_cost] / alg_kpis[:, I_improvement]) for alg_kpis in algs_kpis] for algs_kpis in improving_kpis_by_alg_by_inst])
@@ -169,23 +171,27 @@ def compute_statistics(evaluations_kpis: dict[str, list[list[EvaluationKPIs]]],
         f"instance0{i+1}*",
 
         f'{iira_improved_aggregated[i]}/5',
+        (f'{np.sum(iira_improved_unique[i])}/{iira_improved_aggregated[i]}' if iira_improved_unique[i].sum() > 0 else " "),
         (f'{np.sum(iira_improved_best.reshape((8, -1)), axis=1)[i]}/{iira_improved_aggregated[i]}' if iira_improved_aggregated[i] > 0 else " "),
 
         f'{ssira_improved_aggregated[i]}/5',
+        (f'{np.sum(ssira_improved_unique[i])}/{ssira_improved_aggregated[i]}' if ssira_improved_unique[i].sum() > 0 else " "),
         (f'{np.sum(ssira_improved_best.reshape((8, -1)), axis=1)[i]}/{ssira_improved_aggregated[i]}' if ssira_improved_aggregated[i] > 0 else " "),
     ] for i in range(len(aggregated_evaluations_kpis))] + [[
         "Total",
 
         f'{iira_improved_aggregated.sum()}/{n_instances}',
+        f'{np.sum(iira_improved_unique)}/{iira_improved_aggregated.sum()}',
         f'{iira_improved_best.sum()}/{iira_improved_aggregated.sum()}',
 
         f'{ssira_improved_aggregated.sum()}/{n_instances}',
+        f'{np.sum(ssira_improved_unique)}/{iira_improved_aggregated.sum()}',
         f'{ssira_improved_best.sum()}/{ssira_improved_aggregated.sum()}',
     ]]
     data_instances_cols = [
         "Instances",
-        "IIRA improved", "IIRA improved best",
-        "SSIRA improved", "SSIRA improved best",
+        "IIRA improved", "IIRA improved unique", "IIRA improved best",
+        "SSIRA improved", "SSIRA improved unique", "SSIRA improved best",
     ]
 
     do_table(data_instances, data_instances_cols, "data_instances")
