@@ -231,7 +231,7 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
 
     axes.set_ylabel(value_axes[1].capitalize())
     axes.yaxis.set_label_coords(-0.18, 0.5)
-    if value_axes[0] in {"cost"}:
+    if value_axes[1] in {"cost"}:
         axes.set_ylabel(axes.get_ylabel() + " (log)")
 
     if title is not None:
