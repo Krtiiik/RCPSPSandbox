@@ -1,8 +1,8 @@
 import os
 
 from bottlenecks.drawing import plot_solution
-from bottlenecks.improvements import MetricsRelaxingAlgorithm, MetricsRelaxingAlgorithmSettings, \
-    TimeVariableConstraintRelaxingAlgorithm, TimeVariableConstraintRelaxingAlgorithmSettings
+from bottlenecks.improvements import IdentificationIndicatorRelaxingAlgorithm, IdentificationIndicatorRelaxingAlgorithmSettings, \
+    ScheduleSuffixIntervalRelaxingAlgorithm, ScheduleSuffixIntervalRelaxingAlgorithmSettings
 from bottlenecks.io import serialize_evaluations
 from instances.io import parse_json
 from solver.solver import Solver
@@ -34,13 +34,13 @@ def main():
     base_solution = Solver().solve(instance)
     plot(base_solution, "solution_base")
 
-    iira = MetricsRelaxingAlgorithm()
-    ssira = TimeVariableConstraintRelaxingAlgorithm()
+    iira = IdentificationIndicatorRelaxingAlgorithm()
+    ssira = ScheduleSuffixIntervalRelaxingAlgorithm()
 
     # The intermediate solution plots were obtained by calling the `plot` function from within the algorithms
     # using step-into debugging as the `EvaluationAlgorithm` currently does not support internal plotting.
-    evaluation_iira = iira.evaluate(instance, MetricsRelaxingAlgorithmSettings("auac", 8, "around", 1, 1, 8))
-    evaluation_ssira = ssira.evaluate(instance, TimeVariableConstraintRelaxingAlgorithmSettings(1, 1, 1, "time"))
+    evaluation_iira = iira.evaluate(instance, IdentificationIndicatorRelaxingAlgorithmSettings("auau", 8, "around", 1, 1, 8))
+    evaluation_ssira = ssira.evaluate(instance, ScheduleSuffixIntervalRelaxingAlgorithmSettings(1, 1, 1, "time"))
 
     plot(evaluation_iira.solution, "solution_iira")
     plot(evaluation_ssira.solution, "solution_ssira")

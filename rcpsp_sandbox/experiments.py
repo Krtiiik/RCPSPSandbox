@@ -7,7 +7,7 @@ import tabulate
 
 from bottlenecks.drawing import plot_evaluations
 from bottlenecks.evaluations import evaluate_algorithms, compute_evaluation_kpis, EvaluationKPIs
-from bottlenecks.improvements import TimeVariableConstraintRelaxingAlgorithm, MetricsRelaxingAlgorithm
+from bottlenecks.improvements import ScheduleSuffixIntervalRelaxingAlgorithm, IdentificationIndicatorRelaxingAlgorithm
 from generate_instances import experiment_instances, experiment_instances_info
 from manager import ExperimentManager
 from utils import group_evaluations_kpis_by_instance_type, pareto_front_kpis
@@ -23,27 +23,27 @@ RESULTS_DIRECTORY = os.path.join('..', 'results')
 EVALUATIONS_PICKLE_FILENAME = os.path.join(DATA_DIRECTORY, 'evaluations.pickle')
 EVALUATIONS_KPIS_PICKLE_FILENAME = os.path.join(DATA_DIRECTORY, 'evaluations_kpis.pickle')
 ALGORITHMS_SETTINGS = [
-    (TimeVariableConstraintRelaxingAlgorithm(), {
+    (ScheduleSuffixIntervalRelaxingAlgorithm(), {
         "max_iterations": [1, 2, 3],
         "relax_granularity": [1],
         "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
         "interval_sort": ["improvement"]
     }),
-    (TimeVariableConstraintRelaxingAlgorithm(), {
+    (ScheduleSuffixIntervalRelaxingAlgorithm(), {
         "max_iterations": [1, 2, 3],
         "relax_granularity": [1],
         "max_improvement_intervals": [1, 2, 3, 4, 5, 6],
         "interval_sort": ["time"]
     }),
-    (MetricsRelaxingAlgorithm(), {
-        "metric": ["auac"],
+    (IdentificationIndicatorRelaxingAlgorithm(), {
+        "metric": ["auau"],
         "granularity": [4, 8],
         "convolution_mask": ["pre1", "around", "post"],
         "max_iterations": [1, 2, 3],
         "max_improvement_intervals": [1, 2, 3, 4],
         "capacity_addition": [4, 10],
     }),
-    (MetricsRelaxingAlgorithm(), {
+    (IdentificationIndicatorRelaxingAlgorithm(), {
         "metric": ["mrur"],
         "granularity": [4, 8],
         "convolution_mask": ["pre1", "around", "post"],

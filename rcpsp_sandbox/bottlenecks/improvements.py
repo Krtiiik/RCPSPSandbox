@@ -23,7 +23,7 @@ from solver.model_builder import add_hot_start
 from solver.solution import Solution
 from utils import interval_overlap_function, intervals_overlap
 
-TimeVariableConstraintRelaxingAlgorithmSettings = namedtuple("TimeVariableConstraintRelaxingAlgorithmSettings",
+ScheduleSuffixIntervalRelaxingAlgorithmSettings = namedtuple("ScheduleSuffixIntervalRelaxingAlgorithmSettings",
                                                              ("max_iterations", "relax_granularity", "max_improvement_intervals",
                                                               "interval_sort"))
 
@@ -31,7 +31,7 @@ TimeVariableConstraintRelaxingAlgorithmSettings = namedtuple("TimeVariableConstr
 OLD = False
 
 
-class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
+class ScheduleSuffixIntervalRelaxingAlgorithm(EvaluationAlgorithm):
     INTERVAL_SORTS = {
         "improvement": (lambda itv: -itv[3]),
         "time": (lambda itv: (-itv[0], -itv[1]))
@@ -42,7 +42,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
     @property
     def settings_type(self) -> type:
-        return TimeVariableConstraintRelaxingAlgorithmSettings
+        return ScheduleSuffixIntervalRelaxingAlgorithmSettings
 
     def _run(self,
              base_instance: ProblemInstance, base_solution: Solution,
@@ -70,7 +70,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
         return modified_instance, solution
 
     def __find_intervals_to_relax(self,
-                                  settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                                  settings: ScheduleSuffixIntervalRelaxingAlgorithmSettings,
                                   instance: ProblemInstance, solution: Solution,
                                   ) -> dict[str, list[CapacityChange]]:
         improvement_intervals = self.relaxed_interval_consumptions(instance, solution, settings, component=instance.target_job)
@@ -87,7 +87,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
     @staticmethod
     def time_relaxed_suffixes(instance: ProblemInstance, solution: Solution,
-                              settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                              settings: ScheduleSuffixIntervalRelaxingAlgorithmSettings,
                               ):
         """
         Calculate the start times and first job indicators for each job at different time intervals.
@@ -135,7 +135,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
     def time_relaxed_suffix_consumptions(self,
                                          instance: ProblemInstance, solution: Solution,
-                                         settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                                         settings: ScheduleSuffixIntervalRelaxingAlgorithmSettings,
                                          component: int = None,
                                          ):
         """
@@ -180,7 +180,7 @@ class TimeVariableConstraintRelaxingAlgorithm(EvaluationAlgorithm):
 
     def relaxed_interval_consumptions(self,
                                       instance: ProblemInstance, solution: Solution,
-                                      settings: TimeVariableConstraintRelaxingAlgorithmSettings,
+                                      settings: ScheduleSuffixIntervalRelaxingAlgorithmSettings,
                                       component: int = None,
                                       ):
         """
@@ -366,16 +366,16 @@ def reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
         resource.availability.migrations = migrations[resource.key]
 
 
-MetricsRelaxingAlgorithmSettings = namedtuple("MetricsRelaxingAlgorithmSettings",
-                                              ("metric", "granularity", "convolution_mask",
-                                               "max_iterations", "max_improvement_intervals", "capacity_addition"))
+IdentificationIndicatorRelaxingAlgorithmSettings = namedtuple("IdentificationIndicatorRelaxingAlgorithmSettings",
+                                                              ("metric", "granularity", "convolution_mask",
+                                                               "max_iterations", "max_improvement_intervals", "capacity_addition"))
 
 
-class MetricsRelaxingAlgorithm(EvaluationAlgorithm):
+class IdentificationIndicatorRelaxingAlgorithm(EvaluationAlgorithm):
     METRIC_MAPPING: dict[str, Callable[[Solution, ProblemInstance, Resource], T_MetricResult] | partial] = {
         'mrw': machine_resource_workload,
         'mrur': partial(machine_resource_utilization_rate, variable_capacity=True),
-        'auac': partial(average_uninterrupted_active_consumption, average_over="consumption ratio"),
+        'auau': partial(average_uninterrupted_active_consumption, average_over="consumption ratio"),
     }
 
     CONVOLUTION_MASKS: dict[str, list[int]] = {
@@ -386,11 +386,11 @@ class MetricsRelaxingAlgorithm(EvaluationAlgorithm):
 
     @property
     def settings_type(self) -> type:
-        return MetricsRelaxingAlgorithmSettings
+        return IdentificationIndicatorRelaxingAlgorithmSettings
 
     def _run(self,
              base_instance: ProblemInstance, base_solution: Solution,
-             settings: MetricsRelaxingAlgorithmSettings,
+             settings: IdentificationIndicatorRelaxingAlgorithmSettings,
              ) -> tuple[ProblemInstance, Solution]:
         def modified_instance_name(): return (f'{modified_instance.name.split(EvaluationAlgorithm.ID_SEPARATOR)[0]}'
                                               f'{EvaluationAlgorithm.ID_SEPARATOR}{self.represent_short(settings)}'
