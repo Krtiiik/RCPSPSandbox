@@ -45,6 +45,8 @@ class ColorMap:
 
     def __init__(self, instance: ProblemInstance,
                  highlight: Iterable[int] = None,
+                 component_colors: dict[int, str] = None,
+                 dim_resources: bool = True,
                  ):
         component_jobs = {root_job.id_job: [j.id_job for j in c_jobs] for root_job, c_jobs in compute_component_jobs(instance).items()}
 
@@ -53,6 +55,12 @@ class ColorMap:
             for id_job in component_jobs[id_root_job]:
                 self._job_component_index[id_job] = i_comp
 
+        if component_colors is not None:
+            self.component_colors = {self._job_component_index[id_root_job]: color for id_root_job, color in component_colors.items()}
+        else:
+            self.component_colors = {}
+
+        self.dim_resources = dim_resources
         self._highlight = set(highlight) if highlight else None
 
     def interval(self, job_id):
@@ -80,6 +88,9 @@ class ColorMap:
         return self.__job_component_color(job_id)
 
     def fill_shade_of(self, color):
+        if not self.dim_resources:
+            return color
+
         r, g, b, a = matplotlib.colors.to_rgba(color)
         fill_color = (
             clamp(r + 0.1, 0, 1),
@@ -90,7 +101,10 @@ class ColorMap:
         return fill_color
 
     def __job_component_color(self, job_id):
-        return self._cm[self._job_component_index[job_id]]
+        component_index = self._job_component_index[job_id]
+        if component_index in self.component_colors:
+            return self.component_colors[component_index]
+        return self._cm[component_index]
 
 
 def plot_evaluation_solution_comparison(evaluation: Evaluation,
@@ -245,29 +259,40 @@ def plot_solution(solution: Solution,
                   save_as: str = None,
                   dimensions: tuple[int, int] = (8, 11),
                   component_legends: dict[int, str] = None,
+                  component_colors: dict[int, str] = None,
                   orderify_legends: bool = False,
                   horizon: int = None,
                   job_interval_levels: dict[int, int] = None,
                   highlight_non_periodical_consumption: bool = False,
+                  panel_heights: list[int] = None,
+                  title: bool = True,
+                  scale: float = 1,
+                  legend: bool = True,
+                  offset_deadlines: bool = True,
                   ):
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
-    params = PlotParameters(0, horizon, ColorMap(instance, highlight), [0]+list(range(6, horizon, 8)))
+    params = PlotParameters(0, horizon, ColorMap(instance, highlight, component_colors=component_colors, dim_resources=not highlight_non_periodical_consumption), [0]+list(range(6, horizon, 8)))
 
     f: plt.Figure
     axarr: list[plt.Axes]
     resource_count = len(instance.resources)
-    f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=__compute_height_ratios(solution, horizon))
+    if panel_heights is None:
+        panel_heights = __compute_height_ratios(solution, horizon)
+    f, axarr = plt.subplots(1 + resource_count, sharex="col", height_ratios=panel_heights)
 
     __intervals_panel(solution, axarr[0], params,
                       component_legends=component_legends, orderify_legends=orderify_legends,
-                      job_interval_levels=job_interval_levels)
+                      job_interval_levels=job_interval_levels, scale=scale,
+                      legend=legend, offset_deadlines=offset_deadlines,
+                      )
     __resources_panels(solution, axarr[1:], params,
                        split_consumption=split_consumption, highlight_consumption=highlight,
                        highlight_non_periodical_consumption=highlight_non_periodical_consumption)
 
-    f.suptitle(solution.instance.name)
+    if title:
+        f.suptitle(solution.instance.name)
     f.tight_layout()
     f.subplots_adjust(hspace=0.1, top=0.92, bottom=0.05, left=0.1, right=0.95)
     f.set_size_inches(dimensions)
@@ -362,6 +387,9 @@ def __intervals_panel(solution: Solution,
                       component_legends: dict[int, str] = None,
                       orderify_legends: bool = False,
                       job_interval_levels: dict[int, int] = None,
+                      scale: float = 1,
+                      legend: bool = True,
+                      offset_deadlines: bool = True,
                       ):
     instance = solution.instance
     deadlines = {j.id_job: j.due_date for j in instance.jobs}
@@ -370,8 +398,8 @@ def __intervals_panel(solution: Solution,
 
     # Plotting
     __plot_dividers(params.dividers, axes, params)
-    __plot_deadlines(deadlines, axes, params)
-    __plot_intervals(intervals, axes, params, job_interval_levels=job_interval_levels)
+    __plot_deadlines(deadlines, axes, params, offset_deadlines=offset_deadlines)
+    __plot_intervals(intervals, axes, params, job_interval_levels=job_interval_levels, scale=scale)
 
     # Styling
     axes.set_ylabel("Intervals")
@@ -382,12 +410,13 @@ def __intervals_panel(solution: Solution,
     axes.set_xticks(params.dividers, labels=map(str, params.dividers), rotation=(0 if params.horizon < 100 else 90))
     axes.autoscale(True, axis='x', tight=True)
 
-    if component_legends is None and orderify_legends:
-        component_legends = {rj: f'$\mathcal{{O}}_{1+i} = {rj}$' for i, rj in enumerate(sorted(c.id_root_job for c in solution.instance.components))}
-    legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job))
-                       for d in deadlines]
-    labels = [component_legends[d.id_root_job] for d in deadlines] if component_legends is not None else None
-    axes.legend(handles=legend_elements, labels=labels, fancybox=True, shadow=True)
+    if legend:
+        if component_legends is None and orderify_legends:
+            component_legends = {rj: f'$\mathcal{{O}}_{1+i} = {rj}$' for i, rj in enumerate(sorted(c.id_root_job for c in solution.instance.components))}
+        legend_elements = [matplotlib.patches.Patch(color=params.colormap.component(d.id_root_job), label=str(d.id_root_job))
+                           for d in deadlines]
+        labels = [component_legends[d.id_root_job] for d in deadlines] if component_legends is not None else None
+        axes.legend(handles=legend_elements, labels=labels, fancybox=True, shadow=True)
 
 
 def __resources_panels(solution: Solution,
@@ -406,7 +435,7 @@ def __resources_panels(solution: Solution,
         availability = compute_resource_availability(resource, instance, params.horizon)
 
         __plot_dividers(params.dividers, axes, params)
-        if not split_consumption and highlight_non_periodical_consumption:
+        if highlight_non_periodical_consumption:
             periodical_availability = compute_resource_periodical_availability(resource, params.horizon)
             full_periodical_availability = interval_overlap_function(periodical_availability, first_x=0, last_x=params.horizon)
             __plot_step_function(full_periodical_availability, axes, params, color=params.colormap.resource_capacity_reduced(resource.key), fill=True)
@@ -464,6 +493,7 @@ def __resources_panels(solution: Solution,
 
 def __plot_intervals(intervals: Iterable[Interval], axes: plt.Axes, params: PlotParameters,
                      job_interval_levels: dict[int, int] = None,
+                     scale: float = 1,
                      ):
     interval_width = 16
 
@@ -475,16 +505,22 @@ def __plot_intervals(intervals: Iterable[Interval], axes: plt.Axes, params: Plot
     for key, start, end in intervals:
         level = interval_levels[key]
 
-        axes.plot([start, end], [level, level], linestyle='', marker='|', markeredgecolor='gray', markersize=interval_width)
-        axes.hlines(level, start, end, colors=params.colormap.interval(key), lw=interval_width)
-        axes.text(float(start + end) / 2, level, str(key), horizontalalignment='center', verticalalignment='center')
+        axes.plot([start, end], [scale*level, scale*level], linestyle='', marker='|', markeredgecolor='gray', markersize=interval_width)
+        axes.hlines(scale*level, start, end, colors=params.colormap.interval(key), lw=interval_width)
+        axes.text(float(start + end) / 2, scale*level, str(key), horizontalalignment='center', verticalalignment='center')
 
+    if scale != 1:
+        axes.set_ylim(ymin=scale*min(interval_levels.values())-scale, ymax=scale*max(interval_levels.values())+scale)
 
-def __plot_deadlines(deadlines: list[Deadline], axes: plt.Axes, params: PlotParameters):
+def __plot_deadlines(deadlines: list[Deadline], axes: plt.Axes, params: PlotParameters,
+                     offset_deadlines: bool = True,
+                     ):
     scale = 0.5
     n = len(deadlines)
     for i, deadline in enumerate(deadlines):
-        x = deadline.time + scale*(-n+1+i)/n
+        x = deadline.time
+        if offset_deadlines:
+            x += scale*(-n+1+i)/n
         axes.axvline(x, color=params.colormap.component(deadline.id_root_job), linestyle="--", lw=1)
 
 
