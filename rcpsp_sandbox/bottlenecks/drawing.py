@@ -17,7 +17,7 @@ from bottlenecks.improvements import left_closure
 from bottlenecks.utils import compute_resource_consumption
 from instances.problem_instance import ProblemInstance, compute_component_jobs, compute_resource_availability, \
     compute_resource_periodical_availability
-from utils import interval_overlap_function, flatten, __is_pareto_efficient
+from utils import interval_overlap_function, flatten
 from solver.solution import Solution
 
 
@@ -39,6 +39,10 @@ COLOR_DIVIDERS = "lightgray"
 
 
 class ColorMap:
+    """
+    A class that represents a color map for visualizing job components and resources.
+    """
+
     _cm = utils.ColorMap()
     _job_component_index: dict[int, int]
     _highlight: set[int]
@@ -48,6 +52,15 @@ class ColorMap:
                  component_colors: dict[int, str] = None,
                  dim_resources: bool = True,
                  ):
+        """
+        Initializes a new instance of the ColorMap class.
+
+        Args:
+            instance (ProblemInstance): The problem instance.
+            highlight (Iterable[int], optional): A list of job IDs to highlight. Defaults to None.
+            component_colors (dict[int, str], optional): A dictionary mapping component indices to colors. Defaults to None.
+            dim_resources (bool, optional): Whether to dim the resource colors. Defaults to True.
+        """
         component_jobs = {root_job.id_job: [j.id_job for j in c_jobs] for root_job, c_jobs in compute_component_jobs(instance).items()}
 
         self._job_component_index = dict()
@@ -64,30 +77,104 @@ class ColorMap:
         self._highlight = set(highlight) if highlight else None
 
     def interval(self, job_id):
+        """
+        Returns the color for the interval of a job.
+
+        Args:
+            job_id (int): The ID of the job.
+
+        Returns:
+            str: The color for the interval of the job.
+        """
         if self._highlight:
             return self.__job_component_color(job_id) if job_id in self._highlight else COLOR_JOB_DISABLED
         else:
             return self.__job_component_color(job_id)
 
     def resource_capacity(self, resource_key):
+        """
+        Returns the color for the capacity of a resource.
+
+        Args:
+            resource_key: The key of the resource.
+
+        Returns:
+            str: The color for the capacity of the resource.
+        """
         return COLOR_RESOURCE_CAPACITY
 
     def resource_capacity_reduced(self, resource_key):
+        """
+        Returns the color for the reduced capacity of a resource.
+
+        Args:
+            resource_key: The key of the resource.
+
+        Returns:
+            str: The color for the reduced capacity of the resource.
+        """
         return COLOR_RESOURCE_CAPACITY_REDUCED
 
     def resource_consumption(self, resource_key, job_id=None):
+        """
+        Returns the color for the consumption of a resource.
+
+        Args:
+            resource_key: The key of the resource.
+            job_id (int, optional): The ID of the job. Defaults to None.
+
+        Returns:
+            str: The color for the consumption of the resource.
+        """
         return COLOR_RESOURCE_CONSUMPTION if not job_id else self.__job_component_color(job_id)
 
     def resource_consumption_mixed(self, resource_key, job_id=None):
+        """
+        Returns the color for the mixed consumption of a resource.
+
+        Args:
+            resource_key: The key of the resource.
+            job_id (int, optional): The ID of the job. Defaults to None.
+
+        Returns:
+            str: The color for the mixed consumption of the resource.
+        """
         return COLOR_RESOURCE_CONSUMPTION_DIMMED if not job_id else self.__job_component_color(job_id)
 
     def resource_consumption_highlight(self, resource_key):
+        """
+        Returns the color for the highlighted consumption of a resource.
+
+        Args:
+            resource_key: The key of the resource.
+
+        Returns:
+            str: The color for the highlighted consumption of the resource.
+        """
         return COLOR_RESOURCE_CONSUMPTION_HIGHLIGHT
 
     def component(self, job_id):
+        """
+        Returns the color for the component of a job.
+
+        Args:
+            job_id (int): The ID of the job.
+
+        Returns:
+            str: The color for the component of the job.
+        """
         return self.__job_component_color(job_id)
 
     def fill_shade_of(self, color):
+        """
+        Returns a slightly darker shade of a color.
+
+        Args:
+            color (str): The color.
+
+        Returns:
+            str: The slightly darker shade of the color.
+        """
         if not self.dim_resources:
             return color
 
@@ -101,6 +188,15 @@ class ColorMap:
         return fill_color
 
     def __job_component_color(self, job_id):
+        """
+        Returns the color for the component of a job.
+
+        Args:
+            job_id (int): The ID of the job.
+
+        Returns:
+            str: The color for the component of the job.
+        """
         component_index = self._job_component_index[job_id]
         if component_index in self.component_colors:
             return self.component_colors[component_index]
@@ -114,6 +210,17 @@ def plot_evaluation_solution_comparison(evaluation: Evaluation,
                                         highlight_addition: bool = False,
                                         highlight: bool = False,
                                         ):
+    """
+    Plot the comparison between the base solution and the evaluation solution.
+
+    Args:
+        evaluation (Evaluation): The evaluation object containing the base and modified solutions.
+        block (bool, optional): Whether to block the execution until the plot window is closed. Defaults to True.
+        save_as (list[str], optional): List of file paths to save the plots. Defaults to None.
+        dimensions (list[tuple[int, int]], optional): List of dimensions for the plots. Defaults to ((8, 11), (8, 11)).
+        highlight_addition (bool, optional): Whether to highlight non-periodical consumption. Defaults to False.
+        highlight (bool, optional): Whether to highlight the target job. Defaults to False.
+    """
     def get(iterable, i): return None if iterable is None else iterable[i]
     horizon = max(max(int_sol.end for int_sol in evaluation.base_solution.job_interval_solutions.values()),
                   max(int_sol.end for int_sol in evaluation.solution.job_interval_solutions.values()))
@@ -141,6 +248,23 @@ def plot_evaluations(instance_evaluations_kpis: dict[str, list[list[EvaluationKP
                      block: bool = True,
                      save_as: str = None,
                      ):
+    """
+    Plot evaluations for multiple instances.
+
+    Args:
+        instance_evaluations_kpis (dict[str, list[list[EvaluationKPIs]]]): A dictionary containing the evaluations for each instance.
+        value_axes (tuple[str, str]): A tuple specifying the names of the value axes.
+        pareto_front (bool, optional): Whether to plot the Pareto front. Defaults to False.
+        evaluations_kpis_to_annotate (Iterable[str], optional): A list of evaluation KPIs to annotate. Defaults to None.
+        annotate_extremes (bool, optional): Whether to annotate the extremes. Defaults to False.
+        ncols (int, optional): The number of columns in the subplot grid. Defaults to 2.
+        dimensions (tuple[int, int], optional): The dimensions of the figure. Defaults to None.
+        layout (dict[str, float], optional): The layout parameters for the subplots. Defaults to None.
+        inverse_order (bool, optional): Whether to use inverse order for flattening the axes. Defaults to False.
+        labels (list[str], optional): The labels for the legend. Defaults to None.
+        block (bool, optional): Whether to block the execution until the figure is closed. Defaults to True.
+        save_as (str, optional): The file path to save the figure. Defaults to None.
+    """
     f: plt.Figure
     axarr: np.ndarray[plt.Axes]
     nrows = math.ceil(len(instance_evaluations_kpis) / ncols)
@@ -190,6 +314,18 @@ def __plot_algorithms_evaluations_kpis(algorithms_evaluations_kpis: list[list[Ev
                                        title: str = None,
                                        evaluations_kpis_to_annotate: Iterable[str] = None,
                                        ):
+    """
+    Plot the evaluations of algorithms based on evaluation KPIs.
+
+    Args:
+        algorithms_evaluations_kpis (list[list[EvaluationKPIs]]): A list of lists of EvaluationKPIs objects representing the evaluations of algorithms.
+        axes (plt.Axes): The matplotlib Axes object to plot the data on.
+        value_axes (tuple[str, str]): A tuple of two strings representing the KPIs to be plotted on the x-axis and y-axis, respectively.
+        pareto_front (bool): A boolean indicating whether to plot the Pareto front for each algorithm.
+        annotate_extremes (bool): A boolean indicating whether to annotate the extreme points on the plot.
+        title (str, optional): The title of the plot. Defaults to None.
+        evaluations_kpis_to_annotate (Iterable[str], optional): An iterable of strings representing the KPIs to be annotated. Defaults to None.
+    """
     value_extractors = {
         "cost": (lambda ev: ev.cost),
         "improvement": (lambda ev: ev.improvement),
@@ -270,6 +406,28 @@ def plot_solution(solution: Solution,
                   legend: bool = True,
                   offset_deadlines: bool = True,
                   ):
+    """
+    Plot a given solution.
+
+    Args:
+        solution (Solution): The solution to be plotted.
+        highlight (Iterable[int], optional): A list of job IDs to highlight in the plot. Defaults to None.
+        split_consumption (bool, optional): Whether to split the resource consumption into separate subplots. Defaults to False.
+        block (bool, optional): Whether to block the execution until the plot window is closed. Defaults to True.
+        save_as (str, optional): The file path to save the plot as an image. Defaults to None.
+        dimensions (tuple[int, int], optional): The dimensions of the plot in inches. Defaults to (8, 11).
+        component_legends (dict[int, str], optional): A dictionary mapping component IDs to their legends. Defaults to None.
+        component_colors (dict[int, str], optional): A dictionary mapping component IDs to their colors. Defaults to None.
+        orderify_legends (bool, optional): Whether to order the component legends. Defaults to False.
+        horizon (int, optional): The time horizon of the plot. Defaults to None.
+        job_interval_levels (dict[int, int], optional): A dictionary mapping job IDs to their interval levels. Defaults to None.
+        highlight_non_periodical_consumption (bool, optional): Whether to highlight non-periodical resource consumption. Defaults to False.
+        panel_heights (list[int], optional): The heights of the subplots. Defaults to None.
+        title (bool, optional): Whether to display the title of the plot. Defaults to True.
+        scale (float, optional): The scale factor of the plot. Defaults to 1.
+        legend (bool, optional): Whether to display the legend. Defaults to True.
+        offset_deadlines (bool, optional): Whether to offset the job deadlines. Defaults to True.
+    """
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
@@ -306,6 +464,9 @@ def plot_solution(solution: Solution,
 
 
 def __compute_height_ratios(solution, horizon):
+    """
+    Compute the height ratios of the interval and resources panels.
+    """
     interval_panel_height = [3+math.ceil(1.5*__compute_max_interval_overlap(list(__build_intervals(solution))))]
     resource_panel_heights = [1+(max(c for s, e, c in compute_resource_availability(r, solution.instance, horizon)) // 5)
                               for r in solution.instance.resources]
@@ -322,6 +483,20 @@ def plot_intervals(solution: Solution,
                    horizon: int = None,
                    job_interval_levels: dict[int, int] = None,
                    ):
+    """
+    Plot the intervals of a solution.
+
+    Args:
+        solution (Solution): The solution to plot.
+        highlight (Iterable[int], optional): A collection of intervals to highlight. Defaults to None.
+        block (bool, optional): Whether to block the execution until the plot window is closed. Defaults to False.
+        save_as (str, optional): The file path to save the plot as an image. Defaults to None.
+        dimensions (tuple[int, int], optional): The dimensions of the plot in inches. Defaults to (8, 11).
+        component_legends (dict[int, str], optional): A dictionary mapping component IDs to their legends. Defaults to None.
+        orderify_legends (bool, optional): Whether to order the component legends. Defaults to False.
+        horizon (int, optional): The maximum time horizon for the plot. Defaults to None.
+        job_interval_levels (dict[int, int], optional): A dictionary mapping job IDs to their interval levels. Defaults to None.
+    """
     instance = solution.instance
 
     horizon = (24 * math.ceil(max(i.end for i in __build_intervals(solution)) / 24) if horizon is None else horizon)
@@ -355,6 +530,18 @@ def plot_resources(solution: Solution,
                    horizon: int = None,
                    highlight_non_periodical_consumption: bool = False,
                    ):
+    """
+    Plot the resource utilization for a given solution.
+
+    Args:
+        solution (Solution): The solution for which to plot the resource utilization.
+        split_consumption (bool, optional): Whether to split the resource consumption into separate bars for each activity. Defaults to False.
+        block (bool, optional): Whether to block the execution until the plot window is closed. Defaults to False.
+        save_as (str, optional): The file path to save the plot as an image. If not provided, the plot will be displayed. Defaults to None.
+        dimensions (tuple[int, int], optional): The dimensions of the plot in inches. Defaults to (8, 11).
+        horizon (int, optional): The maximum time horizon to display on the x-axis. If not provided, it will be calculated based on the solution. Defaults to None.
+        highlight_non_periodical_consumption (bool, optional): Whether to highlight non-periodical resource consumption. Defaults to False.
+    """
 
     instance = solution.instance
 
@@ -566,6 +753,18 @@ def __compute_max_interval_overlap(intervals):
 
 
 def compute_shifting_interval_levels(solution_a: Solution, solution_b: Solution):
+    """
+    Computes the shifting interval levels between two solutions.
+
+    Args:
+        solution_a (Solution): The first solution.
+        solution_b (Solution): The second solution.
+
+    Returns:
+        tuple: A tuple containing two dictionaries. The first dictionary represents the interval levels for the same intervals
+        between the two solutions. The second dictionary represents the interval levels for the different intervals between
+        the two solutions.
+    """
     def build_intervals(_job_ids, _interval_solutions):
         return list(Interval(_job_id, _interval_solutions[_job_id].start, _interval_solutions[_job_id].end) for _job_id in _job_ids)
 

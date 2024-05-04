@@ -28,10 +28,18 @@ ScheduleSuffixIntervalRelaxingAlgorithmSettings = namedtuple("ScheduleSuffixInte
                                                               "interval_sort"))
 
 
-OLD = False
-
-
 class ScheduleSuffixIntervalRelaxingAlgorithm(EvaluationAlgorithm):
+    """
+    An algorithm for improving a solution, specifically the tardiness of a selected order.
+    The algorithm works by relaxing solution suffixes, allowing jobs to start earlier than their original start times.
+    In the relaxed solutions, improvement intervals are identified and the algorithm selects the best intervals to relax.
+
+    The algorithm works as follows:
+    1. For each iteration, the algorithm identifies the best intervals to relax.
+    2. Capacity changes are applied based on the identified intervals.
+    3. The modified instance is solved.
+    4. Resource availability is reduced based on the new solution.
+    """
     INTERVAL_SORTS = {
         "improvement": (lambda itv: -itv[3]),
         "time": (lambda itv: (-itv[0], -itv[1]))
@@ -56,16 +64,16 @@ class ScheduleSuffixIntervalRelaxingAlgorithm(EvaluationAlgorithm):
 
         modified_instance = base_instance.copy()
         solution = base_solution
-        reduce_capacity_changes(modified_instance, solution)
+        reduce_capacity_changes(modified_instance, solution)  # Initial capacity reduction
 
-        for i_iter in range(settings.max_iterations):
-            intervals_to_relax = self.__find_intervals_to_relax(settings, modified_instance, solution)
-            modified_instance = modify_instance_availability(modified_instance, {}, intervals_to_relax, modified_instance_name())
+        for i_iter in range(settings.max_iterations):  # Main loop
+            intervals_to_relax = self.__find_intervals_to_relax(settings, modified_instance, solution)  # Find improvement intervals
+            modified_instance = modify_instance_availability(modified_instance, {}, intervals_to_relax, modified_instance_name())  # Modify the resource availabilities
 
             model = self._build_standard_model(modified_instance)
-            model = add_hot_start(model, solution)
-            solution = self._solver.solve(modified_instance, model)
-            reduce_capacity_changes(modified_instance, solution)
+            model = add_hot_start(model, solution)  # Warm-start the model
+            solution = self._solver.solve(modified_instance, model)  # Solve the modified instance
+            reduce_capacity_changes(modified_instance, solution)  # Reduce capacity changes based on the new solution, find migrations and additions
 
         return modified_instance, solution
 
@@ -74,9 +82,12 @@ class ScheduleSuffixIntervalRelaxingAlgorithm(EvaluationAlgorithm):
                                   instance: ProblemInstance, solution: Solution,
                                   ) -> dict[str, list[CapacityChange]]:
         improvement_intervals = self.relaxed_interval_consumptions(instance, solution, settings, component=instance.target_job)
+
+        # Choose the best intervals to relax
         improvement_intervals.sort(key=self.INTERVAL_SORTS[settings.interval_sort])
         best_intervals = improvement_intervals[:settings.max_improvement_intervals]
 
+        # Construct the intervals to relax
         best_intervals_by_resource = defaultdict(list)
         for start, end, consumption, improvement in best_intervals:
             for resource in consumption.consumption_by_resource:
@@ -189,7 +200,7 @@ class ScheduleSuffixIntervalRelaxingAlgorithm(EvaluationAlgorithm):
         Args:
             instance (ProblemInstance): The problem instance.
             solution (Solution): The solution.
-
+            settings (ScheduleSuffixIntervalRelaxingAlgorithmSettings): The settings for the algorithm.
             component (int, optional): The component to consider. Defaults to None.
 
         Returns:
@@ -276,10 +287,31 @@ def modify_instance_availability(instance: ProblemInstance,
                                  additions: dict[str, list[CapacityChange]],
                                  modified_instance_name: str,
                                  ):
+    """
+    Create a modified problem instance by modifying the resource availabilities based on the given migrations and additions.
+
+    Args:
+        instance (ProblemInstance): The original problem instance.
+        migrations (dict[str, list[CapacityMigration]]): A dictionary containing migrations for each resource.
+        additions (dict[str, list[CapacityChange]]): A dictionary containing additions for each resource.
+        modified_instance_name (str): The name of the modified instance.
+
+    Returns:
+        ProblemInstance: The modified problem instance.
+    """
     return modify_instance(instance).change_resource_availability(additions, migrations).generate_modified_instance(modified_instance_name)
 
 
 def reduce_capacity_changes(instance: ProblemInstance, solution: Solution):
+    """
+    Reduce capacity changes in the given instance and solution.
+    Find additions and migrations for each resource.
+
+    Args:
+        instance (ProblemInstance): The problem instance.
+        solution (Solution): The solution.
+    """
+
     horizon = instance.horizon
 
     # Compute required changes
@@ -372,6 +404,19 @@ IdentificationIndicatorRelaxingAlgorithmSettings = namedtuple("IdentificationInd
 
 
 class IdentificationIndicatorRelaxingAlgorithm(EvaluationAlgorithm):
+    """
+    An algorithm for improving a solution by relaxing resource availabilities based on a given metric.
+    The algorithm works by identifying bottleneck resource based on the metric and relaxing the resource.
+    The relaxation is done by adding capacity to the resource in specific intervals identified by a convolution mask.
+
+    The algorithm works as follows:
+    1. For each iteration, the algorithm identifies the bottleneck resource based on the metric.
+    2. The algorithm computes the period consumption of the resource and convolves it with a convolution mask.
+    3. The algorithm identifies the best intervals to relax based on the convolution result.
+    4. Capacity changes are applied based on the identified intervals.
+    5. The modified instance is solved.
+    6. Resource availability is reduced based on the new solution.
+    """
     METRIC_MAPPING: dict[str, Callable[[Solution, ProblemInstance, Resource], T_MetricResult] | partial] = {
         'mrw': machine_resource_workload,
         'mrur': partial(machine_resource_utilization_rate, variable_capacity=True),
@@ -408,27 +453,38 @@ class IdentificationIndicatorRelaxingAlgorithm(EvaluationAlgorithm):
         solution = base_solution
 
         for i_iter in range(settings.max_iterations):
-            metric_evaluation = evaluate_solution(solution, metric, modified_instance)
-            bottleneck_resource = argmax(metric_evaluation.evaluation)
+            metric_evaluation = evaluate_solution(solution, metric, modified_instance)  # Evaluate the solution with the identification indicator
+            bottleneck_resource = argmax(metric_evaluation.evaluation)  # Identify the bottleneck resource
 
-            period_consumption = self.__compute_period_consumption(solution, bottleneck_resource, settings.granularity)
-            convolved_consumption = np.convolve(period_consumption, convolution_mask, mode='same')
-            priority_periods = np.argsort(convolved_consumption)[::-1]
+            period_consumption = self.__compute_period_consumption(solution, bottleneck_resource, settings.granularity)  # Compute the granular period consumption of the resource
+            convolved_consumption = np.convolve(period_consumption, convolution_mask, mode='same')  # Convolve the granular consumption with the convolution mask
+            priority_periods = np.argsort(convolved_consumption)[::-1]  # Sort the granular periods based on the convolution result
 
-            relaxing_periods = priority_periods[:settings.max_improvement_intervals]
+            relaxing_periods = priority_periods[:settings.max_improvement_intervals]  # Select the best periods to relax
             relaxing_intervals = [CapacityChange(period * settings.granularity, (period + 1) * settings.granularity, settings.capacity_addition)
                                   for period in relaxing_periods]
             modified_instance = modify_instance_availability(modified_instance, {}, {bottleneck_resource: relaxing_intervals}, modified_instance_name())
 
             model = self._build_standard_model(modified_instance)
-            model = add_hot_start(model, solution)
-            solution = self._solver.solve(modified_instance, model)
-            reduce_capacity_changes(modified_instance, solution)
+            model = add_hot_start(model, solution)  # Warm-start the model
+            solution = self._solver.solve(modified_instance, model)  # Solve the modified instance
+            reduce_capacity_changes(modified_instance, solution)  # Reduce capacity changes based on the new solution, find migrations and additions
 
         return modified_instance, solution
 
     @staticmethod
     def __compute_period_consumption(solution: Solution, resource_key: str, granularity: int):
+        """
+        Compute the granular consumption of a resource.
+
+        Args:
+            solution (Solution): The solution object.
+            resource_key (str): The key of the resource.
+            granularity (int): The granular periods granularity.
+
+        Returns:
+            list: A list representing the granular consumption of the resource.
+        """
         full_consumption = compute_resource_consumption(solution.instance, solution, solution.instance.resources_by_key[resource_key])
 
         period_consumption = [0] * math.ceil(solution.instance.horizon / granularity)

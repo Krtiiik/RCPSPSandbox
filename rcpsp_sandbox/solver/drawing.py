@@ -1,3 +1,5 @@
+# This file is no longer used, but kept for reference. Updated plotting is done in the `bottlenecks.drawing` module.
+
 import itertools
 from typing import Iterable, Tuple
 
@@ -156,7 +158,6 @@ def print_difference(original: Solution, original_instance: ProblemInstance,
     def hide_null(value): return str(value) if value != 0 else '.'
     def diff_coll(diff): return ['', f'/˄\\ {diff}', f'˅˅˅ {diff}'][np.sign(diff)]
 
-    # TODO weighted tardiness
     tardiness_data = [(j1.id_job,
                        org_end(j1),
                        alt_end(j2),

@@ -12,9 +12,13 @@ from utils import print_error
 def build_instance_graph(instance, reverse: bool = False) -> nx.DiGraph:
     """
     Builds a job-graph of the given problem instance.
-    :param instance: The instance to build the graph of. Any object with `jobs` and `precedences` properties can be given.
-    :param reverse: Indicates whether to reverse the precedence edges.
-    :return: The oriented job-graph of the problem instance.
+
+    Args:
+        instance: The instance to build the graph of. Any object with `jobs` and `precedences` properties can be given.
+        reverse: Indicates whether to reverse the precedence edges.
+
+    Returns:
+        The oriented job-graph of the problem instance.
     """
     def build_edge(precedence): return ((precedence.id_child, precedence.id_parent)
                                         if not reverse else (precedence.id_parent, precedence.id_child))
@@ -27,8 +31,12 @@ def build_instance_graph(instance, reverse: bool = False) -> nx.DiGraph:
 def enumerate_topological_generations_nodes(graph):
     """
     Enumerates the topological generations of a given graph.
-    :param graph: The graph whose topological generations to enumerate
-    :return: Enumerated nodes in the topological generations order.
+
+    Args:
+        graph (networkx.DiGraph): The graph whose topological generations to enumerate.
+
+    Yields:
+        tuple: A tuple containing the generation index and the node in the topological order.
     """
     for i_gen, gen in enumerate(nx.topological_generations(graph)):
         for node in gen:
@@ -39,9 +47,13 @@ def topological_sort(graph: nx.DiGraph,
                      yield_state: bool = False):
     """
     Traverses the nodes of the graph in topological order.
-    :param graph: The graph whose nodes to traverse.
-    :param yield_state: Determines whether to yield the parent node together with the current node.
-    :return: Nodes in the topological order.
+
+    Args:
+        graph (nx.DiGraph): The graph whose nodes to traverse.
+        yield_state (bool, optional): Determines whether to yield the parent node together with the current node.
+
+    Yields:
+        The nodes in the topological order. If `yield_state` is True, yields a tuple containing the current node and its parent node.
     """
     degrees = {v: d for v, d in graph.in_degree if d > 0}
     no_in = deque()
@@ -62,9 +74,14 @@ def topological_sort(graph: nx.DiGraph,
 def uniform_traversal(graph: nx.DiGraph,
                       yield_state: bool = False):
     """
-    Traverses the node of the graph in uniformly random order.
-    :param graph: The graph whose nodes to traverse.
-    :param yield_state: Determines whether to yield the node as a tuple `(node, )` or just the object node.
+    Traverses the nodes of the graph in a uniformly random order.
+
+    Args:
+        graph (nx.DiGraph): The graph whose nodes to traverse.
+        yield_state (bool, optional): Determines whether to yield the node as a tuple `(node, )` or just the object node.
+
+    Yields:
+        node (tuple or object): The next node in the traversal.
     """
     def pop(f):  # Selects and pops a uniformly chosen node
         i_node = random.randint(0, len(f) - 1)
@@ -84,12 +101,17 @@ def uniform_traversal(graph: nx.DiGraph,
 def paths_traversal(graph: nx.DiGraph):
     """
     Traverses random vertex-disjoint paths in the given graph.
-    :param graph: The graph in which to traverse the paths.
-    :return: A collection of paths using all graph nodes. All the paths are vertex-disjoint.
+
+    Args:
+        graph: The graph in which to traverse the paths.
+
+    Returns:
+        A collection of paths using all graph nodes. All the paths are vertex-disjoint.
     """
     successors: dict[Job, set[Job]] = {node: set(graph.successors(node)) for node in graph.nodes if len(set(graph.successors(node))) > 0}
     in_degrees = {node: d for node, d in graph.in_degree if d > 0}
-    no_in = deque()
+
+    no_in = deque()  # Queue, initially nodes with no incoming edges
     for node, d in graph.in_degree:
         if d == 0:
             no_in.append(node)
@@ -98,8 +120,8 @@ def paths_traversal(graph: nx.DiGraph):
     visited = set()
     while no_in:
         node = no_in.popleft()
-        path = [node]
-        visited |= {node}
+        path = [node]  # Start a new path with the current node
+        visited |= {node}  # Add the current node to the visited set
         while node in successors:  # while there are successors for node...
             successors[node] -= visited  # remove visited nodes from successors
             if not successors[node]:  # if there are no unvisited successors...
@@ -121,26 +143,28 @@ def paths_traversal(graph: nx.DiGraph):
 
 def traverse_instance_graph(problem_instance: ProblemInstance = None,
                             graph: nx.DiGraph = None,
-                            search: Literal["topological generations", "components topological generations", "topological", "uniform"] = "topological generations",
+                            search: Literal["topological generations", "components topological generations", "topological", "uniform", "paths"] = "topological generations",
                             yield_state: bool = False) -> Generator[Job, None, None]:
     """
-    Traverses the job-graph of a given problem instance, yielding jobs in the order of visiting. The available
-    search type options are:
+    Traverses the job-graph of a given problem instance, yielding jobs in the order of visiting.
 
+    The available search type options are:
     - topological generations (default): Traverse the graph by the order of topological generations.
     - components topological generations: Traverse topologically each weakly-connected component before traversing the next component.
     - topological: Traverse the whole graph in topological order.
     - uniform: Traverse from the first (child) jobs of each connected component, choosing a random reachable parent job.
     - paths: Traverse random paths in the graph. The paths are vertex-disjoint, each vertex is yielded as part of a path.
 
-    :param problem_instance: The problem instance whose job-graph to traverse.
-    :param graph: The existing job-graph to traverse.
-    :param search: Determines the type of search to use for the traversal. Options are "topological generations" (default),
-                   "components topological generations", "topological", "uniform", "paths".
-    :param yield_state: Determines whether a search state is yielded with each node. The yielded search state is
-    (node, i_gen) for topological generations, (node, i_comp, i_gen) for components topological generations,
-    (node, parent) for topological, (node, ) for uniform, (node, i_path) for paths.
-    :return: Each job from the instance graph in an order given by the specified search type.
+    Args:
+        problem_instance (ProblemInstance, optional): The problem instance whose job-graph to traverse.
+        graph (nx.DiGraph, optional): The existing job-graph to traverse.
+        search (str, optional): Determines the type of search to use for the traversal. Options are "topological generations" (default),
+                "components topological generations", "topological", "uniform", "paths".
+        yield_state (bool, optional): Determines whether a search state is yielded with each node. The yielded search state is
+                                      (node, i_gen) for topological generations, (node, i_comp, i_gen) for components topological generations,
+                                      (node, parent) for topological, (node, ) for uniform, (node, i_path) for paths.
+    Returns:
+        Each job from the instance graph in an order given by the specified search type.
     """
     if problem_instance is None and graph is None:
         print_error("Neither problem instance nor job-graph were given to traverse")
@@ -172,8 +196,12 @@ def traverse_instance_graph(problem_instance: ProblemInstance = None,
 def compute_jobs_in_components(problem_instance: ProblemInstance) -> dict[int, list[Job]]:
     """
     Computes the partition of job-nodes of the given problem instance into individual components.
-    :param problem_instance: The problem instance whose jobs to assign to components.
-    :return: A dictionary mapping root jobs to jobs in the same component.
+
+    Args:
+        problem_instance (ProblemInstance): The problem instance whose jobs to assign to components.
+
+    Returns:
+        dict[int, list[Job]]: A dictionary mapping root jobs to jobs in the same component.
     """
     jobs_grouped = itertools.groupby(traverse_instance_graph(problem_instance, search="components topological generations", yield_state=True),
                                      key=lambda x: x[1])
@@ -192,14 +220,18 @@ def compute_jobs_in_components(problem_instance: ProblemInstance) -> dict[int, l
 
 
 def subtree_traversal(graph: nx.DiGraph,
-                      root: Job or int,
+                      root: Job | int,
                       kind: Literal["bfs", "dfs"] = "bfs") -> list[Job]:
     """
     Traverses the subtree of the given graph rooted at the given node.
-    :param graph: The graph whose subtree to traverse.
-    :param root: The root of the subtree to traverse.
-    :param kind: The kind of traversal to use. Options are "bfs" (default) and "dfs".
-    :return: The subtree of the graph rooted at the given node.
+
+    Args:
+        graph (nx.DiGraph): The graph whose subtree to traverse.
+        root (Job or int): The root of the subtree to traverse.
+        kind (Literal["bfs", "dfs"], optional): The kind of traversal to use. Options are "bfs" (default) and "dfs".
+
+    Returns:
+        list[Job]: The subtree of the graph rooted at the given node.
     """
     if kind not in ["bfs", "dfs"]:
         print_error(f"unrecognized subtree traversal kind {kind}")
@@ -223,6 +255,17 @@ def subtree_traversal(graph: nx.DiGraph,
 def compute_earliest_completion_times(instance: ProblemInstance,
                                       given: dict[int, int] = None,
                                       ) -> dict[Job, int]:
+    """
+    Computes the earliest completion times for each job in the given problem instance.
+
+    Args:
+        instance (ProblemInstance): The problem instance containing the jobs.
+        given (dict[int, int], optional): A dictionary of job IDs and their corresponding completion times,
+                                          if any are already known. Defaults to None.
+
+    Returns:
+        dict[Job, int]: A dictionary mapping each job to its earliest completion time.
+    """
     if not given:
         given = {}
 

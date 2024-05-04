@@ -14,6 +14,10 @@ from solver.solution import Solution
 
 
 class ModelBuilder:
+    """
+    A class that builds a model for the given problem instance.
+    """
+
     instance: ProblemInstance
     model: CpoModel
 
@@ -22,6 +26,13 @@ class ModelBuilder:
     _resource_capacity_constraints: list[CpoExpr]
 
     def __init__(self, instance: ProblemInstance, model: CpoModel):
+        """
+        Initializes a new instance of the ModelBuilder class.
+
+        Args:
+            instance (ProblemInstance): The problem instance.
+            model (CpoModel): The model being built.
+        """
         self.instance: ProblemInstance = instance
         self.model: CpoModel = model
 
@@ -31,9 +42,24 @@ class ModelBuilder:
 
     @staticmethod
     def build_model(instance: ProblemInstance) -> 'ModelBuilder':
+        """
+        Builds a model for the given problem instance.
+
+        Args:
+            instance (ProblemInstance): The problem instance.
+
+        Returns:
+            ModelBuilder: The ModelBuilder instance.
+        """
         return ModelBuilder(instance, CpoModel(instance.name)).__base_model()
 
     def with_precedences(self) -> Self:
+        """
+        Adds precedence constraints to the model.
+
+        Returns:
+            Self: The ModelBuilder instance.
+        """
         precedence_constraints = [
             modeler.end_before_start(self._job_intervals[precedence.id_child],
                                      self._job_intervals[precedence.id_parent])
@@ -46,6 +72,12 @@ class ModelBuilder:
         return self
 
     def with_resource_constraints(self) -> Self:
+        """
+        Adds resource capacity constraints to the model.
+
+        Returns:
+            Self: The ModelBuilder instance.
+        """
         resource_capacity_constraints = [
             self.__build_resource_capacity_constraint(resource, self.instance, self._job_intervals, self.instance.horizon)
             for resource in self.instance.resources]
@@ -60,6 +92,16 @@ class ModelBuilder:
                        opt: Literal["tardiness"] = "tardiness",
                        selected: Iterable[Component] = None,
                        ) -> Self:
+        """
+        Sets the optimization goal for the model.
+
+        Args:
+            opt (Literal["tardiness"], optional): The optimization option. Defaults to "tardiness".
+            selected (Iterable[Component], optional): The selected components. Defaults to None.
+
+        Returns:
+            Self: The ModelBuilder instance.
+        """
         if opt not in ["tardiness"]:
             raise ValueError(f"Unrecognized optimization option: {opt}")
 
@@ -110,6 +152,17 @@ class ModelBuilder:
                       solution: Solution = None,
                       job_interval_solutions: dict[int, tuple[int, int]] = None,
                       ) -> Self:
+        """
+        Adds a hot start to the model.
+
+        Args:
+            solution (Solution, optional): The initial solution to start the model from. Defaults to None.
+            job_interval_solutions (dict[int, tuple[int, int]], optional): A dictionary mapping job IDs to tuples
+                representing the start and end intervals for each job. Defaults to None.
+
+        Returns:
+            Self: The current instance of the ModelBuilder.
+        """
         add_hot_start(self.model, solution=solution, job_interval_solutions=job_interval_solutions)
         return self
 
@@ -119,10 +172,21 @@ class ModelBuilder:
 
         Args:
             solution (Solution): The solution to minimize the difference for.
-            excluded (Iterable[Job]): TODO
+            excluded (Iterable[Job], optional): A collection of jobs to exclude from the minimization. Defaults to None.
             alpha (float, optional): The weight of the difference in the minimization sum. Defaults to 1.
-        """
 
+        Returns:
+            Self: The current instance of the model builder.
+
+        Notes:
+            This method minimizes the difference between the start times of the jobs in the given model and a provided solution.
+            It calculates the difference for each job in the model, excluding any jobs specified in the `excluded` parameter.
+            The difference is weighted by the `alpha` parameter and summed up to form the criteria for minimization.
+            The original optimization value of the model is extracted and combined with the new criteria for minimization.
+            This method assumes that the optimization of the current model is a minimization of a value.
+            If new optimizations, especially not a minimization, are added, this method will need to be reworked.
+            Please use this method with caution as it performs an implementation-dependent operation.
+        """
         job_ids = set(j.id_job for j in self.instance.jobs) - (set(excluded) if excluded else set())
 
         def difference_for(id_job): return modeler.abs(modeler.start_of(self._job_intervals[id_job])
@@ -146,6 +210,9 @@ class ModelBuilder:
         return self
 
     def get_model(self):
+        """
+        Returns the built model.
+        """
         return self.model
 
     def __base_model(self) -> Self:
@@ -179,8 +246,9 @@ class ModelBuilder:
 
         Args:
             resource (Resource): The resource to check the capacity for.
+            instance (ProblemInstance): The problem instance.
             job_intervals (dict[int, interval_var]): A dictionary mapping job IDs to their corresponding interval variables.
-            horizon
+            horizon (int): The horizon of the problem instance.
 
         Returns:
             CpoExpr: The constraint expression.
@@ -253,6 +321,9 @@ def edit_model(model: CpoModel, problem_instance: ProblemInstance) -> ModelBuild
     Args:
         model (CpoModel): The model to edit.
         problem_instance (ProblemInstance): The problem instance of the model.
+
+    Returns:
+        ModelBuilder: The model builder instance with the given model.
     """
     builder = ModelBuilder(problem_instance, model)
     builder._job_intervals = get_model_job_intervals(model)
@@ -265,6 +336,18 @@ def add_hot_start(model: CpoModel,
                   solution: Solution = None,
                   job_interval_solutions: dict[int, tuple[int, int]] = None,
                   ) -> CpoModel:
+    """
+    Adds a hot start to the given CpoModel.
+
+    Args:
+        model (CpoModel): The CpoModel to add the hot start to.
+        solution (Solution, optional): The solution object containing the hot start values. Defaults to None.
+        job_interval_solutions (dict[int, tuple[int, int]], optional): A dictionary mapping job IDs to their interval solutions. 
+            Each interval solution is represented as a tuple of start and end times. Defaults to None.
+
+    Returns:
+        CpoModel: The CpoModel with the hot start added.
+    """
     if job_interval_solutions is None:
         if solution is None:
             raise ValueError("No hot start values given")
@@ -282,6 +365,15 @@ def add_hot_start(model: CpoModel,
 
 
 def get_model_job_intervals(model: CpoModel) -> dict[int, interval_var]:
+    """
+    Returns a dictionary mapping job IDs to their corresponding interval variables in the given model.
+
+    Args:
+        model (CpoModel): The model containing the interval variables.
+
+    Returns:
+        dict[int, interval_var]: A dictionary mapping job IDs (extracted from the variable names) to their corresponding interval variables.
+    """
     return {int(var.get_name()[4:]): var
             for var in model.get_all_variables()
             if isinstance(var, CpoIntervalVar) and var.get_name().startswith("Job")}

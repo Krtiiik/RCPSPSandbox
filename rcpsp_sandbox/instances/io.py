@@ -14,20 +14,51 @@ PSPLIB_KEY_VALUE_SEPARATOR: str = ':'
 def parse_psplib(filename: str,
                  name_as: str or None = None,
                  is_extended: bool = False) -> ProblemInstance:
+    """
+    Parses a PSPLIB file and returns a ProblemInstance object.
+
+    Args:
+        filename (str): The path to the PSPLIB file.
+        name_as (str or None, optional): The name to assign to the ProblemInstance object. Defaults to None.
+        is_extended (bool, optional): Whether the PSPLIB file is in extended format. Defaults to False.
+
+    Returns:
+        ProblemInstance: The parsed ProblemInstance object.
+    """
     return try_open_read(filename, __parse_psplib_internal, name_as=name_as, is_extended=is_extended)
 
 
 def serialize_psplib(instance: ProblemInstance,
                      filename: str,
                      is_extended: bool = False) -> None:
+    """
+    Serializes a problem instance into a PSPLIB file.
+
+    Args:
+        instance (ProblemInstance): The ProblemInstance object to serialize.
+        filename (str): The name of the file to write the serialized data to.
+        is_extended (bool, optional): Whether to include extended instance information in the serialization.
+            Defaults to False.
+    """
     psplib_str = __serialize_psplib_internal(instance, is_extended)
     with open(filename, "wt") as file:
         file.write(psplib_str)
 
 
 def parse_json(filename: str,
-               name_as: str or None = None,
+               name_as: str | None = None,
                is_extended: bool = False) -> ProblemInstance:
+    """
+    Parses a problem instance serialized in JSON.
+
+    Args:
+        filename (str): The path to the JSON file.
+        name_as (str or None, optional): The name to assign to the ProblemInstance. If None, the name is extracted from the JSON file. Defaults to None.
+        is_extended (bool, optional): Whether the JSON file contains an extended problem instance. Defaults to False.
+
+    Returns:
+        ProblemInstance: The constructed problem instance.
+    """
     instance_object = try_open_read(filename, json.load)
 
     __check_json_parse_object(instance_object, is_extended)
@@ -86,14 +117,31 @@ def parse_json(filename: str,
 def serialize_json(instance: ProblemInstance,
                    filename: str,
                    is_extended: bool = False) -> None:
+    """
+    Serializes a problem instance in JSON format.
+
+    Args:
+        instance (ProblemInstance): The ProblemInstance object to serialize.
+        filename (str): The name of the file to write the serialized data to.
+        is_extended (bool, optional): Whether to include extended instance information in the serialization.
+            Defaults to False.
+    """
     json_str = json.dumps(instance, cls=ProblemInstanceJSONSerializer, is_extended=is_extended)
     with open(filename, "wt") as file:
         file.write(json_str)
 
 
 def __parse_psplib_internal(file: IO,
-                            name_as: str or None,
+                            name_as: str | None,
                             is_extended: bool) -> ProblemInstance:
+    """
+    Parses a PSPLIB file and returns a ProblemInstance object.
+
+    This function is... long. It reads the file line by line, parsing the data into a ProblemInstance object.
+    Should a brave soul venture into this function, they will find a series of helper functions that
+    make the parsing process more manageable. It follows the structure of the PSPLIB file format.
+    The final steps consider the extended format, which includes additional information about the instance.
+    """
     def read_line():
         nonlocal line_num
         line_num += 1
@@ -358,6 +406,14 @@ def __parse_psplib_internal(file: IO,
 
 
 def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) -> str:
+    """
+    Serializes a problem instance into a PSPLIB file.
+
+    This function is... long. It constructs the PSPLIB file format from the ProblemInstance object.
+    Should a brave soul venture into this function, they will find a series of helper functions that
+    make the serialization process more manageable. It follows the structure of the PSPLIB file format.
+    The final steps consider the extended format, which includes additional information about the instance.
+    """
     output = ""
 
     def line(content):
@@ -533,6 +589,9 @@ def __serialize_psplib_internal(instance: ProblemInstance, is_extended: bool) ->
 
 
 def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
+    """
+    Checks if the parsed JSON object is a valid instance object.
+    """
     def check_key_in(key: str, d: dict, d_name: str) -> None:
         if key not in d:
             raise ParseError.in_data(f"{key} not in {d_name}")
@@ -678,6 +737,10 @@ def __check_json_parse_object(obj: dict, is_extended: bool) -> None:
 
 
 class ParseError(Exception):
+    """
+    Exception raised for parsing errors.
+    """
+
     def __init__(self, message):
         super().__init__(message)
 
@@ -685,22 +748,62 @@ class ParseError(Exception):
     def in_file(file: IO,
                 line_num: int,
                 message: str):
+        """
+        Create a ParseError for an error in a file.
+
+        Args:
+            file (IO): The file object where the error occurred.
+            line_num (int): The line number where the error occurred.
+            message (str): The error message.
+
+        Returns:
+            ParseError: The ParseError object.
+        """
         return ParseError(f"[{file.name}:{line_num}] {message}")
 
     @staticmethod
     def in_data(message):
+        """
+        Create a ParseError for an error in data.
+
+        Args:
+            message (str): The error message.
+
+        Returns:
+            ParseError: The ParseError object.
+        """
         return ParseError(message)
 
 
 class ProblemInstanceJSONSerializer(json.JSONEncoder):
+    """
+    Serializes a ProblemInstance object to JSON format.
+    """
+
     _is_extended: bool
 
     def __init__(self, is_extended: bool, **kwargs):
+        """
+        Initializes a ProblemInstanceJSONSerializer object.
+
+        Args:
+            is_extended (bool): Indicates whether to include extended information in the serialization.
+            **kwargs: Additional keyword arguments to be passed to the base class constructor.
+        """
         super().__init__(**kwargs)
 
         self._is_extended = is_extended
 
     def default(self, obj: any) -> any:
+        """
+        Overrides the default method of the base class to handle serialization of ProblemInstance objects.
+
+        Args:
+            obj (any): The object to be serialized.
+
+        Returns:
+            any: The serialized object.
+        """
         if isinstance(obj, ProblemInstance):
             precedences_by_child = defaultdict(list)
             for precedence in obj.precedences:
@@ -722,6 +825,15 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
     def __serialize_resource(self, resource: Resource) -> dict[str, any]:
+        """
+        Serializes a Resource object to a dictionary.
+
+        Args:
+            resource (Resource): The Resource object to be serialized.
+
+        Returns:
+            dict[str, any]: The serialized resource as a dictionary.
+        """
         resource_object = {
             "Type": resource.type,
             "Id": resource.id_resource,
@@ -751,11 +863,30 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
 
     @staticmethod
     def __serialize_resource_consumption(resource_consumption: ResourceConsumption) -> dict[str, any]:
+        """
+        Serializes a ResourceConsumption object to a dictionary.
+
+        Args:
+            resource_consumption (ResourceConsumption): The ResourceConsumption object to be serialized.
+
+        Returns:
+            dict[str, any]: The serialized resource consumption as a dictionary.
+        """
         return {
             "Consumptions": {resource.key: size for resource, size in resource_consumption.consumption_by_resource.items()}
         }
 
     def __serialize_job(self, job: Job, successors: list[int]) -> dict[str, any]:
+        """
+        Serializes a Job object to a dictionary.
+
+        Args:
+            job (Job): The Job object to be serialized.
+            successors (list[int]): The list of successor job IDs.
+
+        Returns:
+            dict[str, any]: The serialized job as a dictionary.
+        """
         job_object = {
             "Id": job.id_job,
             "Duration": job.duration,
@@ -771,6 +902,15 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
 
     @staticmethod
     def __serialize_project(project: Project) -> dict[str, any]:
+        """
+        Serializes a Project object to a dictionary.
+
+        Args:
+            project (Project): The Project object to be serialized.
+
+        Returns:
+            dict[str, any]: The serialized project as a dictionary.
+        """
         return {
             "Id": project.id_project,
             "Due date": project.due_date,
@@ -779,6 +919,15 @@ class ProblemInstanceJSONSerializer(json.JSONEncoder):
 
     @staticmethod
     def __serialize_component(component: Component) -> dict[str, any]:
+        """
+        Serializes a Component object to a dictionary.
+
+        Args:
+            component (Component): The Component object to be serialized.
+
+        Returns:
+            dict[str, any]: The serialized component as a dictionary.
+        """
         return {
             "Root job": component.id_root_job,
             "Weight": component.weight

@@ -1,3 +1,5 @@
+# This file is no longer used, but kept for reference. Updated plotting is done in the `bottlenecks.drawing` module.
+
 import functools
 import heapq
 import itertools

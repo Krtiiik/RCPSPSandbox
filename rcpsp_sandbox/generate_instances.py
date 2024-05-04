@@ -1,3 +1,5 @@
+# Experiment instance building
+
 import os
 from collections import namedtuple
 
@@ -494,6 +496,11 @@ def __build_shifts(shifts: dict[str, int]) -> dict[str, list[tuple[int, int]]]:
 def __parse_and_process(data_directory: str,
                         setup: InstanceSetup,
                         ) -> ProblemInstance:
+    """
+    Create a problem instance from a given setup. The base instance is parsed from a PSPLIB basefile and modified
+    according to the setup.
+    """
+
     shifts = __build_shifts(setup.shifts)
 
     # Parse
@@ -534,6 +541,22 @@ def build_instance(instance_name: str,
                    output_directory: str,
                    serialize: bool = True,
                    ) -> ProblemInstance:
+    """
+    Builds a problem instance based on the given parameters.
+
+    Args:
+        instance_name (str): The name of the experiment instance.
+        base_instance_directory (str): The directory containing the base instance files.
+        output_directory (str): The directory where the generated instance will be saved.
+        serialize (bool, optional): Whether to serialize the instance as a JSON file. Defaults to True.
+
+    Returns:
+        ProblemInstance: The generated problem instance.
+
+    Raises:
+        ValueError: If the given instance name is not recognized.
+
+    """
     if instance_name not in experiment_instances:
         raise ValueError(f'Unrecognized experiment instance "{instance_name}"')
 

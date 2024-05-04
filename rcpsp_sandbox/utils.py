@@ -10,6 +10,16 @@ T_StepFunction = list[tuple[int, int, int]]
 
 
 def print_error(*args, **kwargs):
+    """
+    Prints the given arguments to the standard error stream.
+
+    Args:
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        None
+    """
     print(*args, file=sys.stderr, **kwargs)
 
 
@@ -18,6 +28,23 @@ def interval_step_function(intervals: Iterable[tuple[int, int, int]],
                            first_x: int = None,
                            merge_same: bool = True,
                            ) -> list[tuple[int, int]]:
+    """
+    Computes an interval step function based on the given intervals.
+
+    Args:
+        intervals: An iterable of tuples representing the intervals. Each tuple should contain three elements:
+                   start (int): The start point of the interval.
+                   end (int): The end point of the interval.
+                   value (int): The value associated with the interval.
+        base_value: The base value for the step function. Defaults to 0.
+        first_x: The x-coordinate of the first step. Defaults to None.
+        merge_same: A flag indicating whether to merge steps with the same value. Defaults to True.
+
+    Returns:
+        A list of tuples representing the steps of the step function. Each tuple contains two elements:
+        x (int): The x-coordinate of the step.
+        y (int): The y-coordinate of the step.
+    """
     value_diffs = defaultdict(int)
     for start, end, value in intervals:
         value_diffs[start] += value
@@ -41,6 +68,19 @@ def interval_overlap_function(intervals: Iterable[tuple[int, int, int]],
                               last_x: int = None,
                               merge_same: bool = True,
                               ) -> list[tuple[int, int, int]]:
+    """
+    Compute the interval overlap function based for the given intervals.
+
+    Args:
+        intervals (Iterable[tuple[int, int, int]]): The input intervals.
+        base_value (int, optional): The base value for the intervals. Defaults to 0.
+        first_x (int, optional): The starting x-value for the intervals. Defaults to None.
+        last_x (int, optional): The ending x-value for the intervals. Defaults to None.
+        merge_same (bool, optional): Flag indicating whether to merge intervals with the same value. Defaults to True.
+
+    Returns:
+        list[tuple[int, int, int]]: The overlapping intervals.
+    """
     steps = interval_step_function(intervals, base_value, first_x, merge_same=merge_same)
 
     intervals: list[tuple[int, int, int]] = []
@@ -53,13 +93,33 @@ def interval_overlap_function(intervals: Iterable[tuple[int, int, int]],
 
 
 def intervals_overlap(i1, i2):
+    """
+    Check if two intervals overlap.
+
+    Args:
+        i1 (tuple): The first interval, represented as a tuple (start, end).
+        i2 (tuple): The second interval, represented as a tuple (start, end).
+
+    Returns:
+        bool: True if the intervals overlap, False otherwise.
+    """
     return i1[0] < i2[1] and i2[0] < i1[1]
 
 
 def flatten(iterables: Iterable[Iterable[T]]) -> Iterable[T]:
+    """
+    Flattens a nested iterable into a single iterable.
+
+    Args:
+        iterables (Iterable[Iterable[T]]): The nested iterable to be flattened.
+
+    Returns:
+        Iterable[T]: The flattened iterable.
+    """
     return itertools.chain.from_iterable(iterables)
 
 
+# Colors used for plotting
 COLORS = [
     '#a6cee3',
     '#1f78b4',
@@ -99,10 +159,23 @@ COLORS = [
 
 
 class ColorMap:
+    """
+    A class representing a color map.
+    """
+
     def __init__(self):
         self.colors = COLORS
 
     def __getitem__(self, item):
+        """
+        Returns the color at the specified index.
+
+        Args:
+            item (int): The index of the color to retrieve.
+
+        Returns:
+            str: The color at the specified index.
+        """
         assert isinstance(item, int)
         return self.colors[item % len(self.colors)]
 
@@ -110,10 +183,13 @@ class ColorMap:
 def index_groups(groups: Iterable[Collection[T]], keys: Collection[T]) -> dict[T, Collection[T]]:
     """
     Indexes a collection of groups by a set of keys.
-    :param groups: An iterable of collections to be indexed.
-    :param keys: A collection of keys to index the groups by.
-    :return: A dictionary where each key is a key from the input collection and each value is the first group that contains that key.
-    :raises KeyError: If a key is not found in any of the groups.
+    Args:
+        groups: An iterable of collections to be indexed.
+        keys: A collection of keys to index the groups by.
+    Returns:
+        A dictionary where each key is a key from the input collection and each value is the first group that contains that key.
+    Raises:
+        KeyError: If a key is not found in any of the groups.
     """
     index: dict[T, Collection[T]] = dict()
     for group in groups:
@@ -127,6 +203,17 @@ def index_groups(groups: Iterable[Collection[T]], keys: Collection[T]) -> dict[T
 
 
 def modify_tuple(old_tuple: tuple, index: int, new_value: Any) -> tuple:
+    """
+    Modifies a tuple by replacing the value at the specified index with a new value.
+
+    Args:
+        old_tuple (tuple): The original tuple.
+        index (int): The index of the value to be replaced.
+        new_value (Any): The new value to be inserted at the specified index.
+
+    Returns:
+        tuple: The modified tuple with the new value inserted at the specified index.
+    """
     return old_tuple[0:index] + (new_value,) + old_tuple[index + 1:]
 
 
@@ -134,6 +221,22 @@ def try_open_read(filename: str,
                   filework,
                   *args,
                   **kwargs) -> Any:
+    """
+    Opens the specified file in read mode and performs the given filework function on it.
+
+    Args:
+        filename (str): The name of the file to open.
+        filework (function): The function to perform on the opened file.
+        *args: Variable length argument list to be passed to the filework function.
+        **kwargs: Arbitrary keyword arguments to be passed to the filework function.
+
+    Returns:
+        Any: The result of the filework function.
+
+    Raises:
+        FileNotFoundError: If the specified file is not found.
+        IOError: If there is an error while reading the file.
+    """
     try:
         with open(filename, "r") as file:
             return filework(file, *args, **kwargs)
@@ -146,22 +249,62 @@ def try_open_read(filename: str,
 
 
 def list_of(items: Iterable[T]) -> list[T]:
+    """
+    Convert an iterable to a list.
+
+    Args:
+        items (Iterable[T]): The iterable to be converted.
+
+    Returns:
+        list[T]: The converted list.
+
+    """
     return items if items is list else list(items)
 
 
 def chunk(sequence: Sequence[T],
           chunk_size: int) -> Iterable[Iterable[T]]:
+    """
+    Splits a sequence into smaller chunks of a specified size.
+
+    Args:
+        sequence: The sequence to be chunked.
+        chunk_size: The size of each chunk.
+
+    Yields:
+        An iterable of iterables, where each inner iterable represents a chunk of the original sequence.
+    """
     for i in range(0, len(sequence), chunk_size):
         yield sequence[i:(i + chunk_size)]
 
 
 def str_or_default(x: Any):
+    """
+    Converts the given input to a string representation if it is not None,
+    otherwise returns an empty string.
+
+    Args:
+        x (Any): The input value to convert to a string.
+
+    Returns:
+        str: The string representation of the input value, or an empty string if the input is None.
+    """
     return str(x) if x is not None else ""
 
 
 def group_evaluations_kpis_by_instance_type(evaluations_kpis,
                                             scale: bool = False
                                             ):
+    """
+    Groups evaluation KPIs by instance type.
+
+    Args:
+        evaluations_kpis (dict): A dictionary containing evaluation KPIs for each instance.
+        scale (bool, optional): Indicates whether to scale the evaluation KPIs. Defaults to False.
+
+    Returns:
+        dict: A dictionary containing grouped evaluation KPIs by instance type.
+    """
     from bottlenecks.evaluations import EvaluationKPIsLightweight
     from bottlenecks.evaluations import Evaluation
 
@@ -202,6 +345,19 @@ def group_evaluations_kpis_by_instance_type(evaluations_kpis,
 
 
 def avg(it: Iterable):
+    """
+    Calculates the average of the elements in the given iterable.
+
+    Args:
+        it (Iterable): An iterable containing numeric values.
+
+    Returns:
+        float: The average of the elements in the iterable.
+
+    Raises:
+        ZeroDivisionError: If the iterable is empty.
+
+    """
     sm = 0
     count = 0
     for item in it:
@@ -211,28 +367,41 @@ def avg(it: Iterable):
     return sm / count
 
 
-def __is_pareto_efficient(costs, return_mask = True):
+def __is_pareto_efficient(costs, return_mask=True):
     """
     Find the pareto-efficient points.
-    :param costs: An (n_points, n_costs) array
-    :param return_mask: True to return a mask
-    :return: An array of indices of pareto-efficient points.
+
+    This function takes an array of costs and finds the pareto-efficient points.
+    Pareto efficiency is a concept in multi-objective optimization, where a solution is considered
+    pareto-efficient if there is no other solution that improves one objective without worsening
+    any other objective.
+
+    The function iteratively compares each point in the costs array with the remaining points
+    to determine if it is pareto-efficient. It removes dominated points and returns the indices
+    of the pareto-efficient points.
+
+    Args:
+        costs: An (n_points, n_costs) array
+        return_mask: True to return a mask
+
+    Returns:
+        An array of indices of pareto-efficient points.
         If return_mask is True, this will be an (n_points, ) boolean array
         Otherwise it will be a (n_efficient_points, ) integer array of indices.
 
-    From https://stackoverflow.com/a/40239615.
+    Reference: https://stackoverflow.com/a/40239615
     """
     is_efficient = np.arange(costs.shape[0])
     n_points = costs.shape[0]
     next_point_index = 0  # Next index in the is_efficient array to search for
     while next_point_index < len(costs):
-        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
+        nondominated_point_mask = np.any(costs < costs[next_point_index], axis=1)
         nondominated_point_mask[next_point_index] = True
         is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
         costs = costs[nondominated_point_mask]
-        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
+        next_point_index = np.sum(nondominated_point_mask[:next_point_index]) + 1
     if return_mask:
-        is_efficient_mask = np.zeros(n_points, dtype = bool)
+        is_efficient_mask = np.zeros(n_points, dtype=bool)
         is_efficient_mask[is_efficient] = True
         return is_efficient_mask
     else:
@@ -240,6 +409,17 @@ def __is_pareto_efficient(costs, return_mask = True):
 
 
 def pareto_front_kpis(evaluations_kpis, x, y):
+    """
+    Filters a list of evaluation KPIs based on Pareto dominance.
+
+    Args:
+        evaluations_kpis (list): A list of evaluation KPIs.
+        x (str): The x-axis KPI to consider for Pareto dominance.
+        y (str): The y-axis KPI to consider for Pareto dominance.
+
+    Returns:
+        list: A list of evaluation KPIs that are Pareto efficient based on the given x and y KPIs.
+    """
     pareto_extractors = {
         "cost": (lambda ev: ev.cost),
         "improvement": (lambda ev: -ev.improvement),

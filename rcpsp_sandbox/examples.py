@@ -1,3 +1,5 @@
+# Script to demonstrate the usage of the bottleneck algorithms on a simple example instance.
+
 import os
 
 from bottlenecks.drawing import plot_solution
@@ -32,7 +34,6 @@ def main():
     instance = parse_json(os.path.join(EXAMPLE_DIRECTORY, "instance.json"), name_as="example", is_extended=True)
 
     base_solution = Solver().solve(instance)
-    plot(base_solution, "solution_base")
 
     iira = IdentificationIndicatorRelaxingAlgorithm()
     ssira = ScheduleSuffixIntervalRelaxingAlgorithm()
@@ -42,8 +43,10 @@ def main():
     evaluation_iira = iira.evaluate(instance, IdentificationIndicatorRelaxingAlgorithmSettings("auau", 8, "around", 1, 1, 8))
     evaluation_ssira = ssira.evaluate(instance, ScheduleSuffixIntervalRelaxingAlgorithmSettings(1, 1, 1, "time"))
 
+    plot(base_solution, "solution_base")
     plot(evaluation_iira.solution, "solution_iira")
     plot(evaluation_ssira.solution, "solution_ssira")
+
     serialize_evaluations([evaluation_iira, evaluation_ssira], EXAMPLE_DIRECTORY)
 
 

@@ -13,6 +13,18 @@ T_StepFunction = list[tuple[int, int, int]]
 def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance,
                                ignore_changes: bool = False,
                                ) -> dict[str, T_StepFunction]:
+    """
+    Computes the capacity surpluses for each resource in the given solution and problem instance.
+
+    Args:
+        solution (Solution): The solution to compute the capacity surpluses for.
+        instance (ProblemInstance): The problem instance containing the resource information.
+        ignore_changes (bool, optional): Flag indicating whether to ignore changes in resource availability.
+            Defaults to False.
+
+    Returns:
+        dict[str, T_StepFunction]: A dictionary mapping resource keys to their corresponding capacity surpluses.
+    """
     surpluses = dict()
     for resource in instance.resources:
         capacity_f = (compute_resource_availability(resource, instance, instance.horizon) if not ignore_changes
@@ -28,6 +40,20 @@ def compute_capacity_surpluses(solution: Solution, instance: ProblemInstance,
 def compute_capacity_migrations(instance: ProblemInstance, solution: Solution,
                                 capacity_requirements: dict[str, Iterable[CapacityChange]],
                                 ) -> tuple[dict[str, list[CapacityMigration]], dict[str, T_StepFunction]]:
+    """
+    Computes the capacity migrations and missing capacities for a given problem instance, solution, and capacity requirements.
+
+    Args:
+        instance (ProblemInstance): The problem instance.
+        solution (Solution): The solution.
+        capacity_requirements (dict[str, Iterable[CapacityChange]]): The capacity requirements for each resource.
+
+    Returns:
+        tuple[dict[str, list[CapacityMigration]], dict[str, T_StepFunction]]: A tuple containing two dictionaries:
+            - resource_migrations: A dictionary mapping each resource to a list of capacity migrations.
+            - resource_missing_capacities: A dictionary mapping each resource to a T_StepFunction representing the missing capacities.
+
+    """
     # assuming uniform migrations over the intervals
 
     def find_migrations(s, e, c, r_to):
@@ -73,6 +99,20 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
                                capacity_requirements: dict[str, Iterable[tuple[int, int, int]]],
                                return_reduced_surpluses: bool = False,
                                ) -> dict[str, T_StepFunction] | tuple[dict[str, T_StepFunction], dict[str, T_StepFunction]]:
+    """
+    Computes the missing capacities for each resource based on the given solution and capacity requirements.
+
+    Args:
+        instance (ProblemInstance): The problem instance.
+        solution (Solution): The solution.
+        capacity_requirements (dict[str, Iterable[tuple[int, int, int]]]): The capacity requirements for each resource.
+        return_reduced_surpluses (bool, optional): Whether to return reduced surpluses. Defaults to False.
+
+    Returns:
+        dict[str, T_StepFunction] | tuple[dict[str, T_StepFunction], dict[str, T_StepFunction]]: 
+            If `return_reduced_surpluses` is False, returns a dictionary of missing capacities for each resource.
+            If `return_reduced_surpluses` is True, returns a tuple of missing capacities and reduced surpluses.
+    """
     def find_overlapping_capacities(r, s, e):
         return [s_c for s_s, s_e, s_c in capacity_surpluses[r]
                 if (s <= s_s < e) or (s < s_e <= e)]
@@ -101,6 +141,19 @@ def compute_missing_capacities(instance: ProblemInstance, solution: Solution,
 def compute_resource_consumption(instance: ProblemInstance, solution: Solution, resource: Resource, horizon: int = None,
                                  selected: Iterable[int] = None,
                                  ) -> T_StepFunction:
+    """
+    Computes the resource consumption for a given problem instance and solution.
+
+    Args:
+        instance (ProblemInstance): The problem instance.
+        solution (Solution): The solution to the problem instance.
+        resource (Resource): The resource for which to compute the consumption.
+        horizon (int, optional): The time horizon. Defaults to None.
+        selected (Iterable[int], optional): The selected jobs. Defaults to None.
+
+    Returns:
+        T_StepFunction: The resource consumption function.
+    """
     selected = set(selected if selected is not None else (j.id_job for j in instance.jobs))
     consumptions = []
     horizon = horizon if horizon is not None else instance.horizon
@@ -114,6 +167,19 @@ def compute_resource_consumption(instance: ProblemInstance, solution: Solution, 
 
 
 def jobs_consuming_resource(instance: ProblemInstance, resource: Resource, yield_consumption: bool = False) -> Iterable[Job]:
+    """
+    Returns an iterable of jobs that consume the specified resource.
+
+    Args:
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to check for consumption.
+        yield_consumption (bool, optional): If True, the consumption value will be yielded along with the job. 
+            Defaults to False.
+
+    Yields:
+        Job: A job that consumes the specified resource.
+        int: The consumption value (if yield_consumption is True).
+    """
     for job in instance.jobs:
         consumption = job.resource_consumption.consumption_by_resource[resource]
         if consumption > 0:
@@ -121,6 +187,15 @@ def jobs_consuming_resource(instance: ProblemInstance, resource: Resource, yield
 
 
 def compute_resource_shift_starts(instance: ProblemInstance) -> dict[Resource, Iterable[int]]:
+    """
+    Computes the start times of shifts for each resource in the given problem instance.
+
+    Args:
+        instance (ProblemInstance): The problem instance containing the resource and task information.
+
+    Returns:
+        dict[Resource, Iterable[int]]: A dictionary mapping each resource to a list of shift start times.
+    """
     shift_starts = defaultdict(list)
     for resource in instance.resources:
         resource_availability = compute_resource_availability(resource, instance, instance.horizon)
@@ -134,6 +209,16 @@ def compute_resource_shift_starts(instance: ProblemInstance) -> dict[Resource, I
 
 
 def compute_resource_shift_ends(instance: ProblemInstance) -> dict[Resource, list[int]]:
+    """
+    Computes the shift ends for each resource in the given problem instance.
+
+    Args:
+        instance (ProblemInstance): The problem instance containing the resources.
+
+    Returns:
+        dict[Resource, list[int]]: A dictionary mapping each resource to a list of shift ends.
+
+    """
     shift_ends = defaultdict(list)
     for resource in instance.resources:
         resource_availability = compute_resource_availability(resource, instance, instance.horizon)
@@ -149,6 +234,15 @@ def compute_resource_shift_ends(instance: ProblemInstance) -> dict[Resource, lis
 
 
 def group_consecutive_intervals(intervals):
+    """
+    Groups consecutive intervals together.
+
+    Args:
+        intervals (list): A list of tuples representing intervals.
+
+    Returns:
+        list: A list of lists, where each inner list represents a group of consecutive intervals.
+    """
     result = []
     current_group = []
 
@@ -169,6 +263,15 @@ def group_consecutive_intervals(intervals):
 
 
 def compute_longest_shift_overlap(instance: ProblemInstance):
+    """
+    Computes the longest overlap of shifts for a given problem instance.
+
+    Args:
+        instance (ProblemInstance): The problem instance for which to compute the longest shift overlap.
+
+    Returns:
+        int: The length of the longest overlap of shifts.
+    """
     availabilities = [(s, e, min(1, c))
                       for r in instance.resources
                       for s, e, c in compute_resource_periodical_availability(r, instance.horizon)]
@@ -176,4 +279,3 @@ def compute_longest_shift_overlap(instance: ProblemInstance):
     n_resources = len(instance.resources)
     longest_overlap = max((av[1] - av[0] for av in combined_availability if av[2] == n_resources), default=0)
     return longest_overlap
-

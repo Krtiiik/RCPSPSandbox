@@ -16,6 +16,10 @@ T_Period = list[tuple[CpoIntervalVarSolution, Job]]
 
 
 class MetricEvaluation:
+    """
+    Represents a metric evaluation.
+    """
+
     name: str
     evaluation: T_Evaluation
 
@@ -29,6 +33,21 @@ def evaluate_solution(solution: Solution,
                       instance: ProblemInstance = None,
                       evaluation_name: str = None,
                       ) -> MetricEvaluation:
+    """
+    Evaluates a solution using the specified evaluation metric.
+
+    Args:
+        solution (Solution): The solution to be evaluated.
+        evaluation_metric (Callable[[Solution, ProblemInstance, Resource], T_MetricResult] | partial):
+            The evaluation metric to be used. It should be a callable that takes a solution, problem instance,
+            and resource as input and returns a metric result.
+        instance (ProblemInstance, optional): The problem instance associated with the solution.
+            If not provided, the instance associated with the solution will be used.
+        evaluation_name (str, optional): The name of the evaluation. Defaults to None.
+
+    Returns:
+        MetricEvaluation: The evaluation result, containing the evaluation name and resource metrics.
+    """
     if instance is None:
         instance = solution.instance
 
@@ -61,11 +80,33 @@ def machine_workload(solution: Solution, instance: ProblemInstance, resource: Re
 
 
 def machine_utilization_rate(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
+    """
+    Computes the machine utilization rate of a resource.
+
+    Args:
+        solution (Solution): The solution to evaluate.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to evaluate.
+
+    Returns:
+        T_MetricResult: The machine utilization rate.
+    """
     mur = (machine_workload(solution, instance, resource) / __machine_worktime(solution, instance, resource))
     return T_MetricResult(mur)
 
 
 def average_uninterrupted_active_duration(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
+    """
+    Calculates the average uninterrupted active duration for a given solution, instance, and resource.
+
+    Args:
+        solution (Solution): The solution to evaluate.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to calculate the average uninterrupted active duration for.
+
+    Returns:
+        T_MetricResult: The result of the metric calculation.
+    """
     periods = __compute_active_periods(solution, instance, resource)
 
     auad = machine_workload(solution, instance, resource) / len(periods)
@@ -73,6 +114,17 @@ def average_uninterrupted_active_duration(solution: Solution, instance: ProblemI
 
 
 def machine_resource_workload(solution: Solution, instance: ProblemInstance, resource: Resource) -> T_MetricResult:
+    """
+    Calculates the machine resource workload for a given solution, instance, and resource.
+
+    Args:
+        solution (Solution): The solution to calculate the workload for.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to calculate the workload for.
+
+    Returns:
+        T_MetricResult: The result of the workload calculation.
+    """
     mrw = sum(job.duration * consumption
               for job, consumption in jobs_consuming_resource(instance, resource, yield_consumption=True))
     return T_MetricResult(mrw)
@@ -80,6 +132,18 @@ def machine_resource_workload(solution: Solution, instance: ProblemInstance, res
 
 def machine_resource_utilization_rate(solution: Solution, instance: ProblemInstance, resource: Resource,
                                       variable_capacity: bool = False) -> T_MetricResult:
+    """
+    Calculates the machine resource utilization rate.
+
+    Args:
+        solution (Solution): The solution to evaluate.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to calculate the utilization rate for.
+        variable_capacity (bool, optional): Whether the resource has variable capacity. Defaults to False.
+
+    Returns:
+        T_MetricResult: The calculated machine resource utilization rate.
+    """
     denominator = (__machine_total_capacity(solution, instance, resource) if variable_capacity
                    else (resource.capacity * __machine_worktime(solution, instance, resource)))
     mrur = (machine_resource_workload(solution, instance, resource)
@@ -90,6 +154,19 @@ def machine_resource_utilization_rate(solution: Solution, instance: ProblemInsta
 def average_uninterrupted_active_consumption(solution: Solution, instance: ProblemInstance, resource: Resource,
                                              average_over: Literal["consumption", "consumption ratio", "averaged consumption"],
                                              variable_capacity: bool = False) -> T_MetricResult:
+    """
+    Calculate the average uninterrupted active consumption for a given resource in a solution.
+
+    Args:
+        solution (Solution): The solution to evaluate.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to calculate the average consumption for.
+        average_over (Literal["consumption", "consumption ratio", "averaged consumption"]): The type of average to calculate.
+        variable_capacity (bool, optional): Whether the resource has variable capacity. Defaults to False.
+
+    Returns:
+        T_MetricResult: The average uninterrupted active consumption.
+    """
     def period_consumption(period: T_Period) -> int: return sum(job.resource_consumption.consumption_by_resource[resource] for interval, job in period)
     def period_length(period: T_Period) -> int: return period[-1][0].end - period[0][0].start
     def period_availability(availability_period): return sum(_c for _s, _e, _c in availability_period)
@@ -114,6 +191,18 @@ def average_uninterrupted_active_consumption(solution: Solution, instance: Probl
 
 def cumulative_delay(solution: Solution, instance: ProblemInstance, resource: Resource,
                      earliest_completion_times: dict[Job, int]) -> T_MetricResult:
+    """
+    Calculates the cumulative delay metric for a given solution.
+
+    Args:
+        solution (Solution): The solution to evaluate.
+        instance (ProblemInstance): The problem instance.
+        resource (Resource): The resource to calculate the delay for.
+        earliest_completion_times (dict[Job, int]): A dictionary mapping jobs to their earliest completion times.
+
+    Returns:
+        T_MetricResult: The result of the cumulative delay metric calculation.
+    """
     value = 0
     for job, consumption in jobs_consuming_resource(instance, resource, yield_consumption=True):
         delay = earliest_completion_times[job]

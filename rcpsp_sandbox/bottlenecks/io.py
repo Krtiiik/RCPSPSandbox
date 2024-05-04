@@ -12,6 +12,16 @@ from utils import try_open_read
 def serialize_evaluations(evaluations: Iterable[Evaluation],
                           location: str,
                           ):
+    """
+    Serialize the given evaluations into JSON files.
+
+    Args:
+        evaluations (Iterable[Evaluation]): The evaluations to be serialized.
+        location (str): The directory where the JSON files will be saved.
+
+    Returns:
+        None
+    """
     evaluations_by_inst_alg = defaultdict(list)
     for evaluation in evaluations:
         inst_alg = f'{evaluation.base_instance.name}{EvaluationAlgorithm.ID_SEPARATOR}{evaluation.alg_string}'
@@ -34,6 +44,17 @@ def serialize_evaluations(evaluations: Iterable[Evaluation],
 def serialize_evaluations_kpis(evaluations_kpis: Iterable[EvaluationKPIs],
                                location: str,
                                ):
+    """
+    Serializes the evaluations KPIs into JSON format and saves them to the specified location.
+
+    Args:
+        evaluations_kpis (Iterable[EvaluationKPIs]): The evaluations KPIs to be serialized.
+        location (str): The location where the serialized JSON files will be saved.
+
+    Returns:
+        None
+    """
+
     def serialize_evaluation_kpis(_evaluation_kpis):
         return {
             "evaluation": __serialize_evaluation(_evaluation_kpis.evaluation),
@@ -62,6 +83,15 @@ def serialize_evaluations_kpis(evaluations_kpis: Iterable[EvaluationKPIs],
 
 
 def parse_evaluations(filename: str) -> dict[str, EvaluationLightweight]:
+    """
+    Parses the evaluations from a file and returns them as a dictionary.
+
+    Args:
+        filename (str): The name of the file to parse.
+
+    Returns:
+        dict[str, EvaluationLightweight]: A dictionary containing the parsed evaluations.
+    """
     evaluations_obj = try_open_read(filename, json.load)
     evaluations = {settings: __parse_evaluation(evaluation_obj)
                    for settings, evaluation_obj in evaluations_obj.items()}
@@ -69,6 +99,15 @@ def parse_evaluations(filename: str) -> dict[str, EvaluationLightweight]:
 
 
 def parse_evaluations_kpis(filename: str) -> dict[str, EvaluationKPIsLightweight]:
+    """
+    Parses the evaluations KPIs from a given filename.
+
+    Args:
+        filename (str): The path to the file containing the evaluations KPIs.
+
+    Returns:
+        dict[str, EvaluationKPIsLightweight]: A dictionary mapping settings to EvaluationKPIsLightweight objects.
+    """
     def parse_evaluation_kpis(_evaluation_kpis):
         return EvaluationKPIsLightweight(
             evaluation=__parse_evaluation(_evaluation_kpis["evaluation"]),

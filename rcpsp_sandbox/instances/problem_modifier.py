@@ -14,6 +14,11 @@ from utils import print_error, list_of
 
 
 class ProblemModifier:
+    """
+    The ProblemModifier class is responsible for modifying a ProblemInstance object by assigning resource availabilities,
+    job due dates, completing jobs, and splitting job components.
+    """
+
     _original_instance: ProblemInstance
 
     _jobs: list[Job] = []
@@ -23,6 +28,12 @@ class ProblemModifier:
 
     def __init__(self,
                  original_instance: ProblemInstance):
+        """
+        Initializes a ProblemModifier object.
+
+        Args:
+            original_instance (ProblemInstance): The original ProblemInstance object.
+        """
         self._original_instance = original_instance
 
         self._jobs = [j.copy() for j in original_instance.jobs]
@@ -37,6 +48,16 @@ class ProblemModifier:
     def assign_resource_availabilities(self,
                                        availabilities: dict[str, Iterable[Tuple[int, int]]] = None,
                                        ) -> Self:
+        """
+        Assigns resource availabilities to the ProblemModifier object.
+
+        Args:
+            availabilities (dict[str, Iterable[Tuple[int, int]]], optional): The dictionary of resource availabilities.
+                Defaults to None.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         if availabilities is None:
             availabilities = {resource.key: [(0, 24)] for resource in self.resources}
 
@@ -56,6 +77,28 @@ class ProblemModifier:
                              due_dates: dict[int, int] = None,
                              overwrite: bool = False,
                              ) -> Self:
+        """
+        Assigns job due dates to the ProblemModifier object.
+
+        Args:
+            choice (Literal["uniform", "gradual", "earliest"], optional): The choice type for computing due dates.
+                Defaults to "earliest".
+            interval (tuple[int, int], optional): The sample interval for uniform due date assignment.
+                Defaults to None.
+            target_jobs (list[int], optional): The list of target job IDs.
+                Defaults to None.
+            gradual_base (int, optional): The base due date for gradual due date assignment.
+                Defaults to None.
+            gradual_interval (tuple[int, int], optional): The interval for gradual due date assignment.
+                Defaults to None.
+            due_dates (dict[int, int], optional): The explicit mapping of due dates.
+                Defaults to None.
+            overwrite (bool, optional): Whether to overwrite existing due dates.
+                Defaults to False.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         def try_assign(j, dd):
             if j.due_date is None or overwrite:
                 j.due_date = dd
@@ -115,6 +158,22 @@ class ProblemModifier:
                       choice: Literal["random", "gradual", "combined"] = None,
                       ratio: float = None,
                       combined_ratio: float = None) -> Self:
+        """
+        Completes jobs in the instance.
+
+        Args:
+            jobs_to_complete (list[int] or None, optional): The list of job IDs to complete.
+                Defaults to None.
+            choice (Literal["random", "gradual", "combined"], optional): The choice type for completing jobs.
+                Defaults to None.
+            ratio (float, optional): The ratio of jobs to complete.
+                Defaults to None.
+            combined_ratio (float, optional): The ratio of combined jobs to complete.
+                Defaults to None.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         def complete(jbs):
             for j in jbs:
                 j.completed = True
@@ -155,6 +214,17 @@ class ProblemModifier:
     def split_job_components(self,
                              split: Literal["trim source target", "random roots", "paths", "gradual"],
                              gradual_level: int = 1) -> Self:
+        """
+        Splits job components in the instance.
+
+        Args:
+            split (Literal["trim source target", "random roots", "paths", "gradual"]): The type of split to perform.
+            gradual_level (int, optional): The depth of the component roots for gradual split.
+                Defaults to 1.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         match split:
             case "trim source target":
                 instance_graph = build_instance_graph(self)
@@ -232,6 +302,16 @@ class ProblemModifier:
         return self
 
     def merge_with(self, other: ProblemInstance, target_job: int) -> Self:
+        """
+        Merges the given problem instance with the instance data currently modified.
+
+        Args:
+            other (ProblemInstance): The other problem instance to merge with.
+            target_job (int): The target job ID.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         other_jobs = [j.copy() for j in other.jobs]
         other_precedences = [p.copy() for p in other.precedences]
         other_components = [c.copy() for c in other.components]
@@ -258,6 +338,16 @@ class ProblemModifier:
                                      additions: dict[str, Iterable[CapacityChange]],
                                      migrations: dict[str, Iterable[CapacityMigration]],
                                      ) -> Self:
+        """
+        Changes resource availabilities in the instance.
+
+        Args:
+            additions (dict[str, Iterable[CapacityChange]]): The dictionary of capacity changes.
+            migrations (dict[str, Iterable[CapacityMigration]]): The dictionary of capacity migrations.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         for resource in self._resources:
             if resource.key in additions:
                 resource.availability.additions += list_of(additions[resource.key])
@@ -269,6 +359,15 @@ class ProblemModifier:
         return self
 
     def remove_resources(self, resources_to_remove: Iterable[str]) -> Self:
+        """
+        Removes resources from the instance.
+
+        Args:
+            resources_to_remove (Iterable[str]): The list of resource keys to remove.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         resources_to_remove = set(resources_to_remove)
 
         self._resources = [resource for resource in self._resources if resource.key not in resources_to_remove]
@@ -293,6 +392,15 @@ class ProblemModifier:
         return self
 
     def scaledown_job_durations(self, max_duration: int) -> Self:
+        """
+        Scales down job durations in the instance.
+
+        Args:
+            max_duration (int): The maximum duration for job scaling.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         max_job_duration = max(j.duration for j in self._jobs)
         if max_job_duration <= max_duration:
             return self
@@ -304,10 +412,28 @@ class ProblemModifier:
         return self
 
     def with_target_job(self, target_job: int) -> Self:
+        """
+        Sets the target job for the instance.
+
+        Args:
+            target_job (int): The target job ID.
+
+        Returns:
+            Self: The modified ProblemModifier object.
+        """
         self.target_job = target_job
         return self
 
     def generate_modified_instance(self, name: str = None) -> ProblemInstance:
+        """
+        Generates the modified problem instance.
+
+        Args:
+            name (str, optional): The name of the modified instance. Defaults to None.
+
+        Returns:
+            ProblemInstance: The modified problem instance.
+        """
         builder = InstanceBuilder()
         builder.add_jobs(self.jobs)
         builder.add_precedences(self.precedences)
@@ -322,36 +448,94 @@ class ProblemModifier:
 
     @property
     def jobs(self) -> list[Job]:
+        """
+        Gets the list of jobs.
+
+        Returns:
+            list[Job]: The list of jobs.
+        """
         return self._jobs
 
     @jobs.setter
     def jobs(self, value: list[Job]):
+        """
+        Sets the list of jobs.
+
+        Args:
+            value (list[Job]): The list of jobs.
+        """
         self._jobs = value
 
     @property
     def precedences(self) -> list[Precedence]:
+        """
+        Gets the list of precedences.
+
+        Returns:
+            list[Precedence]: The list of precedences.
+        """
         return self._precedences
 
     @precedences.setter
     def precedences(self, value: list[Precedence]):
+        """
+        Sets the list of precedences.
+
+        Args:
+            value (list[Precedence]): The list of precedences.
+        """
         self._precedences = value
 
     @property
     def resources(self) -> list[Resource]:
+        """
+        Gets the list of resources.
+
+        Returns:
+            list[Resource]: The list of resources.
+        """
         return self._resources
 
     @resources.setter
     def resources(self, value: list[Resource]):
+        """
+        Sets the list of resources.
+
+        Args:
+            value (list[Resource]): The list of resources.
+        """
         self._resources = value
 
     @property
     def components(self) -> list[Component]:
+        """
+        Gets the list of components.
+
+        Returns:
+            list[Component]: The list of components.
+        """
         return self._components
 
     @components.setter
     def components(self, value: list[Component]):
+        """
+        Sets the list of components.
+
+        Args:
+            value (list[Component]): The list of components.
+        """
         self._components = value
 
 
 def modify_instance(problem_instance: ProblemInstance) -> ProblemModifier:
+    """
+    Modifies the given problem instance.
+    Returns a ProblemModifier object that can be used to modify the instance.
+
+    Args:
+        problem_instance (ProblemInstance): The problem instance to modify.
+
+    Returns:
+        ProblemModifier: The ProblemModifier object.
+    """
     return ProblemModifier(problem_instance)
