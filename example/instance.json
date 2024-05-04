@@ -1,0 +1,189 @@
+{
+  "Name": "example",
+  "Horizon": 100,
+  "TargetJob": 9,
+  "Resources": [
+    {
+      "Type": "R",
+      "Id": 1,
+      "Capacity": 8,
+      "Availability": {
+        "Periodical": [
+          {
+            "Start": 0,
+            "End": 16,
+            "Capacity": 8
+          }
+        ],
+        "Additions": [],
+        "Migrations": []
+      }
+    },
+    {
+      "Type": "R",
+      "Id": 2,
+      "Capacity": 8,
+      "Availability": {
+        "Periodical": [
+          {
+            "Start": 8,
+            "End": 24,
+            "Capacity": 8
+          }
+        ],
+        "Additions": [],
+        "Migrations": []
+      }
+    }
+  ],
+  "Projects": [
+    {
+      "Id": 1,
+      "Due date": 100,
+      "Tardiness cost": 1
+    }
+  ],
+  "Jobs": [
+    {
+      "Id": 1,
+      "Duration": 4,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 4,
+          "R2": 0
+        }
+      },
+      "Successors": [
+        2
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 2,
+      "Duration": 7,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 5,
+          "R2": 2
+        }
+      },
+      "Successors": [
+        6
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 3,
+      "Duration": 8,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 3,
+          "R2": 0
+        }
+      },
+      "Successors": [
+        5
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 4,
+      "Duration": 6,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 0,
+          "R2": 6
+        }
+      },
+      "Successors": [
+        5
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 5,
+      "Duration": 10,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 3,
+          "R2": 0
+        }
+      },
+      "Successors": [
+        6
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 6,
+      "Duration": 6,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 2,
+          "R2": 3
+        }
+      },
+      "Successors": [],
+      "Due date": 46,
+      "Completed": false
+    },
+    {
+      "Id": 7,
+      "Duration": 6,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 3,
+          "R2": 5
+        }
+      },
+      "Successors": [
+        8
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 8,
+      "Duration": 8,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 0,
+          "R2": 2
+        }
+      },
+      "Successors": [
+        9
+      ],
+      "Due date": 0,
+      "Completed": false
+    },
+    {
+      "Id": 9,
+      "Duration": 4,
+      "Resource consumption": {
+        "Consumptions": {
+          "R1": 0,
+          "R2": 5
+        }
+      },
+      "Successors": [],
+      "Due date": 22,
+      "Completed": false
+    }
+  ],
+  "Components": [
+    {
+      "Root job": 6,
+      "Weight": 1
+    },
+    {
+      "Root job": 9,
+      "Weight": 1
+    }
+  ]
+}
