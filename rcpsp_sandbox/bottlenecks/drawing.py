@@ -409,6 +409,8 @@ def plot_solution(solution: Solution,
     """
     Plot a given solution.
 
+    Reference: https://ibmdecisionoptimization.github.io/docplex-doc/cp/_modules/docplex/cp/utils_visu.html
+
     Args:
         solution (Solution): The solution to be plotted.
         highlight (Iterable[int], optional): A list of job IDs to highlight in the plot. Defaults to None.
