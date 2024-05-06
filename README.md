@@ -34,11 +34,11 @@ We had no issues with this partial incompatibility.
 ## Running scripts
 
 A simple example demonstrating the two implemented algorithms
-is contained in the `rcpsp\_sandbox/example.py` script file.
+is contained in the `rcpsp_sandbox/example.py` script file.
 Input and resulting data of this example is located in the `example` directory.
 
 All experiments are run using the `experiments.py` Python script file,
-located in the `rcpsp\_sandbox` source directory.
+located in the `rcpsp_sandbox` source directory.
 Following is the invocation help:
 
 ```
@@ -61,25 +61,25 @@ We provide the computed results in the `data` directory.
 In this directory, base instances, modified instances,
 and computed evaluations and evaluation KPIs are stored
 in directories named accordingly.
-Before running the experiments, the `evaluations\_kpis` directory has to be extracted
-from a zip file named `evaluations\_kpis.zip`.
+Before running the experiments, the `modified_instances` directory has to be extracted
+from a zip file named `modified_instances.zip`.
 
 ## Project overview
 
 The project is divided into the following sub-packages, each containing several modules:
 
-- `rcpsp\_sandbox.instances` --- modules for manipulating problem instances.
-- `rcpsp\_sandbox.solver` --- modules for solving the problem instances.
-- `rcpsp\_sandbox.bottlenecks` --- modules implementing the presented algorithms
+- `rcpsp_sandbox.instances` --- modules for manipulating problem instances.
+- `rcpsp_sandbox.solver` --- modules for solving the problem instances.
+- `rcpsp_sandbox.bottlenecks` --- modules implementing the presented algorithms
         and hosting experiment evaluations.
 
-The `rcpsp\_sandbox.instances` sub-package contains several modules for manipulating with problem instances.
+The `rcpsp_sandbox.instances` sub-package contains several modules for manipulating with problem instances.
 Those modules are used in the rest of the project, forming a core data infrastructure.
-In the `problem\_instance` module contains the definition of the `ProblemInstance`
+In the `problem_instance` module contains the definition of the `ProblemInstance`
 class, representing the problem instance defined in \cref{def:problem-instance}.
 The `io` module is used for parsing and serializing problem instance object,
 be it in the original PSPLIB file format, or in JSON.
-The `problem\_modified` module provides the `modify\_instance` function,
+The `problem_modified` module provides the `modify_instance` function,
 which for a given problem instance returns a `ProblemModifier` object.
 The interface of the object allows the user to modify all aspects of the problem instance.
 Most important, it implements the modifications described in \cref{sec:problem-statement/scheduling},
@@ -88,7 +88,7 @@ assigning job due dates.
 The `algorithms` module implements several algorithms regarding problem instances,
 mostly various precedence graph traversals.
 
-The `rcpsp\_sandbox.solver` sub-package contains, among others, the `solver` module.
+The `rcpsp_sandbox.solver` sub-package contains, among others, the `solver` module.
 This module facilitates the solving of problem instances via the `Solver` class.
 The `Solver` class contains a single `solve` method, which takes in either a problem instance,
 of a built model to solve.
@@ -96,22 +96,22 @@ The function utilizes the `docplex` library to call the IBM ILOG Constraint-Prog
 solver, which finds (optimal) solutions to given models.
 If a problem instance is given to the `Solver.solve` method,
 the solver builds a standard model described in \cref{sec:problem-statement/constraint-programming-model}.
-For a finer control over the model, the `model\_builder` module provides the `build\_model` function.
+For a finer control over the model, the `model_builder` module provides the `build_model` function.
 This function, for a given problem instance, return an initialized `ModelBuilder` object.
 The interface of this object allows for the creation of specific models,
 introducing only selected constraints, restraining job intervals, or choosing alternate optimization goals.
 The `solution` module contains the definition of the `Solution` abstract class,
 along with several implementing derived classes and utility functions concerning solutions to the problem instance models.
 
-The `rcpsp\_sandbox.bottlenecks` sub-package contains the implementations of the \acl{iira} and \acl{ssira},
+The `rcpsp_sandbox.bottlenecks` sub-package contains the implementations of the \acl{iira} and \acl{ssira},
 and a framework for evaluating the algorithms on problem instances.
 The `improvements` module contains the algorithms' implementations
 together with implementations of helper functions from \cref{sec:attachments/algorithms-functions-procedures}.
-The `evaluations` module contains the `evaluate\_algorithms` and the `compute\_evaluation\_kpis` functions.
+The `evaluations` module contains the `evaluate_algorithms` and the `compute_evaluation_kpis` functions.
 Those are central for the experiments: the former runs the algorithms with specified parameters on a given problem instance
 and return the sets of computed evaluations, the latter computes the experiment KPIs of the evaluations.
 
-Following is a minimal working example of evaluating both algorithms utilizing the `evaluate\_algorithms` function
+Following is a minimal working example of evaluating both algorithms utilizing the `evaluate_algorithms` function
 on a problem instance parsed from the `instance.json` file.
 The set of all algorithm parameters is the exact same set used for the experiments conducted in \cref{chap:numerical-experiments}.
 
@@ -136,7 +136,7 @@ evaluations = evaluate_algorithms(instance, [
 ])
 ```
 
-The `rcpsp\_sandbox.manager` module contains the `ExperimentManager` class,
+The `rcpsp_sandbox.manager` module contains the `ExperimentManager` class,
 which manages loading and saving of experiment evaluations, KPIs, and problem instances.
-It can be passed to the `evaluate\_algorithms` function
+It can be passed to the `evaluate_algorithms` function
 to attempt loading existing evaluations from files before computing them anew.
